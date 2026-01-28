@@ -108,7 +108,7 @@ export default function App() {
               <span className="bg-blue-600 text-white p-2 rounded-lg mr-3 shadow-lg">🏓</span>
               Ping Pong Tracker
             </h1>
-            <p className="text-gray-500 mt-2 ml-1">Track your office glory.</p>
+            <p className="text-gray-500 mt-2 ml-1">Track your garage glory.</p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-3">
