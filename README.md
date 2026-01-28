@@ -6,11 +6,13 @@ A modern, web-based tracker for ping pong matches you play in your garage. Keep 
 
 ### 🏆 Leaderboard
 *   **Rankings**: Automatically ranked by Wins, Losses, Win %, and Score Difference.
+*   **Streaks**: See who is currently on a hot winning streak or a cold losing streak.
 *   **Sorting**: Click any column header to sort the leaderboard by that metric.
 *   **Date Filtering**: Filter the leaderboard to see who was the best in a specific month or year.
 
 ### 📊 Player Stats
 *   **Deep Dive**: Select any player to view their detailed performance metrics.
+*   **Current Streak**: View the player's current active streak.
 *   **Head-to-Head**: See your win/loss record against every opponent.
 *   **Timeline**: View a history of recent matches with win/loss indicators.
 *   **Date Filtering**: Analyze performance over specific time periods.
@@ -19,6 +21,10 @@ A modern, web-based tracker for ping pong matches you play in your garage. Keep 
 *   **Quick Entry**: Select two players and logging a match takes seconds.
 *   **Avatar Support**: Upload profile pictures for players.
 *   **Match History**: View and edit/delete past match records.
+
+### 🌗 Dark Mode
+*   **Theme Toggle**: Switch between Light and Dark mode to suit your environment (or mood).
+*   **Persistent**: Your theme preference is saved automatically.
 
 ## Tech Stack
 *   **Frontend**: React + Vite
