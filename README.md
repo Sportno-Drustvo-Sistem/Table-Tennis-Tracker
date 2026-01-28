@@ -1,6 +1,6 @@
 # 🏓 Ping Pong Tracker
 
-A modern, web-based tracker for office ping pong matches. Keep track of scores, view leaderboards, and analyze player statistics to see who truly rules the table.
+A modern, web-based tracker for ping pong matches. Keep track of scores, view leaderboards, and analyze player statistics to see who truly rules the table.
 
 ## Features
 
