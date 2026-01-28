@@ -1,23 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Users, X, History, Trophy, BarChart2, LayoutGrid, Moon, Sun } from 'lucide-react'
+import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar } from 'lucide-react'
 import { supabase } from './supabaseClient'
 import UserCard from './components/UserCard'
 import Leaderboard from './components/Leaderboard'
 import PlayerStats from './components/PlayerStats'
+import Matches from './components/Matches'
 import AddUserModal from './components/modals/AddUserModal'
 import EditUserModal from './components/modals/EditUserModal'
 import EditMatchModal from './components/modals/EditMatchModal'
-import MatchHistoryModal from './components/modals/MatchHistoryModal'
+import PlayerSelectionModal from './components/modals/PlayerSelectionModal'
 import MatchModal from './components/modals/MatchModal'
 
 // --- Main App ---
 
 export default function App() {
   const [users, setUsers] = useState([])
-  const [matches, setMatches] = useState([]) // New: Store matches globally
+  const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectionMode, setSelectionMode] = useState(false)
-  const [selectedUsers, setSelectedUsers] = useState([])
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => {
@@ -26,12 +25,14 @@ export default function App() {
   })
 
   // Navigation State
-  const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats'
+  const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats', 'matches'
   const [statsPlayerId, setStatsPlayerId] = useState(null)
 
+  // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isPlayerSelectionOpen, setIsPlayerSelectionOpen] = useState(false)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [selectedPlayers, setSelectedPlayers] = useState([null, null])
 
   const [editingUser, setEditingUser] = useState(null)
   const [editingMatch, setEditingMatch] = useState(null)
@@ -76,42 +77,20 @@ export default function App() {
   }, [fetchData])
 
   const handleUserClick = (user) => {
-    if (selectionMode) {
-      const isSelected = selectedUsers.some(u => u.id === user.id)
-      let newSelected = []
-
-      if (isSelected) {
-        newSelected = selectedUsers.filter(u => u.id !== user.id)
-      } else {
-        if (selectedUsers.length >= 2) return
-        newSelected = [...selectedUsers, user]
-      }
-
-      setSelectedUsers(newSelected)
-
-      if (newSelected.length === 2) {
-        setTimeout(() => {
-          setIsMatchModalOpen(true)
-        }, 300)
-      }
-    } else {
-      // If not in selection mode, maybe go to their stats?
-      // Or edit? We have an edit pencil for editing.
-      // Let's make click go to stats page for that user.
-      setStatsPlayerId(user.id)
-      setActiveTab('stats')
-    }
+    // Navigate to user's stats page
+    setStatsPlayerId(user.id)
+    setActiveTab('stats')
   }
 
-  const toggleSelectionMode = () => {
-    setSelectionMode(!selectionMode)
-    setSelectedUsers([])
+  const handlePlayersSelected = (player1, player2) => {
+    setSelectedPlayers([player1, player2])
+    setIsPlayerSelectionOpen(false)
+    setIsMatchModalOpen(true)
   }
 
   const handleMatchSaved = () => {
     setIsMatchModalOpen(false)
-    setSelectionMode(false)
-    setSelectedUsers([])
+    setSelectedPlayers([null, null])
     fetchData()
   }
 
@@ -158,15 +137,14 @@ export default function App() {
               >
                 <BarChart2 size={18} className="mr-2" /> Stats
               </button>
+              <button
+                onClick={() => setActiveTab('matches')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'matches' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+              >
+                <Calendar size={18} className="mr-2" /> Matches
+              </button>
             </div>
 
-            <button
-              onClick={() => setIsHistoryOpen(true)}
-              className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md"
-            >
-              <History size={20} className="mr-2" />
-              History
-            </button>
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md"
@@ -174,23 +152,15 @@ export default function App() {
               <Plus size={20} className="mr-2" />
               Add Player
             </button>
-            <button
-              onClick={toggleSelectionMode}
-              className={`flex items-center px-6 py-2 rounded-lg font-bold shadow-sm transition-all hover:shadow-md ${selectionMode
-                ? 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:border-red-800 dark:hover:bg-red-800'
-                : 'bg-blue-600 text-white hover:bg-blue-700 dark:hover:bg-blue-500'
-                }`}
-            >
-              {selectionMode ? (
-                <>
-                  <X size={20} className="mr-2" /> Cancel Match
-                </>
-              ) : (
-                <>
-                  <Users size={20} className="mr-2" /> New Match
-                </>
-              )}
-            </button>
+
+            {activeTab === 'matches' && (
+              <button
+                onClick={() => setIsPlayerSelectionOpen(true)}
+                className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md hover:bg-blue-700 dark:hover:bg-blue-500"
+              >
+                <Plus size={20} className="mr-2" /> New Match
+              </button>
+            )}
           </div>
         </header>
 
@@ -198,20 +168,6 @@ export default function App() {
         <main>
           {activeTab === 'grid' && (
             <>
-              {/* Selection Instruction */}
-              {selectionMode && (
-                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 px-6 py-4 rounded-xl mb-8 flex items-center justify-between animate-fadeIn">
-                  <span className="font-medium">
-                    Select 2 players to start a match ({selectedUsers.length}/2)
-                  </span>
-                  <div className="flex -space-x-2">
-                    {selectedUsers.map(u => (
-                      <img key={u.id} src={u.avatar_url || 'https://via.placeholder.com/150'} className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover" alt={u.name} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Grid */}
               {loading ? (
                 <div className="text-center py-20 text-gray-400 dark:text-gray-500">Loading players...</div>
@@ -234,8 +190,8 @@ export default function App() {
                     <UserCard
                       key={user.id}
                       user={user}
-                      selectionMode={selectionMode}
-                      isSelected={selectedUsers.some(u => u.id === user.id)}
+                      selectionMode={false}
+                      isSelected={false}
                       onClick={() => handleUserClick(user)}
                       onEdit={setEditingUser}
                     />
@@ -251,6 +207,15 @@ export default function App() {
 
           {activeTab === 'stats' && (
             <PlayerStats users={users} matches={matches} initialPlayerId={statsPlayerId} />
+          )}
+
+          {activeTab === 'matches' && (
+            <Matches
+              matches={matches}
+              users={users}
+              onEditMatch={setEditingMatch}
+              onMatchDeleted={fetchData}
+            />
           )}
         </main>
 
@@ -268,34 +233,29 @@ export default function App() {
           onUserUpdated={fetchData}
         />
 
-        <MatchHistoryModal
-          isOpen={isHistoryOpen}
-          onClose={() => setIsHistoryOpen(false)}
-          onEditMatch={setEditingMatch}
-          onMatchDeleted={fetchData}
+        <PlayerSelectionModal
+          isOpen={isPlayerSelectionOpen}
+          onClose={() => setIsPlayerSelectionOpen(false)}
+          users={users}
+          onPlayersSelected={handlePlayersSelected}
         />
 
         <EditMatchModal
           isOpen={!!editingMatch}
           match={editingMatch}
           onClose={() => setEditingMatch(null)}
-          onMatchUpdated={() => {
-            fetchData()
-            setIsHistoryOpen(false) // Close history to force refresh when reopened or simply close it.
-          }}
+          onMatchUpdated={fetchData}
         />
 
-        {selectedUsers.length === 2 && (
+        {selectedPlayers[0] && selectedPlayers[1] && (
           <MatchModal
             isOpen={isMatchModalOpen}
             onClose={() => {
               setIsMatchModalOpen(false)
-              // Keep selection? No, let's clear it if they close the modal without saving to avoid stuck state.
-              // Actually, existing logic was: close modal -> keep selection.
-              // I'll keep it consistent with previous logic.
+              setSelectedPlayers([null, null])
             }}
-            player1={selectedUsers[0]}
-            player2={selectedUsers[1]}
+            player1={selectedPlayers[0]}
+            player2={selectedPlayers[1]}
             onMatchSaved={handleMatchSaved}
           />
         )}
