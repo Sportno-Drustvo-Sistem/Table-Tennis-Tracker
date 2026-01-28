@@ -118,49 +118,51 @@ export default function App() {
             </button>
 
             {/* Navigation Tabs */}
-            <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mr-2">
+            <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
               <button
                 onClick={() => setActiveTab('grid')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'grid' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
-                <LayoutGrid size={18} className="mr-2" /> Players
+                <LayoutGrid size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Players</span>
               </button>
               <button
                 onClick={() => setActiveTab('leaderboard')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'leaderboard' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
-                <Trophy size={18} className="mr-2" /> Leaderboard
+                <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Leaderboard</span>
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'stats' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
-                <BarChart2 size={18} className="mr-2" /> Stats
+                <BarChart2 size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Stats</span>
               </button>
               <button
                 onClick={() => setActiveTab('matches')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${activeTab === 'matches' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
-                <Calendar size={18} className="mr-2" /> Matches
+                <Calendar size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Matches</span>
               </button>
             </div>
 
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md"
-            >
-              <Plus size={20} className="mr-2" />
-              Add Player
-            </button>
-
-            {activeTab === 'matches' && (
+            <div className="flex gap-2 shrink-0">
               <button
-                onClick={() => setIsPlayerSelectionOpen(true)}
-                className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md hover:bg-blue-700 dark:hover:bg-blue-500"
+                onClick={() => setIsAddModalOpen(true)}
+                className="flex items-center px-3 md:px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md"
               >
-                <Plus size={20} className="mr-2" /> New Match
+                <Plus size={20} className="md:mr-2" />
+                <span className="hidden md:inline">Add Player</span>
               </button>
-            )}
+
+              {activeTab === 'matches' && (
+                <button
+                  onClick={() => setIsPlayerSelectionOpen(true)}
+                  className="flex items-center px-4 md:px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md hover:bg-blue-700 dark:hover:bg-blue-500"
+                >
+                  <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">New Match</span>
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
