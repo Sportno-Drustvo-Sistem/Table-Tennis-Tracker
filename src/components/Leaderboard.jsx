@@ -132,7 +132,7 @@ const Leaderboard = ({ users, matches }) => {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-end">
-                <h2 className="text-2xl font-bold flex items-center">
+                <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
                     <Trophy className="mr-2 text-yellow-500" /> Leaderboard
                 </h2>
             </div>
