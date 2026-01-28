@@ -56,27 +56,27 @@ const MatchHistoryModal = ({ isOpen, onClose, onEditMatch, onMatchDeleted }) => 
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-2xl w-full max-w-2xl m-4 h-[80vh] flex flex-col">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-2xl m-4 h-[80vh] flex flex-col shadow-xl border border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">Match History</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X size={24} /></button>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Match History</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300"><X size={24} /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
                     {loading ? (
-                        <div className="text-center py-10 text-gray-500">Loading history...</div>
+                        <div className="text-center py-10 text-gray-500 dark:text-gray-400">Loading history...</div>
                     ) : matches.length === 0 ? (
-                        <div className="text-center py-10 text-gray-500">No matches recorded yet.</div>
+                        <div className="text-center py-10 text-gray-500 dark:text-gray-400">No matches recorded yet.</div>
                     ) : (
                         <div className="space-y-3">
                             {matches.map(match => (
-                                <div key={match.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                                <div key={match.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-transparent dark:border-gray-700">
                                     <div className="flex-1 flex justify-end items-center space-x-3">
-                                        <span className={`font-bold ${match.score1 > match.score2 ? 'text-black' : 'text-gray-500'}`}>{match.player1?.name || 'Unknown'}</span>
+                                        <span className={`font-bold ${match.score1 > match.score2 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{match.player1?.name || 'Unknown'}</span>
                                         <img src={match.player1?.avatar_url || 'https://via.placeholder.com/30'} className="w-8 h-8 rounded-full bg-gray-200 object-cover" alt="player1" />
                                     </div>
 
-                                    <div className="px-4 font-mono font-bold text-xl flex items-center space-x-2">
+                                    <div className="px-4 font-mono font-bold text-xl flex items-center space-x-2 text-gray-900 dark:text-white">
                                         <span>{match.score1}</span>
                                         <span className="text-gray-400">-</span>
                                         <span>{match.score2}</span>
@@ -84,14 +84,14 @@ const MatchHistoryModal = ({ isOpen, onClose, onEditMatch, onMatchDeleted }) => 
 
                                     <div className="flex-1 flex justify-start items-center space-x-3">
                                         <img src={match.player2?.avatar_url || 'https://via.placeholder.com/30'} className="w-8 h-8 rounded-full bg-gray-200 object-cover" alt="player2" />
-                                        <span className={`font-bold ${match.score2 > match.score1 ? 'text-black' : 'text-gray-500'}`}>{match.player2?.name || 'Unknown'}</span>
+                                        <span className={`font-bold ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{match.player2?.name || 'Unknown'}</span>
                                     </div>
 
                                     <div className="ml-4 flex space-x-1">
-                                        <button onClick={() => onEditMatch(match)} className="text-gray-400 hover:text-blue-600 p-2" title="Edit Match">
+                                        <button onClick={() => onEditMatch(match)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2" title="Edit Match">
                                             <Edit2 size={16} />
                                         </button>
-                                        <button onClick={() => handleDelete(match)} className="text-gray-400 hover:text-red-600 p-2" title="Delete Match">
+                                        <button onClick={() => handleDelete(match)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-2" title="Delete Match">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
