@@ -82,6 +82,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
                             type="number"
                             min="0"
                             value={score1}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setScore1(e.target.value)}
                             className="w-20 h-16 text-3xl text-center border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:border-blue-500 focus:outline-none"
                         />
@@ -91,6 +92,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
                             type="number"
                             min="0"
                             value={score2}
+                            onFocus={(e) => e.target.select()}
                             onChange={e => setScore2(e.target.value)}
                             className="w-20 h-16 text-3xl text-center border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:border-blue-500 focus:outline-none"
                         />

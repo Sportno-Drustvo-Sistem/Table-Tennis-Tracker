@@ -54,8 +54,8 @@ const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated }) => {
                     </div>
                 </div>
                 <div className="flex justify-center space-x-4 mb-6">
-                    <input type="number" value={score1} onChange={e => setScore1(e.target.value)} className="w-16 h-12 text-2xl text-center border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
-                    <input type="number" value={score2} onChange={e => setScore2(e.target.value)} className="w-16 h-12 text-2xl text-center border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                    <input type="number" value={score1} onFocus={(e) => e.target.select()} onChange={e => setScore1(e.target.value)} className="w-16 h-12 text-2xl text-center border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                    <input type="number" value={score2} onFocus={(e) => e.target.select()} onChange={e => setScore2(e.target.value)} className="w-16 h-12 text-2xl text-center border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
                 <div className="flex justify-end space-x-2">
                     <button onClick={onClose} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm">Cancel</button>
