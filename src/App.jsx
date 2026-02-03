@@ -77,6 +77,33 @@ export default function App() {
 
   useEffect(() => {
     fetchData()
+
+    // Realtime Subscription with Debounce
+    let debounceTimer
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        console.log('Refreshing data from realtime update...')
+        fetchData()
+      }, 1000) // Debounce to handle batch updates (like ELO recalcs)
+    }
+
+    const subscription = supabase
+      .channel('public:db_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
+        console.log('Match change received!', payload)
+        debouncedFetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+        console.log('User change received!', payload)
+        debouncedFetch()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(subscription)
+      if (debounceTimer) clearTimeout(debounceTimer)
+    }
   }, [fetchData])
 
   // Automatic Migration Check: Recalculate stats if matches exist but stats are empty
