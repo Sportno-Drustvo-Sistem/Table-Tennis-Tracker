@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { supabase } from '../../supabaseClient'
+import { recalculatePlayerStats } from '../../utils'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
     const [score1, setScore1] = useState(0)
@@ -25,27 +26,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
 
             if (matchError) throw matchError
 
-            // 2. Update winner
-            let winnerId = null
-            if (parseInt(score1) > parseInt(score2)) winnerId = player1.id
-            if (parseInt(score2) > parseInt(score1)) winnerId = player2.id
-
-            if (winnerId) {
-                const { data: user, error: fetchError } = await supabase
-                    .from('users')
-                    .select('total_wins')
-                    .eq('id', winnerId)
-                    .single()
-
-                if (fetchError) throw fetchError
-
-                const { error: updateError } = await supabase
-                    .from('users')
-                    .update({ total_wins: user.total_wins + 1 })
-                    .eq('id', winnerId)
-
-                if (updateError) throw updateError
-            }
+            // 2. Recalculate stats
+            await recalculatePlayerStats()
 
             onMatchSaved()
             setScore1(0)

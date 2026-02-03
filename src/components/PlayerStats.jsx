@@ -136,7 +136,16 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             />
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-xl border border-yellow-100 dark:border-yellow-800">
+                    <div className="text-yellow-800 dark:text-yellow-400 text-sm font-bold uppercase">ELO Rating</div>
+                    <div className="text-4xl font-extrabold text-yellow-600 dark:text-yellow-400">
+                        {(selectedPlayer.matches_played || 0) >= 10
+                            ? selectedPlayer.elo_rating
+                            : <span className="text-lg">Placement ({selectedPlayer.matches_played || 0}/10)</span>
+                        }
+                    </div>
+                </div>
                 <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-800">
                     <div className="text-green-800 dark:text-green-400 text-sm font-bold uppercase">Wins</div>
                     <div className="text-4xl font-extrabold text-green-600 dark:text-green-400">{stats?.wins}</div>
