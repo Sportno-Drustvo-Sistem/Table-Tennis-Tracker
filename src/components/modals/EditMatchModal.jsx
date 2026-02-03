@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
-import { recalculateWins } from '../../utils'
+import { recalculatePlayerStats } from '../../utils'
 
 const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated }) => {
     const [score1, setScore1] = useState(0)
@@ -27,9 +27,8 @@ const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated }) => {
 
             if (updateError) throw updateError
 
-            // 2. Recalculate wins for both players
-            await recalculateWins(match.player1_id)
-            await recalculateWins(match.player2_id)
+            // 2. Recalculate stats
+            await recalculatePlayerStats()
 
             onMatchUpdated()
             onClose()
