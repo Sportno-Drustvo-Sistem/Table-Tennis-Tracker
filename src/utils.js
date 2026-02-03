@@ -27,10 +27,10 @@ export const recalculatePlayerStats = async () => {
         return
     }
 
-    // 2. Fetch all matches ordered by date
+    // 2. Fetch all matches ordered by date (Optimization: Select only needed columns)
     const { data: matches, error: matchesError } = await supabase
         .from('matches')
-        .select('*')
+        .select('player1_id, player2_id, score1, score2, created_at')
         .order('created_at', { ascending: true })
 
     if (matchesError) {
@@ -39,10 +39,13 @@ export const recalculatePlayerStats = async () => {
     }
 
     // 3. Initialize player stats
-    const playerStats = {}
+    // We keep a separate map for calculated stats to compare against original
+    const calculatedStats = {}
     users.forEach(user => {
-        playerStats[user.id] = {
-            ...user, // Keep existing user data
+        calculatedStats[user.id] = {
+            id: user.id,
+            name: user.name,
+            avatar_url: user.avatar_url,
             elo_rating: 1200,
             matches_played: 0,
             total_wins: 0
@@ -55,10 +58,10 @@ export const recalculatePlayerStats = async () => {
         const p2Id = match.player2_id
 
         // Skip if player doesn't exist (e.g. deleted user)
-        if (!playerStats[p1Id] || !playerStats[p2Id]) return
+        if (!calculatedStats[p1Id] || !calculatedStats[p2Id]) return
 
-        const p1 = playerStats[p1Id]
-        const p2 = playerStats[p2Id]
+        const p1 = calculatedStats[p1Id]
+        const p2 = calculatedStats[p2Id]
 
         // Update matches played
         p1.matches_played += 1
@@ -83,14 +86,38 @@ export const recalculatePlayerStats = async () => {
     })
 
     // 5. Update users in Supabase
-    // Using upsert with only stats fields to update existing users without overwriting other data
-    const updates = Object.values(playerStats).map(p => ({
-        id: p.id,
-        elo_rating: p.elo_rating,
-        matches_played: p.matches_played,
-        total_wins: p.total_wins,
-        is_ranked: p.matches_played >= 10
-    }))
+    // Optimization: Only update users whose stats have CHANGED
+    const updates = []
+
+    users.forEach(originalUser => {
+        const calculated = calculatedStats[originalUser.id]
+        if (!calculated) return
+
+        const isRanked = calculated.matches_played >= 10
+
+        // Check for differences
+        if (
+            originalUser.elo_rating !== calculated.elo_rating ||
+            originalUser.matches_played !== calculated.matches_played ||
+            originalUser.total_wins !== calculated.total_wins ||
+            originalUser.is_ranked !== isRanked
+        ) {
+            updates.push({
+                id: calculated.id,
+                name: calculated.name,
+                avatar_url: calculated.avatar_url,
+                elo_rating: calculated.elo_rating,
+                matches_played: calculated.matches_played,
+                total_wins: calculated.total_wins,
+                is_ranked: isRanked
+            })
+        }
+    })
+
+    if (updates.length === 0) {
+        console.log('No stats updates needed.')
+        return
+    }
 
     const { error: updateError } = await supabase
         .from('users')
