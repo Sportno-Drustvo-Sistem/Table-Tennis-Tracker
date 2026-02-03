@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Edit2, Trash2, Calendar } from 'lucide-react'
 import { supabase } from '../supabaseClient'
-import { recalculateWins } from '../utils'
+import { recalculatePlayerStats } from '../utils'
 
 const Matches = ({ matches, users, onEditMatch, onMatchDeleted }) => {
     const [loading, setLoading] = useState(false)
@@ -14,9 +14,8 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted }) => {
             const { error } = await supabase.from('matches').delete().eq('id', match.id)
             if (error) throw error
 
-            // Recalculate wins
-            await recalculateWins(match.player1_id)
-            await recalculateWins(match.player2_id)
+            // Recalculate stats
+            await recalculatePlayerStats()
 
             // Notify parent to refresh data
             if (onMatchDeleted) onMatchDeleted()

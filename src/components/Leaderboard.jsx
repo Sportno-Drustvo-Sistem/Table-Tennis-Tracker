@@ -153,6 +153,12 @@ const Leaderboard = ({ users, matches }) => {
                                 <th className="px-6 py-4">Player</th>
                                 <th
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
+                                    onClick={() => requestSort('elo_rating')}
+                                >
+                                    <div className="flex justify-end items-center">ELO <SortIcon column="elo_rating" /></div>
+                                </th>
+                                <th
+                                    className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('wins')}
                                 >
                                     <div className="flex justify-end items-center">Wins <SortIcon column="wins" /></div>
@@ -192,6 +198,12 @@ const Leaderboard = ({ users, matches }) => {
                                             <img src={player.avatar_url || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-bold text-blue-600 dark:text-blue-400">
+                                        {(player.matches_played || 0) >= 10
+                                            ? player.elo_rating
+                                            : <span className="text-xs text-gray-400 font-normal">Placement ({player.matches_played || 0}/10)</span>
+                                        }
                                     </td>
                                     <td className="px-6 py-4 text-right font-medium text-green-600 dark:text-green-400">{player.wins}</td>
                                     <td className="px-6 py-4 text-right font-medium text-red-500 dark:text-red-400">{player.losses}</td>
