@@ -1,10 +1,27 @@
 import React, { useState } from 'react'
-import { Edit2, Trash2, Calendar } from 'lucide-react'
+import { Edit2, Trash2, Calendar, RefreshCw } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats } from '../utils'
 
 const Matches = ({ matches, users, onEditMatch, onMatchDeleted }) => {
     const [loading, setLoading] = useState(false)
+    const [recalculating, setRecalculating] = useState(false)
+
+    const handleRecalculate = async () => {
+        if (!window.confirm('Recalculate all player stats (ELO, wins, etc.) based on match history?')) return
+
+        setRecalculating(true)
+        try {
+            await recalculatePlayerStats()
+            if (onMatchDeleted) onMatchDeleted() // Triggers data refresh
+            alert('Stats recalculated successfully!')
+        } catch (error) {
+            console.error(error)
+            alert('Error recalculating stats')
+        } finally {
+            setRecalculating(false)
+        }
+    }
 
     const handleDelete = async (match) => {
         if (!window.confirm('Are you sure you want to delete this match? This will recalculate win counts.')) return
@@ -38,6 +55,15 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted }) => {
                 <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
                     <Calendar className="mr-2 text-blue-500" /> Matches
                 </h2>
+                <button
+                    onClick={handleRecalculate}
+                    disabled={recalculating}
+                    className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors disabled:opacity-50"
+                    title="Recalculate ELO and Stats"
+                >
+                    <RefreshCw size={16} className={`mr-1 ${recalculating ? 'animate-spin' : ''}`} />
+                    {recalculating ? 'Recalculating...' : 'Sync Stats'}
+                </button>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
