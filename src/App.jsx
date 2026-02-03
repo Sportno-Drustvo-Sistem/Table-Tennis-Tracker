@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar } from 'lucide-react'
 import { supabase } from './supabaseClient'
+import { recalculatePlayerStats } from './utils'
 import UserCard from './components/UserCard'
 import Leaderboard from './components/Leaderboard'
 import PlayerStats from './components/PlayerStats'
@@ -17,6 +18,7 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
+  const [migrating, setMigrating] = useState(false)
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => {
@@ -76,6 +78,26 @@ export default function App() {
     fetchData()
   }, [fetchData])
 
+  // Automatic Migration Check: Recalculate stats if matches exist but stats are empty
+  useEffect(() => {
+    if (!loading && matches.length > 0 && users.length > 0) {
+      const totalMatchesPlayed = users.reduce((acc, user) => acc + (user.matches_played || 0), 0)
+
+      // If we have matches but 0 recorded matches_played across all users, we need to backfill
+      if (totalMatchesPlayed === 0) {
+        console.log('Detected uninitialized stats. Running recalculation...')
+        setMigrating(true)
+        recalculatePlayerStats()
+          .then(() => {
+            console.log('Recalculation complete.')
+            fetchData() // Refresh data
+          })
+          .catch(err => console.error('Migration failed:', err))
+          .finally(() => setMigrating(false))
+      }
+    }
+  }, [loading, matches.length, users.length]) // Only check when data load completes
+
   const handleUserClick = (user) => {
     // Navigate to user's stats page
     setStatsPlayerId(user.id)
@@ -105,6 +127,11 @@ export default function App() {
               Ping Pong Tracker
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-2 ml-1">Track your garage glory.</p>
+            {migrating && (
+              <div className="mt-2 text-sm font-bold text-amber-600 dark:text-amber-400 animate-pulse">
+                ⚙️ Updating historical stats...
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap justify-center gap-3">
