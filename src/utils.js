@@ -17,32 +17,28 @@ const calculateEloChange = (ratingA, ratingB, scoreA, scoreB) => {
 }
 
 export const recalculatePlayerStats = async () => {
-    try {
-        // 1. Fetch all users
-        const { data: users, error: usersError } = await supabase
-            .from('users')
-            .select('*')
+    // 1. Fetch all users
+    const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('*')
 
-        if (usersError) {
-            console.error('Error fetching users:', usersError)
-            throw usersError
-        }
+    if (usersError) {
+        console.error('Error fetching users:', usersError)
+        return
+    }
 
-        // 2. Fetch all matches ordered by date
-        const { data: matches, error: matchesError } = await supabase
-            .from('matches')
-            .select('*')
-            .order('created_at', { ascending: true })
+    // 2. Fetch all matches ordered by date
+    const { data: matches, error: matchesError } = await supabase
+        .from('matches')
+        .select('*')
+        .order('created_at', { ascending: true })
 
-        if (matchesError) {
-            console.error('Error fetching matches:', matchesError)
-            throw matchesError
-        }
+    if (matchesError) {
+        console.error('Error fetching matches:', matchesError)
+        return
+    }
 
-        if (!users || !matches) {
-            console.warn('No users or matches found to recalculate.')
-            return
-        }
+    // 3. Initialize player stats
     const playerStats = {}
     users.forEach(user => {
         playerStats[user.id] = {
@@ -103,9 +99,5 @@ export const recalculatePlayerStats = async () => {
     if (updateError) {
         console.error('Error updating player stats:', updateError)
         throw updateError
-    }
-    } catch (error) {
-        console.error('Detailed error in recalculatePlayerStats:', error)
-        throw error
     }
 }
