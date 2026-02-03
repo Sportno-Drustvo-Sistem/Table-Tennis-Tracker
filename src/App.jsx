@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar } from 'lucide-react'
 import { supabase } from './supabaseClient'
 import { recalculatePlayerStats } from './utils'
@@ -19,6 +19,7 @@ export default function App() {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [migrating, setMigrating] = useState(false)
+  const migrationAttempted = useRef(false)
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => {
@@ -80,23 +81,30 @@ export default function App() {
 
   // Automatic Migration Check: Recalculate stats if matches exist but stats are empty
   useEffect(() => {
-    if (!loading && matches.length > 0 && users.length > 0) {
+    if (!loading && matches.length > 0 && users.length > 0 && !migrationAttempted.current) {
       const totalMatchesPlayed = users.reduce((acc, user) => acc + (user.matches_played || 0), 0)
 
       // If we have matches but 0 recorded matches_played across all users, we need to backfill
       if (totalMatchesPlayed === 0) {
         console.log('Detected uninitialized stats. Running recalculation...')
+        migrationAttempted.current = true
         setMigrating(true)
         recalculatePlayerStats()
           .then(() => {
             console.log('Recalculation complete.')
             fetchData() // Refresh data
           })
-          .catch(err => console.error('Migration failed:', err))
+          .catch(err => {
+            console.error('Migration failed:', err)
+            // Use a toast or less intrusive alert in a real app, but alert is fine here for critical setup error
+            if (err.message && err.message.includes('column')) {
+              alert('Automatic update failed: Missing database columns. Please run the SQL migration to add elo_rating, matches_played, and is_ranked columns.')
+            }
+          })
           .finally(() => setMigrating(false))
       }
     }
-  }, [loading, matches.length, users.length]) // Only check when data load completes
+  }, [loading, matches.length, users.length, fetchData]) // Only check when data load completes
 
   const handleUserClick = (user) => {
     // Navigate to user's stats page

@@ -98,5 +98,6 @@ export const recalculatePlayerStats = async () => {
 
     if (updateError) {
         console.error('Error updating player stats:', updateError)
+        throw updateError
     }
 }
