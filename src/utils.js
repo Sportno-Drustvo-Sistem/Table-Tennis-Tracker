@@ -1,19 +1,23 @@
 import { supabase } from './supabaseClient'
 
-const K_FACTOR = 32
+const getKFactor = (matchesPlayed) => {
+    // Provisional rating: Higher volatility for first 20 matches to find true rank faster
+    if (matchesPlayed <= 20) return 64
+    return 32
+}
 
 const calculateExpectedScore = (ratingA, ratingB) => {
     return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400))
 }
 
-const calculateEloChange = (ratingA, ratingB, scoreA, scoreB) => {
+const calculateEloChange = (ratingA, ratingB, scoreA, scoreB, kFactor) => {
     const expectedScoreA = calculateExpectedScore(ratingA, ratingB)
     const actualScoreA = scoreA > scoreB ? 1 : 0
 
     const scoreDiff = Math.abs(scoreA - scoreB)
     const multiplier = Math.log(scoreDiff + 1)
 
-    return Math.round(K_FACTOR * multiplier * (actualScoreA - expectedScoreA))
+    return Math.round(kFactor * multiplier * (actualScoreA - expectedScoreA))
 }
 
 export const recalculatePlayerStats = async () => {
@@ -75,11 +79,15 @@ export const recalculatePlayerStats = async () => {
         }
 
         // Calculate ELO Change
+        // Dynamic K-Factor
+        const k1 = getKFactor(p1.matches_played)
+        const k2 = getKFactor(p2.matches_played)
+
         const p1Rating = p1.elo_rating
         const p2Rating = p2.elo_rating
 
-        const p1Change = calculateEloChange(p1Rating, p2Rating, match.score1, match.score2)
-        const p2Change = calculateEloChange(p2Rating, p1Rating, match.score2, match.score1)
+        const p1Change = calculateEloChange(p1Rating, p2Rating, match.score1, match.score2, k1)
+        const p2Change = calculateEloChange(p2Rating, p1Rating, match.score2, match.score1, k2)
 
         p1.elo_rating += p1Change
         p2.elo_rating += p2Change
