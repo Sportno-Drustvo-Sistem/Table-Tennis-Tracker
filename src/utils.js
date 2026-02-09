@@ -1,8 +1,7 @@
 import { supabase } from './supabaseClient'
 
 const getKFactor = (matchesPlayed) => {
-    // Provisional rating: Higher volatility for first 20 matches to find true rank faster
-    if (matchesPlayed <= 20) return 64
+    // Standard K-Factor for everyone to prevent wild swings
     return 32
 }
 

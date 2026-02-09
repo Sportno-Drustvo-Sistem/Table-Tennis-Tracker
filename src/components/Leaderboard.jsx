@@ -103,6 +103,15 @@ const Leaderboard = ({ users, matches }) => {
     const sortedStats = useMemo(() => {
         const sorted = [...stats]
         sorted.sort((a, b) => {
+            // Special handling for ELO sorting: Ranked players first
+            if (sortConfig.key === 'elo_rating') {
+                const aRanked = (a.matches_played || 0) >= 10
+                const bRanked = (b.matches_played || 0) >= 10
+
+                if (aRanked && !bRanked) return -1 // a comes first
+                if (!aRanked && bRanked) return 1  // b comes first
+            }
+
             if (a[sortConfig.key] < b[sortConfig.key]) {
                 return sortConfig.direction === 'asc' ? -1 : 1
             }
