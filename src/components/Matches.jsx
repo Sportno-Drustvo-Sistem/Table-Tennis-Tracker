@@ -3,7 +3,7 @@ import { Edit2, Trash2, Calendar, RefreshCw } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats } from '../utils'
 
-const Matches = ({ matches, users, onEditMatch, onMatchDeleted }) => {
+const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
 
@@ -55,15 +55,25 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted }) => {
                 <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
                     <Calendar className="mr-2 text-blue-500" /> Matches
                 </h2>
-                <button
-                    onClick={handleRecalculate}
-                    disabled={recalculating}
-                    className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors disabled:opacity-50"
-                    title="Recalculate ELO and Stats"
-                >
-                    <RefreshCw size={16} className={`mr-1 ${recalculating ? 'animate-spin' : ''}`} />
-                    {recalculating ? 'Recalculating...' : 'Sync Stats'}
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={onGenerateMatch}
+                        className="flex items-center text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg"
+                        title="Random Match Generator"
+                    >
+                        <RefreshCw size={16} className="mr-2" />
+                        Generate Match
+                    </button>
+                    <button
+                        onClick={handleRecalculate}
+                        disabled={recalculating}
+                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
+                        title="Recalculate ELO and Stats"
+                    >
+                        <RefreshCw size={16} className={`mr-1 ${recalculating ? 'animate-spin' : ''}`} />
+                        {recalculating ? 'Recalculating...' : 'Sync Stats'}
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

@@ -11,6 +11,7 @@ import EditUserModal from './components/modals/EditUserModal'
 import EditMatchModal from './components/modals/EditMatchModal'
 import PlayerSelectionModal from './components/modals/PlayerSelectionModal'
 import MatchModal from './components/modals/MatchModal'
+import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
 
 // --- Main App ---
 
@@ -34,7 +35,9 @@ export default function App() {
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isPlayerSelectionOpen, setIsPlayerSelectionOpen] = useState(false)
+
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false)
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
 
   const [editingUser, setEditingUser] = useState(null)
@@ -142,6 +145,12 @@ export default function App() {
   const handlePlayersSelected = (player1, player2) => {
     setSelectedPlayers([player1, player2])
     setIsPlayerSelectionOpen(false)
+    setIsMatchModalOpen(true)
+  }
+
+  const handleMatchGenerated = (player1, player2) => {
+    setSelectedPlayers([player1, player2])
+    setIsGeneratorOpen(false)
     setIsMatchModalOpen(true)
   }
 
@@ -279,6 +288,7 @@ export default function App() {
               users={users}
               onEditMatch={setEditingMatch}
               onMatchDeleted={fetchData}
+              onGenerateMatch={() => setIsGeneratorOpen(true)}
             />
           )}
         </main>
@@ -302,6 +312,14 @@ export default function App() {
           onClose={() => setIsPlayerSelectionOpen(false)}
           users={users}
           onPlayersSelected={handlePlayersSelected}
+        />
+
+        <MatchGeneratorModal
+          isOpen={isGeneratorOpen}
+          onClose={() => setIsGeneratorOpen(false)}
+          users={users}
+          matches={matches}
+          onMatchGenerated={handleMatchGenerated}
         />
 
         <EditMatchModal

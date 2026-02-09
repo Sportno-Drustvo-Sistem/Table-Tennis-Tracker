@@ -1,0 +1,238 @@
+import React, { useState, useEffect } from 'react'
+import { X, Shuffle, Check, AlertCircle } from 'lucide-react'
+
+const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated }) => {
+    const [selectedPool, setSelectedPool] = useState([])
+    const [excludedPlayers, setExcludedPlayers] = useState([])
+    const [generatedMatch, setGeneratedMatch] = useState(null)
+    const [error, setError] = useState(null)
+    const [isGenerating, setIsGenerating] = useState(false)
+
+    // Reset state when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            // Select all users by default
+            const allUserIds = users.map(u => u.id)
+            setSelectedPool(allUserIds)
+            setGeneratedMatch(null)
+            setError(null)
+            identifyExcludedPlayers()
+        }
+    }, [isOpen, users, matches])
+
+    const identifyExcludedPlayers = () => {
+        // Find players who played the last 2 consecutive matches
+        // matches are assumed to be sorted by date desc (newest first)
+        
+        const consecutiveMatches = {} // map of userId -> consecutive count
+        const excluded = new Set()
+
+        // We only care about the most recent matches to determine "streak"
+        // Iterate through matches to find current streaks
+        
+        // Actually, the rule is "player shouldn't have more than 2 games in a row"
+        // This means if I played the last 2 games, I cannot play the next one.
+        // We look at the last 2 matches strictly.
+        
+        if (matches.length >= 2) {
+            const lastMatch = matches[0]
+            const secondLastMatch = matches[1]
+
+            const lastPlayers = [lastMatch.player1_id, lastMatch.player2_id]
+            const secondLastPlayers = [secondLastMatch.player1_id, secondLastMatch.player2_id]
+
+            // Check for players present in BOTH
+            const playedBoth = lastPlayers.filter(id => secondLastPlayers.includes(id))
+            
+            playedBoth.forEach(id => excluded.add(id))
+        }
+
+        setExcludedPlayers(Array.from(excluded))
+    }
+
+    const togglePlayer = (userId) => {
+        if (selectedPool.includes(userId)) {
+            setSelectedPool(selectedPool.filter(id => id !== userId))
+        } else {
+            setSelectedPool([...selectedPool, userId])
+        }
+    }
+
+    const generateMatch = () => {
+        setError(null)
+        setGeneratedMatch(null)
+        setIsGenerating(true)
+
+        // 1. Filter pool: Must be in selectedPool AND NOT in excludedPlayers
+        const candidates = users.filter(u => 
+            selectedPool.includes(u.id) && !excludedPlayers.includes(u.id)
+        )
+
+        if (candidates.length < 2) {
+            setError('Not enough available players in the pool (after applying constraints).')
+            setIsGenerating(false)
+            return
+        }
+
+        // 2. Randomly select 2
+        // Introduce a small delay for "effect"
+        setTimeout(() => {
+            const shuffled = [...candidates].sort(() => 0.5 - Math.random())
+            const player1 = shuffled[0]
+            const player2 = shuffled[1]
+            setGeneratedMatch([player1, player2])
+            setIsGenerating(false)
+        }, 600)
+    }
+
+    if (!isOpen) return null
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                        <Shuffle className="mr-2 text-blue-600 dark:text-blue-400" />
+                        Generate Match
+                    </h2>
+                    <button 
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 overflow-y-auto">
+                    {generatedMatch ? (
+                        <div className="text-center py-8">
+                            <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-6">Match Found!</h3>
+                            <div className="flex items-center justify-center gap-4 mb-8">
+                                <div className="flex flex-col items-center">
+                                    <img 
+                                        src={generatedMatch[0].avatar_url} 
+                                        alt={generatedMatch[0].name}
+                                        className="w-20 h-20 rounded-full border-4 border-blue-500 shadow-lg object-cover" 
+                                    />
+                                    <span className="mt-2 font-bold text-lg dark:text-white">{generatedMatch[0].name}</span>
+                                </div>
+                                <div className="text-2xl font-bold text-gray-300">VS</div>
+                                <div className="flex flex-col items-center">
+                                    <img 
+                                        src={generatedMatch[1].avatar_url} 
+                                        alt={generatedMatch[1].name}
+                                        className="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg object-cover" 
+                                    />
+                                    <span className="mt-2 font-bold text-lg dark:text-white">{generatedMatch[1].name}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-3 justify-center">
+                                <button
+                                    onClick={() => {
+                                        setGeneratedMatch(null)
+                                        generateMatch()
+                                    }}
+                                    className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    onClick={() => onMatchGenerated(generatedMatch[0], generatedMatch[1])}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center"
+                                >
+                                    <Check size={20} className="mr-2" />
+                                    Start Match
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Select players available for this match. Players who played the last 2 consecutive games are automatically excluded.
+                            </p>
+                            
+                            {/* Exclusion Notice */}
+                            {excludedPlayers.length > 0 && (
+                                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start text-sm text-amber-800 dark:text-amber-200">
+                                    <AlertCircle size={16} className="mr-2 mt-0.5 shrink-0" />
+                                    <div>
+                                        <span className="font-bold">Taking a break:</span> 
+                                        {users.filter(u => excludedPlayers.includes(u.id)).map(u => ' ' + u.name).join(', ')} 
+                                        {' '} (played last 2 games)
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                {users.map(user => {
+                                    const isExcluded = excludedPlayers.includes(user.id)
+                                    const isSelected = selectedPool.includes(user.id)
+                                    
+                                    return (
+                                        <button
+                                            key={user.id}
+                                            onClick={() => !isExcluded && togglePlayer(user.id)}
+                                            disabled={isExcluded}
+                                            className={`
+                                                flex items-center p-3 rounded-lg border text-left transition-all
+                                                ${isExcluded 
+                                                    ? 'opacity-50 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed' 
+                                                    : isSelected
+                                                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 ring-1 ring-blue-500'
+                                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                                                }
+                                            `}
+                                        >
+                                            <div className={`
+                                                w-5 h-5 rounded-full border flex items-center justify-center mr-3
+                                                ${isSelected && !isExcluded ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600'}
+                                            `}>
+                                                {isSelected && !isExcluded && <Check size={12} className="text-white" />}
+                                            </div>
+                                            <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full bg-gray-200 mr-3 object-cover" />
+                                            <span className={`font-medium truncate ${isExcluded ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                                                {user.name}
+                                            </span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            {error && (
+                                <div className="mb-4 text-red-500 text-sm text-center font-medium animate-pulse">
+                                    {error}
+                                </div>
+                            )}
+
+                            <button
+                                onClick={generateMatch}
+                                disabled={isGenerating}
+                                className={`
+                                    w-full py-3 rounded-xl font-bold text-white shadow-md transition-all flex items-center justify-center
+                                    ${isGenerating 
+                                        ? 'bg-gray-400 cursor-wait' 
+                                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                                    }
+                                `}
+                            >
+                                {isGenerating ? (
+                                    <>Processing...</>
+                                ) : (
+                                    <>
+                                        <Shuffle size={20} className="mr-2" />
+                                        Generate Match
+                                    </>
+                                )}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export default MatchGeneratorModal
