@@ -5,7 +5,7 @@ import DateRangePicker from './DateRangePicker'
 const Leaderboard = ({ users, matches }) => {
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
-    const [sortConfig, setSortConfig] = useState({ key: 'wins', direction: 'desc' })
+    const [sortConfig, setSortConfig] = useState({ key: 'elo_rating', direction: 'desc' })
 
     const stats = useMemo(() => {
         // 1. Filter matches by date
