@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw } from 'lucide-react'
+import { Edit2, Trash2, Calendar, RefreshCw, Scale } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats } from '../utils'
 
@@ -115,10 +115,21 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch 
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center space-x-2 font-mono font-bold text-xl text-gray-900 dark:text-white">
-                                                    <span>{match.score1}</span>
-                                                    <span className="text-gray-400">-</span>
-                                                    <span>{match.score2}</span>
+                                                <div className="flex flex-col items-center">
+                                                    <div className="flex items-center justify-center space-x-2 font-mono font-bold text-xl text-gray-900 dark:text-white">
+                                                        <span>{match.score1}</span>
+                                                        <span className="text-gray-400">-</span>
+                                                        <span>{match.score2}</span>
+                                                    </div>
+                                                    {match.handicap_rule && (
+                                                        <div
+                                                            className="mt-1 flex items-center text-amber-600 dark:text-amber-400 text-xs bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full cursor-help"
+                                                            title={`${match.handicap_rule.title}: ${match.handicap_rule.description}`}
+                                                        >
+                                                            <Scale size={12} className="mr-1" />
+                                                            <span>Handicap</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

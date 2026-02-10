@@ -37,7 +37,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches }
                         player1_id: player1.id,
                         player2_id: player2.id,
                         score1: parseInt(score1),
-                        score2: parseInt(score2)
+                        score2: parseInt(score2),
+                        handicap_rule: handicapRule
                     }
                 ])
 
