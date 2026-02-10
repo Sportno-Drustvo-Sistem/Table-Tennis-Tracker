@@ -135,3 +135,65 @@ export const recalculatePlayerStats = async () => {
         throw updateError
     }
 }
+
+export const getHeadToHeadStreak = (player1Id, player2Id, matches) => {
+    // Filter matches between these two players
+    const h2hMatches = matches.filter(m =>
+        (m.player1_id === player1Id && m.player2_id === player2Id) ||
+        (m.player1_id === player2Id && m.player2_id === player1Id)
+    ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // Newest first
+
+    if (h2hMatches.length === 0) return { streak: 0, winnerId: null }
+
+    let streak = 0
+    let currentWinnerId = null
+
+    for (const match of h2hMatches) {
+        const winnerId = match.score1 > match.score2 ? match.player1_id : match.player2_id
+
+        if (currentWinnerId === null) {
+            currentWinnerId = winnerId
+            streak = 1
+        } else if (winnerId === currentWinnerId) {
+            streak++
+        } else {
+            break // Streak broken
+        }
+    }
+
+    return { streak, winnerId: currentWinnerId }
+}
+
+export const getHandicapRule = (streak, winnerName, loserName) => {
+    if (streak >= 16) {
+        return {
+            title: '🔥 UNSTOPPABLE FORCE HANDICAP 🔥',
+            description: `Since ${winnerName} has won ${streak} games in a row, they must play with their NON-DOMINANT hand whenever leading by more than 1 point!`,
+            severity: 'critical'
+        }
+    }
+
+    if (streak >= 8) {
+        const rules = [
+            `Loss Streak Handicap: ${loserName} serves 3 times, ${winnerName} serves 1 time.`,
+            `Alternating Serves: ${winnerName} must alternate between forehand and backhand serves.`,
+            `Mandatory Backhand Serve: ${winnerName} must only serve using backhand.`,
+            `Point Headstart: ${loserName} starts the match with a 2-0 lead.`,
+            `No Spin Serves: ${winnerName} cannot use spin on serves.`
+        ]
+        // Use a pseudo-random selection based on names and streak so it doesn't flicker wildly on re-renders, 
+        // or just random is fine. Let's do random but stable per "session" if possible, 
+        // but for now simple random is okay as it adds variety. 
+        // Actually, let's pick based on a simple has so it stays consistent for the same match-up/moment? 
+        // No, user asked for "random", let's just pick one.
+        const randomIndex = Math.floor(Math.random() * rules.length)
+
+        return {
+            title: '⚖️ BALANCING THE SCALES',
+            description: rules[randomIndex],
+            severity: 'high'
+        }
+    }
+
+    return null
+}

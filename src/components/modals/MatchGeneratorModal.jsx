@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { X, Shuffle, Check, AlertCircle } from 'lucide-react'
+import { X, Shuffle, Check, AlertCircle, Scale } from 'lucide-react'
+import { getHeadToHeadStreak, getHandicapRule } from '../../utils'
 
 const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated }) => {
     const [selectedPool, setSelectedPool] = useState([])
     const [excludedPlayers, setExcludedPlayers] = useState([])
     const [generatedMatch, setGeneratedMatch] = useState(null)
+    const [handicapRule, setHandicapRule] = useState(null)
     const [error, setError] = useState(null)
     const [isGenerating, setIsGenerating] = useState(false)
 
@@ -15,6 +17,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
             const allUserIds = users.map(u => u.id)
             setSelectedPool(allUserIds)
             setGeneratedMatch(null)
+            setHandicapRule(null)
             setError(null)
             identifyExcludedPlayers()
         }
@@ -125,7 +128,18 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
             const remainingCandidates = candidatesWithWeights.filter(c => c.id !== player1.id)
             const player2 = weightedRandomObj(remainingCandidates)
 
+            // Check for Handicap
+            const { streak, winnerId } = getHeadToHeadStreak(player1.id, player2.id, matches)
+            let rule = null
+
+            if (streak >= 8 && winnerId) {
+                const winnerName = winnerId === player1.id ? player1.name : player2.name
+                const loserName = winnerId === player1.id ? player2.name : player1.name
+                rule = getHandicapRule(streak, winnerName, loserName)
+            }
+
             setGeneratedMatch([player1, player2])
+            setHandicapRule(rule)
             setIsGenerating(false)
         }, 600)
     }
@@ -173,6 +187,22 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                     <span className="mt-2 font-bold text-lg dark:text-white">{generatedMatch[1].name}</span>
                                 </div>
                             </div>
+
+                            {handicapRule && (
+                                <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-900/40 border-l-4 border-amber-500 rounded-r-lg text-left shadow-sm">
+                                    <div className="flex items-start">
+                                        <Scale className="text-amber-600 dark:text-amber-400 mr-3 mt-1 flex-shrink-0" size={24} />
+                                        <div>
+                                            <h4 className="font-bold text-amber-800 dark:text-amber-200 uppercase text-sm tracking-wide mb-1">
+                                                {handicapRule.title}
+                                            </h4>
+                                            <p className="text-amber-700 dark:text-amber-100 font-medium">
+                                                {handicapRule.description}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex gap-3 justify-center">
                                 <button

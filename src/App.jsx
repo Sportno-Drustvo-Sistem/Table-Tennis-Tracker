@@ -39,6 +39,7 @@ export default function App() {
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false)
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
+  const [isMatchFromGenerator, setIsMatchFromGenerator] = useState(false)
 
   const [editingUser, setEditingUser] = useState(null)
   const [editingMatch, setEditingMatch] = useState(null)
@@ -144,12 +145,14 @@ export default function App() {
 
   const handlePlayersSelected = (player1, player2) => {
     setSelectedPlayers([player1, player2])
+    setIsMatchFromGenerator(false)
     setIsPlayerSelectionOpen(false)
     setIsMatchModalOpen(true)
   }
 
   const handleMatchGenerated = (player1, player2) => {
     setSelectedPlayers([player1, player2])
+    setIsMatchFromGenerator(true)
     setIsGeneratorOpen(false)
     setIsMatchModalOpen(true)
   }
@@ -158,6 +161,12 @@ export default function App() {
     setIsMatchModalOpen(false)
     setSelectedPlayers([null, null])
     fetchData()
+
+    // Re-open generator if this match was created from it
+    if (isMatchFromGenerator) {
+      setIsMatchFromGenerator(false)
+      setIsGeneratorOpen(true)
+    }
   }
 
   return (
@@ -339,6 +348,7 @@ export default function App() {
             player1={selectedPlayers[0]}
             player2={selectedPlayers[1]}
             onMatchSaved={handleMatchSaved}
+            matches={matches}
           />
         )}
       </div>
