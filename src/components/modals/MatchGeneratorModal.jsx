@@ -23,17 +23,17 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
     const identifyExcludedPlayers = () => {
         // Find players who played the last 2 consecutive matches
         // matches are assumed to be sorted by date desc (newest first)
-        
+
         const consecutiveMatches = {} // map of userId -> consecutive count
         const excluded = new Set()
 
         // We only care about the most recent matches to determine "streak"
         // Iterate through matches to find current streaks
-        
+
         // Actually, the rule is "player shouldn't have more than 2 games in a row"
         // This means if I played the last 2 games, I cannot play the next one.
         // We look at the last 2 matches strictly.
-        
+
         if (matches.length >= 2) {
             const lastMatch = matches[0]
             const secondLastMatch = matches[1]
@@ -43,7 +43,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
 
             // Check for players present in BOTH
             const playedBoth = lastPlayers.filter(id => secondLastPlayers.includes(id))
-            
+
             playedBoth.forEach(id => excluded.add(id))
         }
 
@@ -64,7 +64,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
         setIsGenerating(true)
 
         // 1. Filter pool: Must be in selectedPool AND NOT in excludedPlayers
-        const candidates = users.filter(u => 
+        const candidates = users.filter(u =>
             selectedPool.includes(u.id) && !excludedPlayers.includes(u.id)
         )
 
@@ -74,12 +74,57 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
             return
         }
 
-        // 2. Randomly select 2
-        // Introduce a small delay for "effect"
+        // 2. Weighted Random Selection
+        // Get last 10 matches to determine weights
+        const recentMatches = matches.slice(0, 10)
+
+        // Calculate play counts in recent matches
+        const playCounts = {}
+        // candidateIds line removed as it was unused and invalid
+
+        // Initialize counts to 0
+        candidates.forEach(c => playCounts[c.id] = 0)
+
+        // Count occurrences
+        recentMatches.forEach(m => {
+            if (playCounts[m.player1_id] !== undefined) playCounts[m.player1_id]++
+            if (playCounts[m.player2_id] !== undefined) playCounts[m.player2_id]++
+        })
+
+        // Calculate weights: 1 / (count + 1)
+        // Less played = Higher weight
+        const candidatesWithWeights = candidates.map(c => {
+            const count = playCounts[c.id]
+            const weight = 1 / (count + 1)
+            return { ...c, weight, recentCount: count }
+        })
+
+        console.log('Match Generation Weights:', candidatesWithWeights.map(c => ({
+            name: c.name,
+            recentMatches: c.recentCount,
+            weight: c.weight.toFixed(3)
+        })))
+
+        // Helper for weighted random choice
+        const weightedRandomObj = (items) => {
+            const totalWeight = items.reduce((sum, item) => sum + item.weight, 0)
+            let random = Math.random() * totalWeight
+
+            for (const item of items) {
+                if (random < item.weight) return item
+                random -= item.weight
+            }
+            return items[items.length - 1]
+        }
+
         setTimeout(() => {
-            const shuffled = [...candidates].sort(() => 0.5 - Math.random())
-            const player1 = shuffled[0]
-            const player2 = shuffled[1]
+            // Select Player 1
+            const player1 = weightedRandomObj(candidatesWithWeights)
+
+            // Select Player 2 (exclude Player 1)
+            const remainingCandidates = candidatesWithWeights.filter(c => c.id !== player1.id)
+            const player2 = weightedRandomObj(remainingCandidates)
+
             setGeneratedMatch([player1, player2])
             setIsGenerating(false)
         }, 600)
@@ -96,7 +141,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                         <Shuffle className="mr-2 text-blue-600 dark:text-blue-400" />
                         Generate Match
                     </h2>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                     >
@@ -111,24 +156,24 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                             <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-6">Match Found!</h3>
                             <div className="flex items-center justify-center gap-4 mb-8">
                                 <div className="flex flex-col items-center">
-                                    <img 
-                                        src={generatedMatch[0].avatar_url} 
+                                    <img
+                                        src={generatedMatch[0].avatar_url}
                                         alt={generatedMatch[0].name}
-                                        className="w-20 h-20 rounded-full border-4 border-blue-500 shadow-lg object-cover" 
+                                        className="w-20 h-20 rounded-full border-4 border-blue-500 shadow-lg object-cover"
                                     />
                                     <span className="mt-2 font-bold text-lg dark:text-white">{generatedMatch[0].name}</span>
                                 </div>
                                 <div className="text-2xl font-bold text-gray-300">VS</div>
                                 <div className="flex flex-col items-center">
-                                    <img 
-                                        src={generatedMatch[1].avatar_url} 
+                                    <img
+                                        src={generatedMatch[1].avatar_url}
                                         alt={generatedMatch[1].name}
-                                        className="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg object-cover" 
+                                        className="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg object-cover"
                                     />
                                     <span className="mt-2 font-bold text-lg dark:text-white">{generatedMatch[1].name}</span>
                                 </div>
                             </div>
-                            
+
                             <div className="flex gap-3 justify-center">
                                 <button
                                     onClick={() => {
@@ -153,14 +198,14 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                                 Select players available for this match. Players who played the last 2 consecutive games are automatically excluded.
                             </p>
-                            
+
                             {/* Exclusion Notice */}
                             {excludedPlayers.length > 0 && (
                                 <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start text-sm text-amber-800 dark:text-amber-200">
                                     <AlertCircle size={16} className="mr-2 mt-0.5 shrink-0" />
                                     <div>
-                                        <span className="font-bold">Taking a break:</span> 
-                                        {users.filter(u => excludedPlayers.includes(u.id)).map(u => ' ' + u.name).join(', ')} 
+                                        <span className="font-bold">Taking a break:</span>
+                                        {users.filter(u => excludedPlayers.includes(u.id)).map(u => ' ' + u.name).join(', ')}
                                         {' '} (played last 2 games)
                                     </div>
                                 </div>
@@ -170,7 +215,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                 {users.map(user => {
                                     const isExcluded = excludedPlayers.includes(user.id)
                                     const isSelected = selectedPool.includes(user.id)
-                                    
+
                                     return (
                                         <button
                                             key={user.id}
@@ -178,8 +223,8 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                             disabled={isExcluded}
                                             className={`
                                                 flex items-center p-3 rounded-lg border text-left transition-all
-                                                ${isExcluded 
-                                                    ? 'opacity-50 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed' 
+                                                ${isExcluded
+                                                    ? 'opacity-50 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed'
                                                     : isSelected
                                                         ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 ring-1 ring-blue-500'
                                                         : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300'
@@ -212,8 +257,8 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                 disabled={isGenerating}
                                 className={`
                                     w-full py-3 rounded-xl font-bold text-white shadow-md transition-all flex items-center justify-center
-                                    ${isGenerating 
-                                        ? 'bg-gray-400 cursor-wait' 
+                                    ${isGenerating
+                                        ? 'bg-gray-400 cursor-wait'
                                         : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                                     }
                                 `}
