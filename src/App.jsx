@@ -13,14 +13,30 @@ import PlayerSelectionModal from './components/modals/PlayerSelectionModal'
 import MatchModal from './components/modals/MatchModal'
 import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
 
+// Padel imports
+import PadelLeaderboard from './components/PadelLeaderboard'
+import PadelPlayerStats from './components/PadelPlayerStats'
+import PadelMatches from './components/PadelMatches'
+import PadelPlayerSelectionModal from './components/modals/PadelPlayerSelectionModal'
+import PadelMatchModal from './components/modals/PadelMatchModal'
+import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
+import PadelMatchGeneratorModal from './components/modals/PadelMatchGeneratorModal'
+
 // --- Main App ---
 
 export default function App() {
   const [users, setUsers] = useState([])
   const [matches, setMatches] = useState([])
+  const [padelMatches, setPadelMatches] = useState([])
+  const [padelStats, setPadelStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [migrating, setMigrating] = useState(false)
   const migrationAttempted = useRef(false)
+
+  // Sport Switcher State
+  const [activeSport, setActiveSport] = useState(() => {
+    return localStorage.getItem('activeSport') || 'pingpong'
+  })
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => {
@@ -32,17 +48,28 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats', 'matches'
   const [statsPlayerId, setStatsPlayerId] = useState(null)
 
-  // Modal States
+  // Modal States — Ping Pong
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isPlayerSelectionOpen, setIsPlayerSelectionOpen] = useState(false)
-
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false)
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
   const [isMatchFromGenerator, setIsMatchFromGenerator] = useState(false)
-
   const [editingUser, setEditingUser] = useState(null)
   const [editingMatch, setEditingMatch] = useState(null)
+
+  // Modal States — Padel
+  const [isPadelSelectionOpen, setIsPadelSelectionOpen] = useState(false)
+  const [isPadelMatchModalOpen, setIsPadelMatchModalOpen] = useState(false)
+  const [isPadelGeneratorOpen, setIsPadelGeneratorOpen] = useState(false)
+  const [padelTeams, setPadelTeams] = useState({ team1: null, team2: null })
+  const [isPadelMatchFromGenerator, setIsPadelMatchFromGenerator] = useState(false)
+  const [editingPadelMatch, setEditingPadelMatch] = useState(null)
+
+  // Persist sport selection
+  useEffect(() => {
+    localStorage.setItem('activeSport', activeSport)
+  }, [activeSport])
 
   // Apply Dark Mode
   useEffect(() => {
@@ -58,7 +85,7 @@ export default function App() {
   const fetchData = useCallback(async () => {
     setLoading(true)
 
-    // 1. Fetch Users
+    // 1. Fetch Users (shared)
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -67,7 +94,7 @@ export default function App() {
     if (userError) console.error('Error fetching users:', userError)
     else setUsers(userData || [])
 
-    // 2. Fetch Matches (Needed for Leaderboard/Stats)
+    // 2. Fetch Ping Pong Matches
     const { data: matchData, error: matchError } = await supabase
       .from('matches')
       .select('*')
@@ -75,6 +102,23 @@ export default function App() {
 
     if (matchError) console.error('Error fetching matches:', matchError)
     else setMatches(matchData || [])
+
+    // 3. Fetch Padel Matches
+    const { data: padelMatchData, error: padelMatchError } = await supabase
+      .from('padel_matches')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (padelMatchError) console.error('Error fetching padel matches:', padelMatchError)
+    else setPadelMatches(padelMatchData || [])
+
+    // 4. Fetch Padel Stats
+    const { data: padelStatsData, error: padelStatsError } = await supabase
+      .from('padel_stats')
+      .select('*')
+
+    if (padelStatsError) console.error('Error fetching padel stats:', padelStatsError)
+    else setPadelStats(padelStatsData || [])
 
     setLoading(false)
   }, [])
@@ -89,7 +133,7 @@ export default function App() {
       debounceTimer = setTimeout(() => {
         console.log('Refreshing data from realtime update...')
         fetchData()
-      }, 1000) // Debounce to handle batch updates (like ELO recalcs)
+      }, 1000)
     }
 
     const subscription = supabase
@@ -100,6 +144,14 @@ export default function App() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
         console.log('User change received!', payload)
+        debouncedFetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'padel_matches' }, (payload) => {
+        console.log('Padel match change received!', payload)
+        debouncedFetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'padel_stats' }, (payload) => {
+        console.log('Padel stats change received!', payload)
         debouncedFetch()
       })
       .subscribe()
@@ -115,7 +167,6 @@ export default function App() {
     if (!loading && matches.length > 0 && users.length > 0 && !migrationAttempted.current) {
       const totalMatchesPlayed = users.reduce((acc, user) => acc + (user.matches_played || 0), 0)
 
-      // If we have matches but 0 recorded matches_played across all users, we need to backfill
       if (totalMatchesPlayed === 0) {
         console.log('Detected uninitialized stats. Running recalculation...')
         migrationAttempted.current = true
@@ -123,11 +174,10 @@ export default function App() {
         recalculatePlayerStats()
           .then(() => {
             console.log('Recalculation complete.')
-            fetchData() // Refresh data
+            fetchData()
           })
           .catch(err => {
             console.error('Migration failed:', err)
-            // Use a toast or less intrusive alert in a real app, but alert is fine here for critical setup error
             if (err.message && err.message.includes('column')) {
               alert('Automatic update failed: Missing database columns. Please run the SQL migration to add elo_rating, matches_played, and is_ranked columns.')
             }
@@ -135,14 +185,14 @@ export default function App() {
           .finally(() => setMigrating(false))
       }
     }
-  }, [loading, matches.length, users.length, fetchData]) // Only check when data load completes
+  }, [loading, matches.length, users.length, fetchData])
 
   const handleUserClick = (user) => {
-    // Navigate to user's stats page
     setStatsPlayerId(user.id)
     setActiveTab('stats')
   }
 
+  // Ping Pong handlers
   const handlePlayersSelected = (player1, player2) => {
     setSelectedPlayers([player1, player2])
     setIsMatchFromGenerator(false)
@@ -162,12 +212,42 @@ export default function App() {
     setSelectedPlayers([null, null])
     fetchData()
 
-    // Re-open generator if this match was created from it
     if (isMatchFromGenerator) {
       setIsMatchFromGenerator(false)
       setIsGeneratorOpen(true)
     }
   }
+
+  // Padel handlers
+  const handlePadelTeamsSelected = (team1, team2) => {
+    setPadelTeams({ team1, team2 })
+    setIsPadelMatchFromGenerator(false)
+    setIsPadelSelectionOpen(false)
+    setIsPadelMatchModalOpen(true)
+  }
+
+  const handlePadelMatchGenerated = (team1, team2) => {
+    setPadelTeams({ team1, team2 })
+    setIsPadelMatchFromGenerator(true)
+    setIsPadelGeneratorOpen(false)
+    setIsPadelMatchModalOpen(true)
+  }
+
+  const handlePadelMatchSaved = () => {
+    setIsPadelMatchModalOpen(false)
+    setPadelTeams({ team1: null, team2: null })
+    fetchData()
+
+    if (isPadelMatchFromGenerator) {
+      setIsPadelMatchFromGenerator(false)
+      setIsPadelGeneratorOpen(true)
+    }
+  }
+
+  const isPingPong = activeSport === 'pingpong'
+  const sportEmoji = isPingPong ? '🏓' : '🎾'
+  const sportName = isPingPong ? 'Ping Pong Tracker' : 'Padel Tracker'
+  const sportSubtitle = isPingPong ? 'Track your garage glory.' : 'Track your doubles domination.'
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors duration-200`}>
@@ -176,10 +256,10 @@ export default function App() {
         <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div>
             <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center">
-              <span className="bg-blue-600 text-white p-2 rounded-lg mr-3 shadow-lg">🏓</span>
-              Ping Pong Tracker
+              <span className={`${isPingPong ? 'bg-blue-600' : 'bg-green-600'} text-white p-2 rounded-lg mr-3 shadow-lg`}>{sportEmoji}</span>
+              {sportName}
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2 ml-1">Track your garage glory.</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-2 ml-1">{sportSubtitle}</p>
             {migrating && (
               <div className="mt-2 text-sm font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                 ⚙️ Updating historical stats...
@@ -188,6 +268,28 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap justify-center gap-3">
+            {/* Sport Switcher */}
+            <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setActiveSport('pingpong')}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all ${activeSport === 'pingpong'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+              >
+                🏓 <span className="ml-1">Ping Pong</span>
+              </button>
+              <button
+                onClick={() => setActiveSport('padel')}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all ${activeSport === 'padel'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+              >
+                🎾 <span className="ml-1">Padel</span>
+              </button>
+            </div>
+
             {/* Dark Mode Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
@@ -201,25 +303,37 @@ export default function App() {
             <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
               <button
                 onClick={() => setActiveTab('grid')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid'
+                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
               >
                 <LayoutGrid size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Players</span>
               </button>
               <button
                 onClick={() => setActiveTab('leaderboard')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard'
+                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
               >
                 <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Leaderboard</span>
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats'
+                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
               >
                 <BarChart2 size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Stats</span>
               </button>
               <button
                 onClick={() => setActiveTab('matches')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches'
+                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
               >
                 <Calendar size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Matches</span>
               </button>
@@ -236,8 +350,8 @@ export default function App() {
 
               {activeTab === 'matches' && (
                 <button
-                  onClick={() => setIsPlayerSelectionOpen(true)}
-                  className="flex items-center px-4 md:px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md hover:bg-blue-700 dark:hover:bg-blue-500"
+                  onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
+                  className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
                 >
                   <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">New Match</span>
                 </button>
@@ -250,7 +364,6 @@ export default function App() {
         <main>
           {activeTab === 'grid' && (
             <>
-              {/* Grid */}
               {loading ? (
                 <div className="text-center py-20 text-gray-400 dark:text-gray-500">Loading players...</div>
               ) : users.length === 0 ? (
@@ -260,7 +373,7 @@ export default function App() {
                   <p className="text-gray-500 dark:text-gray-400 mb-6">Add some colleagues to get started!</p>
                   <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className={`inline-flex items-center px-4 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg`}
                   >
                     <Plus size={20} className="mr-2" />
                     Add Player
@@ -284,25 +397,44 @@ export default function App() {
           )}
 
           {activeTab === 'leaderboard' && (
-            <Leaderboard users={users} matches={matches} />
+            isPingPong ? (
+              <Leaderboard users={users} matches={matches} />
+            ) : (
+              <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} />
+            )
           )}
 
           {activeTab === 'stats' && (
-            <PlayerStats users={users} matches={matches} initialPlayerId={statsPlayerId} />
+            isPingPong ? (
+              <PlayerStats users={users} matches={matches} initialPlayerId={statsPlayerId} />
+            ) : (
+              <PadelPlayerStats users={users} matches={padelMatches} padelStats={padelStats} initialPlayerId={statsPlayerId} />
+            )
           )}
 
           {activeTab === 'matches' && (
-            <Matches
-              matches={matches}
-              users={users}
-              onEditMatch={setEditingMatch}
-              onMatchDeleted={fetchData}
-              onGenerateMatch={() => setIsGeneratorOpen(true)}
-            />
+            isPingPong ? (
+              <Matches
+                matches={matches}
+                users={users}
+                onEditMatch={setEditingMatch}
+                onMatchDeleted={fetchData}
+                onGenerateMatch={() => setIsGeneratorOpen(true)}
+              />
+            ) : (
+              <PadelMatches
+                matches={padelMatches}
+                users={users}
+                padelStats={padelStats}
+                onEditMatch={setEditingPadelMatch}
+                onMatchDeleted={fetchData}
+                onGenerateMatch={() => setIsPadelGeneratorOpen(true)}
+              />
+            )
           )}
         </main>
 
-        {/* Modals */}
+        {/* Shared Modals */}
         <AddUserModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
@@ -316,6 +448,7 @@ export default function App() {
           onUserUpdated={fetchData}
         />
 
+        {/* Ping Pong Modals */}
         <PlayerSelectionModal
           isOpen={isPlayerSelectionOpen}
           onClose={() => setIsPlayerSelectionOpen(false)}
@@ -349,6 +482,43 @@ export default function App() {
             player2={selectedPlayers[1]}
             onMatchSaved={handleMatchSaved}
             matches={matches}
+          />
+        )}
+
+        {/* Padel Modals */}
+        <PadelPlayerSelectionModal
+          isOpen={isPadelSelectionOpen}
+          onClose={() => setIsPadelSelectionOpen(false)}
+          users={users}
+          onTeamsSelected={handlePadelTeamsSelected}
+        />
+
+        <PadelMatchGeneratorModal
+          isOpen={isPadelGeneratorOpen}
+          onClose={() => setIsPadelGeneratorOpen(false)}
+          users={users}
+          matches={padelMatches}
+          padelStats={padelStats}
+          onMatchGenerated={handlePadelMatchGenerated}
+        />
+
+        <PadelEditMatchModal
+          isOpen={!!editingPadelMatch}
+          match={editingPadelMatch}
+          onClose={() => setEditingPadelMatch(null)}
+          onMatchUpdated={fetchData}
+        />
+
+        {padelTeams.team1 && padelTeams.team2 && (
+          <PadelMatchModal
+            isOpen={isPadelMatchModalOpen}
+            onClose={() => {
+              setIsPadelMatchModalOpen(false)
+              setPadelTeams({ team1: null, team2: null })
+            }}
+            team1={padelTeams.team1}
+            team2={padelTeams.team2}
+            onMatchSaved={handlePadelMatchSaved}
           />
         )}
       </div>
