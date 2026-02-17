@@ -1,15 +1,15 @@
 import { supabase } from './supabaseClient'
 
-const getKFactor = (matchesPlayed) => {
+export const getKFactor = (matchesPlayed) => {
     // Standard K-Factor for everyone to prevent wild swings
     return 32
 }
 
-const calculateExpectedScore = (ratingA, ratingB) => {
+export const calculateExpectedScore = (ratingA, ratingB) => {
     return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400))
 }
 
-const calculateEloChange = (ratingA, ratingB, scoreA, scoreB, kFactor) => {
+export const calculateEloChange = (ratingA, ratingB, scoreA, scoreB, kFactor) => {
     const expectedScoreA = calculateExpectedScore(ratingA, ratingB)
     const actualScoreA = scoreA > scoreB ? 1 : 0
 

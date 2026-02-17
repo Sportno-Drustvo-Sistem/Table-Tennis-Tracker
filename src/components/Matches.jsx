@@ -1,20 +1,66 @@
-import React, { useState } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw, Scale } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X } from 'lucide-react'
 import { supabase } from '../supabaseClient'
-import { recalculatePlayerStats } from '../utils'
+import { recalculatePlayerStats, calculateEloChange, getKFactor } from '../utils'
 
 const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+
+    // Compute ELO ratings and changes for every match
+    const matchEloData = useMemo(() => {
+        if (!matches || !users || matches.length === 0 || users.length === 0) return {}
+
+        // Initialize player ratings
+        const ratings = {}
+        const matchesPlayed = {}
+        users.forEach(u => {
+            ratings[u.id] = 1200
+            matchesPlayed[u.id] = 0
+        })
+
+        // Process matches in chronological order (oldest first)
+        const sortedMatches = [...matches].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        )
+
+        const eloMap = {} // matchId -> { p1Elo, p1Change, p2Elo, p2Change }
+
+        sortedMatches.forEach(match => {
+            const p1Id = match.player1_id
+            const p2Id = match.player2_id
+
+            if (ratings[p1Id] === undefined || ratings[p2Id] === undefined) return
+
+            matchesPlayed[p1Id] = (matchesPlayed[p1Id] || 0) + 1
+            matchesPlayed[p2Id] = (matchesPlayed[p2Id] || 0) + 1
+
+            const k1 = getKFactor(matchesPlayed[p1Id])
+            const k2 = getKFactor(matchesPlayed[p2Id])
+
+            const p1Change = calculateEloChange(ratings[p1Id], ratings[p2Id], match.score1, match.score2, k1)
+            const p2Change = calculateEloChange(ratings[p2Id], ratings[p1Id], match.score2, match.score1, k2)
+
+            ratings[p1Id] += p1Change
+            ratings[p2Id] += p2Change
+
+            eloMap[match.id] = {
+                p1Elo: ratings[p1Id],
+                p1Change,
+                p2Elo: ratings[p2Id],
+                p2Change,
+            }
+        })
+
+        return eloMap
+    }, [matches, users])
 
     const handleRecalculate = async () => {
-        if (!window.confirm('Recalculate all player stats (ELO, wins, etc.) based on match history?')) return
-
         setRecalculating(true)
         try {
             await recalculatePlayerStats()
-            if (onMatchDeleted) onMatchDeleted() // Triggers data refresh
-            alert('Stats recalculated successfully!')
+            if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
             console.error(error)
             alert('Error recalculating stats')
@@ -23,20 +69,20 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch 
         }
     }
 
-    const handleDelete = async (match) => {
-        if (!window.confirm('Are you sure you want to delete this match? This will recalculate win counts.')) return
+    const handleDeleteRequest = (matchId) => {
+        setConfirmDeleteId(matchId)
+    }
 
+    const handleDeleteConfirm = async (match) => {
         setLoading(true)
+        setConfirmDeleteId(null)
         try {
             const { error } = await supabase.from('matches').delete().eq('id', match.id)
             if (error) throw error
 
-            // Recalculate stats
             await recalculatePlayerStats()
 
-            // Notify parent to refresh data
             if (onMatchDeleted) onMatchDeleted()
-
         } catch (error) {
             alert('Error deleting match: ' + error.message)
         } finally {
@@ -44,9 +90,30 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch 
         }
     }
 
-    // Get player info for a match
+    const handleDeleteCancel = () => {
+        setConfirmDeleteId(null)
+    }
+
     const getPlayerInfo = (playerId) => {
         return users.find(u => u.id === playerId) || { name: 'Unknown', avatar_url: 'https://via.placeholder.com/30' }
+    }
+
+    const EloChangeDisplay = ({ elo, change }) => {
+        const isPositive = change > 0
+        const changeColor = isPositive
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-red-500 dark:text-red-400'
+        const sign = isPositive ? '+' : ''
+
+        return (
+            <div className="text-xs mt-0.5">
+                <span className="text-gray-500 dark:text-gray-400">{elo}</span>
+                {' '}
+                <span className={changeColor}>
+                    ({sign}{change})
+                </span>
+            </div>
+        )
     }
 
     return (
@@ -88,10 +155,10 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch 
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    <th className="px-6 py-4">Date Played</th>
                                     <th className="px-6 py-4 text-right">Player 1</th>
                                     <th className="px-6 py-4 text-center">Score</th>
                                     <th className="px-6 py-4">Player 2</th>
+                                    <th className="px-6 py-4">Date Played</th>
                                     <th className="px-6 py-4 text-center">Actions</th>
                                 </tr>
                             </thead>
@@ -100,17 +167,20 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch 
                                     const player1 = getPlayerInfo(match.player1_id)
                                     const player2 = getPlayerInfo(match.player2_id)
                                     const matchDate = new Date(match.created_at)
+                                    const eloData = matchEloData[match.id]
 
                                     return (
                                         <tr key={match.id} className="hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
-                                            <td className="px-6 py-4 text-gray-600 dark:text-gray-400 font-mono text-sm">
-                                                {matchDate.toLocaleDateString()} {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end space-x-3">
-                                                    <span className={`font-bold ${match.score1 > match.score2 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-                                                        {player1.name}
-                                                    </span>
+                                                    <div className="text-right">
+                                                        <span className={`font-bold ${match.score1 > match.score2 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                            {player1.name}
+                                                        </span>
+                                                        {eloData && (
+                                                            <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />
+                                                        )}
+                                                    </div>
                                                     <img src={player1.avatar_url} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
@@ -135,29 +205,59 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch 
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center space-x-3">
                                                     <img src={player2.avatar_url} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
-                                                    <span className={`font-bold ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-                                                        {player2.name}
-                                                    </span>
+                                                    <div>
+                                                        <span className={`font-bold ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                            {player2.name}
+                                                        </span>
+                                                        {eloData && (
+                                                            <EloChangeDisplay elo={eloData.p2Elo} change={eloData.p2Change} />
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
+                                            <td className="px-6 py-4 text-gray-600 dark:text-gray-400 font-mono text-sm whitespace-nowrap">
+                                                {matchDate.toLocaleDateString()} {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex justify-center space-x-1">
-                                                    <button
-                                                        onClick={() => onEditMatch(match)}
-                                                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2"
-                                                        title="Edit Match"
-                                                        disabled={loading}
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(match)}
-                                                        className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-2"
-                                                        title="Delete Match"
-                                                        disabled={loading}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                <div className="flex justify-center items-center space-x-1">
+                                                    {confirmDeleteId === match.id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Delete?</span>
+                                                            <button
+                                                                onClick={() => handleDeleteConfirm(match)}
+                                                                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                                                                title="Confirm Delete"
+                                                            >
+                                                                <Check size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={handleDeleteCancel}
+                                                                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-colors"
+                                                                title="Cancel"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => onEditMatch(match)}
+                                                                className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                                title="Edit Match"
+                                                                disabled={loading}
+                                                            >
+                                                                <Edit2 size={18} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteRequest(match.id)}
+                                                                className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                                title="Delete Match"
+                                                                disabled={loading}
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
