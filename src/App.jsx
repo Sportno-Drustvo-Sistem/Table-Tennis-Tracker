@@ -444,7 +444,7 @@ export default function App() {
               />
             )
           )
-          )}
+          }
 
           {activeTab === 'tournament' && (
             <Tournament
