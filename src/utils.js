@@ -164,39 +164,7 @@ export const getHeadToHeadStreak = (player1Id, player2Id, matches) => {
     return { streak, winnerId: currentWinnerId }
 }
 
-export const getHandicapRule = (streak, winnerName, loserName) => {
-    if (streak >= 16) {
-        return {
-            title: '🔥 UNSTOPPABLE FORCE HANDICAP 🔥',
-            description: `Since ${winnerName} has won ${streak} games in a row, they must play with their NON-DOMINANT hand whenever leading by more than 1 point!`,
-            severity: 'critical'
-        }
-    }
 
-    if (streak >= 8) {
-        const rules = [
-            `Loss Streak Handicap: ${loserName} serves 3 times, ${winnerName} serves 1 time.`,
-            `Alternating Serves: ${winnerName} must alternate between forehand and backhand serves.`,
-            `Mandatory Backhand Serve: ${winnerName} must only serve using backhand.`,
-            `Point Headstart: ${loserName} starts the match with a 2-0 lead.`,
-            `No Spin Serves: ${winnerName} cannot use spin on serves.`
-        ]
-        // Use a pseudo-random selection based on names and streak so it doesn't flicker wildly on re-renders, 
-        // or just random is fine. Let's do random but stable per "session" if possible, 
-        // but for now simple random is okay as it adds variety. 
-        // Actually, let's pick based on a simple has so it stays consistent for the same match-up/moment? 
-        // No, user asked for "random", let's just pick one.
-        const randomIndex = Math.floor(Math.random() * rules.length)
-
-        return {
-            title: '⚖️ BALANCING THE SCALES',
-            description: rules[randomIndex],
-            severity: 'high'
-        }
-    }
-
-    return null
-}
 
 
 export const generateTournamentName = () => {
@@ -210,12 +178,12 @@ export const generateTournamentName = () => {
     return `${adj} ${noun} ${years[0]}`
 }
 
+// Fetches all active debuffs (both mayhem and streak types)
 export const getActiveDebuffs = async () => {
     const { data, error } = await supabase
         .from('debuffs')
         .select('*')
         .eq('is_active', true)
-        .eq('trigger_type', 'mayhem')
 
     if (error) {
         console.error('Error fetching debuffs:', error)
@@ -225,13 +193,16 @@ export const getActiveDebuffs = async () => {
 }
 
 export const getRandomDebuff = (debuffs, playerElo) => {
-    if (!debuffs || debuffs.length === 0) return null
+    // Filter for Mayhem type only
+    const mayhemDebuffs = debuffs.filter(d => d.trigger_type === 'mayhem')
+
+    if (!mayhemDebuffs || mayhemDebuffs.length === 0) return null
 
     // Weighted random selection based on Elo
     // Higher Elo -> Higher chance of drawing higher severity debuffs
 
     // Sort debuffs by severity (asc)
-    const sortedDebuffs = [...debuffs].sort((a, b) => a.severity - b.severity)
+    const sortedDebuffs = [...mayhemDebuffs].sort((a, b) => a.severity - b.severity)
 
     // Base weight for each debuff
     const weights = sortedDebuffs.map(d => {
@@ -263,4 +234,50 @@ export const getRandomDebuff = (debuffs, playerElo) => {
     }
 
     return sortedDebuffs[sortedDebuffs.length - 1]
+}
+
+// Updated to use DB Debuffs if provided, else fall back to legacy (though legacy should be migrated)
+// Now accepts 'allDebuffs' as a 4th argument which is the list of active debuffs from DB
+export const getHandicapRule = (streak, winnerName, loserName, allDebuffs = []) => {
+    // Filter debuffs by type 'streak_loss'
+    const streakDebuffs = allDebuffs.filter(d => d.trigger_type === 'streak_loss')
+
+    // Find rules matching the streak threshold
+    // We want the highest threshold that is <= streak.
+    // e.g. if streak is 17, and we have rules for 8 and 16. match 16.
+
+    // Group by trigger_value
+    const applicableDebuffs = streakDebuffs.filter(d => (d.trigger_value || 0) <= streak)
+
+    if (applicableDebuffs.length === 0) return null
+
+    // Find max trigger value among applicable
+    const maxTrigger = Math.max(...applicableDebuffs.map(d => d.trigger_value || 0))
+
+    // Filter to only those with the max trigger (so we don't pick a "streak 8" rule when we are on "streak 16")
+    const candidates = applicableDebuffs.filter(d => (d.trigger_value || 0) === maxTrigger)
+
+    if (candidates.length === 0) return null
+
+    const randomRule = candidates[Math.floor(Math.random() * candidates.length)]
+
+    // Format the description with names (replace placeholders if we had them, 
+    // but legacy format was dynamic string. 
+    // For DB migration, we saved static strings but with generic phrasing like "Player" or "Opponent".
+    // We might want to replace "Player" with winnerName and "Opponent" with loserName if we standardise it.
+    // For now, let's just return the static DB text. Users can edit it to be generic. 
+    // However, the prompt implies "I want to select debuffs from the lose streak severities".
+    // Let's just return the object.
+
+    return {
+        title: randomRule.title,
+        description: randomRule.description,
+        severity: randomRule.severity >= 9 ? 'critical' : 'high', // Map numeric to legacy string for UI color if needed, or update UI to use number
+        // DB stores severity as int, MatchModal expects string 'critical'/'high' for color sometimes?
+        // Actually MatchModal checks `rule.type` mostly. 
+        // But for streak rules color: 
+        // In MatchModal: severity === 'critical' ? 'bg-red-500' : 'bg-orange-500'
+        // Let's keep compatibility.
+        original_severity: randomRule.severity
+    }
 }

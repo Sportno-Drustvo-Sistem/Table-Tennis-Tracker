@@ -34,13 +34,19 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved)
-                setActiveTournament(parsed)
-                // If mayhem mode, ensure we have debuffs cached
-                if (parsed.config?.mayhemMode) {
+                // Validate essential structure to prevent crashes from stale data
+                if (parsed && parsed.rounds && Array.isArray(parsed.rounds)) {
+                    setActiveTournament(parsed)
+                    // Ensure we have debuffs cached if needed
+                    // Always fetch if we are in tournament mode to be safe for diverse rules
                     getActiveDebuffs().then(setCachedDebuffs)
+                } else {
+                    console.warn("Invalid saved tournament data, clearing.")
+                    localStorage.removeItem(STORAGE_KEY)
                 }
             } catch (e) {
                 console.error("Failed to parse saved tournament", e)
+                localStorage.removeItem(STORAGE_KEY)
             }
         }
         setLoading(false)
@@ -80,12 +86,10 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     }
 
     const handleStartTournament = async ({ name, playerIds, format, useSwissSeeding, mayhemMode }) => {
-        // 0. Fetch debuffs if needed
-        let debuffsPool = []
-        if (mayhemMode) {
-            debuffsPool = await getActiveDebuffs()
-            setCachedDebuffs(debuffsPool)
-        }
+        // 0. Fetch debuffs
+        // Always fetch to ensure we have them for streaks/mayhem
+        const debuffsPool = await getActiveDebuffs()
+        setCachedDebuffs(debuffsPool)
 
         // 1. Create Tournament in DB
         const { data: tourneyData, error: tourneyError } = await supabase
@@ -195,13 +199,15 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         let match = null
         let roundIndex = -1
 
-        activeTournament.rounds.forEach((r, rIdx) => {
-            const m = r.matches.find(m => m.id === matchId)
-            if (m) {
-                match = m
-                roundIndex = rIdx
-            }
-        })
+        if (activeTournament && activeTournament.rounds) {
+            activeTournament.rounds.forEach((r, rIdx) => {
+                const m = r.matches.find(m => m.id === matchId)
+                if (m) {
+                    match = m
+                    roundIndex = rIdx
+                }
+            })
+        }
 
         if (match && match.player1 && match.player2 && !match.winner) {
             setSelectedMatchId({ matchId, roundIndex })
@@ -256,7 +262,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
         // Use cached debuffs or fetch if missing (though we should have them)
         let debuffsPool = cachedDebuffs
-        if (newTournament.config?.mayhemMode && (!debuffsPool || debuffsPool.length === 0)) {
+        if (!debuffsPool || debuffsPool.length === 0) {
             debuffsPool = await getActiveDebuffs()
             setCachedDebuffs(debuffsPool)
         }

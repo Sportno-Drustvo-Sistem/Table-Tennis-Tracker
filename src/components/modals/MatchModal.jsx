@@ -1,12 +1,19 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Scale, Skull } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule } from '../../utils'
+import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
     const [saving, setSaving] = useState(false)
+    const [allDebuffs, setAllDebuffs] = useState([])
+
+    useEffect(() => {
+        if (isOpen) {
+            getActiveDebuffs().then(setAllDebuffs)
+        }
+    }, [isOpen])
 
     if (!isOpen || !player1 || !player2) return null
 
@@ -17,7 +24,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
     if (streak >= 8 && winnerId) {
         const winnerName = winnerId === player1.id ? player1.name : player2.name
         const loserName = winnerId === player1.id ? player2.name : player1.name
-        streakRule = getHandicapRule(streak, winnerName, loserName)
+        // Use DB rules if available, otherwise legacy fallback (which is now removed/refactored in utils so we MUST pass debuffs)
+        streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
     }
 
     // Combine rules
@@ -70,8 +78,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                     <div className="mb-8 space-y-3">
                         {activeRules.map((rule, idx) => (
                             <div key={idx} className={`p-4 border-l-4 rounded-r-lg text-left shadow-sm ${rule.type === 'mayhem'
-                                    ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
-                                    : 'bg-amber-50 dark:bg-amber-900/40 border-amber-500'
+                                ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
+                                : 'bg-amber-50 dark:bg-amber-900/40 border-amber-500'
                                 }`}>
                                 <div className="flex items-start">
                                     {rule.type === 'mayhem' ? (
