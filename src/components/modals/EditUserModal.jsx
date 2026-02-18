@@ -1,4 +1,3 @@
-```javascript
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 
@@ -26,7 +25,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
 
             if (file) {
                 const fileExt = file.name.split('.').pop()
-                const fileName = `${ Date.now() }.${ fileExt } `
+                const fileName = `${Date.now()}.${fileExt}`
                 const { error: uploadError } = await supabase.storage
                     .from('avatars')
                     .upload(fileName, file)
@@ -78,12 +77,29 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
                             className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-200"
                         />
                     </div>
-                    <div className="flex justify-end space-x-2 pt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
-                        <button type="submit" disabled={uploading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                            {uploading ? 'Saving...' : 'Save Changes'}
-                        </button>
-                    </div>
+
+                    {isAdmin ? (
+                        <div className="flex justify-end space-x-2 pt-4">
+                            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
+                            <button type="submit" disabled={uploading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                                {uploading ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex justify-end space-x-2 pt-4">
+                            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Close</button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onViewStats(user.id)
+                                    onClose()
+                                }}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                View Stats
+                            </button>
+                        </div>
+                    )}
                 </form>
             </div>
         </div>
