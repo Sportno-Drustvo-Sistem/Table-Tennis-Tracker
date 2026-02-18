@@ -35,10 +35,14 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             try {
                 const parsed = JSON.parse(saved)
                 // Validate essential structure to prevent crashes from stale data
-                if (parsed && parsed.rounds && Array.isArray(parsed.rounds)) {
+                const isValid = parsed &&
+                    parsed.rounds &&
+                    Array.isArray(parsed.rounds) &&
+                    parsed.rounds.every(r => r.matches && Array.isArray(r.matches))
+
+                if (isValid) {
                     setActiveTournament(parsed)
                     // Ensure we have debuffs cached if needed
-                    // Always fetch if we are in tournament mode to be safe for diverse rules
                     getActiveDebuffs().then(setCachedDebuffs)
                 } else {
                     console.warn("Invalid saved tournament data, clearing.")
