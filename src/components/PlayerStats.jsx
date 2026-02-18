@@ -1,6 +1,45 @@
+import TrophyCase from './TrophyCase'
+
+const PlayerStats = ({ users, matches, initialPlayerId }) => {
+    // ... (rest of imports/state)
+
+    // ... (inside the component)
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-blue-500 flex items-center justify-between flex-wrap gap-4">
+                {/* ... (Header) ... */}
+            </div>
+            
+            <TrophyCase playerId={selectedPlayerId} />
+
+            <DateRangePicker
+                // ...
+            />
+
+            {/* ... (Stats Grid) ... */}
+
+            <div className="grid md:grid-cols-2 gap-6">
+
+                {/* Head to Head */}
+                {/* ... */}
+
+                {/* Recent Matches */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white"><Calendar className="mr-2" size={20} /> Recent Matches</h3>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        {stats?.timeline.length === 0 && <div className="text-gray-400 dark:text-gray-500">No matches found</div>}
+                        {stats?.timeline.map(item => {
+                            const opponent = users.find(u => u.id === item.opponentId)
+                            const match = matches.find(m => m.id === item.id) // Find original match for extended data
+                            return (
+                                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
+                                    <div className="flex flex-col w-24">
+                                        <span className="text-gray-500 dark:text-gray-400 font-mono text-xs">{new Date(item.date).toLocaleDateString()}</span>
 import React, { useState, useMemo, useEffect } from 'react'
 import { Activity, Users, Calendar } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
+import TrophyCase from './TrophyCase'
 
 const PlayerStats = ({ users, matches, initialPlayerId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
@@ -68,7 +107,8 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 score: `${myScore}-${opponentScore}`,
                 opponentId,
                 myScore,
-                opponentScore
+                opponentScore,
+                tournamentName: match.tournaments?.name
             })
         })
 
@@ -205,8 +245,16 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                         {stats?.timeline.map(item => {
                             const opponent = users.find(u => u.id === item.opponentId)
                             return (
+                            return (
                                 <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
-                                    <span className="text-gray-500 dark:text-gray-400 font-mono w-24">{new Date(item.date).toLocaleDateString()}</span>
+                                    <div className="flex flex-col w-24">
+                                        <span className="text-gray-500 dark:text-gray-400 font-mono text-xs">{new Date(item.date).toLocaleDateString()}</span>
+                                        {item.tournamentName && (
+                                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate" title={item.tournamentName}>
+                                                {item.tournamentName}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center flex-1 justify-center px-2">
                                         <span className={`font-bold mr-2 ${item.result === 'W' ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{item.result}</span>
                                         <span className="font-mono font-bold text-gray-900 dark:text-white">{item.score}</span>

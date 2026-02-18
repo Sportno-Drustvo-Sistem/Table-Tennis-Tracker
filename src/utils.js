@@ -197,3 +197,14 @@ export const getHandicapRule = (streak, winnerName, loserName) => {
 
     return null
 }
+
+export const generateTournamentName = () => {
+    const adjectives = ['Grand', 'Epic', 'Royal', 'Ultimate', 'Hyper', 'Super', 'Mega', 'Iron', 'Golden', 'Silver', 'Crystal', 'Neon', 'Thunder', 'Lightning', 'Storm', 'Blazing', 'Frozen', 'Savage', 'Wild', 'Prime']
+    const nouns = ['Smash', 'Slam', 'Cup', 'Open', 'Clash', 'Battle', 'War', 'Showdown', 'Series', 'Circuit', 'League', 'Tour', 'Masters', 'Challenge', 'Rally', 'Spin', 'Drive', 'Net', 'Paddle', 'Arena']
+    const years = [new Date().getFullYear()]
+
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
+    const noun = nouns[Math.floor(Math.random() * nouns.length)]
+
+    return `${adj} ${noun} ${years[0]}`
+}

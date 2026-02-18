@@ -3,7 +3,7 @@ import { Scale } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule } from '../../utils'
 
-const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches }) => {
+const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId }) => {
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
     const [saving, setSaving] = useState(false)
@@ -38,7 +38,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches }
                         player2_id: player2.id,
                         score1: parseInt(score1),
                         score2: parseInt(score2),
-                        handicap_rule: handicapRule
+                        handicap_rule: handicapRule,
+                        tournament_id: tournamentId || null
                     }
                 ])
 

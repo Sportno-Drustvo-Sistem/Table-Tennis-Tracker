@@ -21,6 +21,7 @@ import PadelPlayerSelectionModal from './components/modals/PadelPlayerSelectionM
 import PadelMatchModal from './components/modals/PadelMatchModal'
 import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
 import PadelMatchGeneratorModal from './components/modals/PadelMatchGeneratorModal'
+import Tournament from './components/tournament/Tournament'
 
 // --- Main App ---
 
@@ -45,7 +46,7 @@ export default function App() {
   })
 
   // Navigation State
-  const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats', 'matches'
+  const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats', 'matches', 'tournament'
   const [statsPlayerId, setStatsPlayerId] = useState(null)
 
   // Modal States — Ping Pong
@@ -337,6 +338,17 @@ export default function App() {
               >
                 <Calendar size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Matches</span>
               </button>
+              {isPingPong && (
+                <button
+                  onClick={() => setActiveTab('tournament')}
+                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'tournament'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                >
+                  <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
+                </button>
+              )}
             </div>
 
             <div className="flex gap-2 shrink-0">
@@ -431,6 +443,16 @@ export default function App() {
                 onGenerateMatch={() => setIsPadelGeneratorOpen(true)}
               />
             )
+          )
+          )}
+
+          {activeTab === 'tournament' && (
+            <Tournament
+              users={users}
+              matches={matches}
+              fetchData={fetchData}
+              isAdmin={true} // TODO: Replace with real auth check later
+            />
           )}
         </main>
 
