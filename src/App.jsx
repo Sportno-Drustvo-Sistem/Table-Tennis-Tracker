@@ -255,9 +255,9 @@ export default function App() {
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center md:justify-start">
-              <span className={`${isPingPong ? 'bg-blue-600' : 'bg-green-600'} text-white p-2 rounded-lg mr-3 shadow-lg`}>{sportEmoji}</span>
-              {sportName}
+            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center md:justify-start gap-3">
+              <span className={`${isPingPong ? 'bg-blue-600' : 'bg-green-600'} text-white p-2 rounded-lg shadow-lg flex-shrink-0`}>{sportEmoji}</span>
+              <span>{sportName}</span>
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-2 md:ml-1 w-full">{sportSubtitle}</p>
             {migrating && (
