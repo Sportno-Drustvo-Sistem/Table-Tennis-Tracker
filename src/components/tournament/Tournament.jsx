@@ -420,7 +420,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             {/* Bracket Area */}
             <div className="flex-1 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden relative">
                 <BracketView
-                    rounds={activeTournament.rounds}
+                    rounds={activeTournament.rounds || []}
                     onMatchClick={handleMatchClick}
                     readOnly={!isAdmin || activeTournament.status === 'completed'}
                     champion={activeTournament.winner}
