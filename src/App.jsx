@@ -518,6 +518,7 @@ export default function App() {
             }}
             team1={padelTeams.team1}
             team2={padelTeams.team2}
+            users={users}
             onMatchSaved={handlePadelMatchSaved}
           />
         )}
