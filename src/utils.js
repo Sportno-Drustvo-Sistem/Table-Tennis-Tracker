@@ -198,31 +198,40 @@ export const getRandomDebuff = (debuffs, playerElo) => {
 
     if (!mayhemDebuffs || mayhemDebuffs.length === 0) return null
 
-    // Weighted random selection based on Elo
-    // Higher Elo -> Higher chance of drawing higher severity debuffs
-
-    // Sort debuffs by severity (asc)
+    // 1. Sort debuffs by severity (asc)
     const sortedDebuffs = [...mayhemDebuffs].sort((a, b) => a.severity - b.severity)
 
-    // Base weight for each debuff
+    // 2. Calculate Power-Curve Weights
+    // Formula: Weight = Severity ^ Exponent
+    // Exponent is positive for High Elo (favors high severity)
+    // Exponent is negative for Low Elo (favors low severity)
+
+    // Pivot Point: 1100 Elo. 
+    // < 1100: Negative exponent (Low severity preferred)
+    // = 1100: Flat exponent (Equal chance)
+    // > 1100: Positive exponent (High severity preferred)
+
+    // Scale: Each 400 points adds +1 to exponent.
+    // 1500 Elo -> Exponent +1. (Severity 10 is 10x more likely than Sev 1)
+    // 1900 Elo -> Exponent +2. (Severity 10 is 100x more likely than Sev 1)
+    // 700 Elo -> Exponent -1. (Severity 1 is 10x more likely than Sev 10)
+
+    const elo = Math.max(0, playerElo || 1200) // Default to 1200 if missing
+    const pivotElo = 1100
+    const scaleFactor = 400
+    const exponent = (elo - pivotElo) / scaleFactor
+
     const weights = sortedDebuffs.map(d => {
-        let weight = 10
+        // Ensure severity is at least 1 to avoid math issues, though DB should enforce logic
+        const sev = Math.max(1, d.severity || 1)
 
-        // Elo adjust: For every 100 points above 1200, increase weight of high severity items
-        const eloFactor = Math.max(0, (playerElo - 1200) / 100)
-
-        if (d.severity >= 7) {
-            // High severity: Amplify weight by Elo
-            weight += eloFactor * 5
-        } else if (d.severity <= 3) {
-            // Low severity: Reduce weight for high Elo players
-            weight = Math.max(1, weight - eloFactor * 2)
-        }
+        // Calculate weight
+        const weight = Math.pow(sev, exponent)
 
         return weight
     })
 
-    // Select based on weights
+    // 3. Weighted Random Selection
     const totalWeight = weights.reduce((sum, w) => sum + w, 0)
     let random = Math.random() * totalWeight
 
