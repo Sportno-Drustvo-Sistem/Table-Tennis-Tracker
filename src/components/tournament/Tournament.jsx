@@ -423,12 +423,40 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
             {/* Bracket Area */}
             <div className="flex-1 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden relative">
-                <BracketView
-                    rounds={activeTournament.rounds || []}
-                    onMatchClick={handleMatchClick}
-                    readOnly={!isAdmin || activeTournament.status === 'completed'}
-                    champion={activeTournament.winner}
-                />
+                {(() => {
+                    // Safety check during render
+                    try {
+                        if (!activeTournament.rounds || !Array.isArray(activeTournament.rounds)) {
+                            throw new Error("Missing rounds data")
+                        }
+                        return (
+                            <BracketView
+                                rounds={activeTournament.rounds}
+                                onMatchClick={handleMatchClick}
+                                readOnly={!isAdmin || activeTournament.status === 'completed'}
+                                champion={activeTournament.winner}
+                            />
+                        )
+                    } catch (err) {
+                        console.error("Render Error in Tournament:", err)
+                        return (
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-red-500">
+                                <ShieldAlert size={48} className="mb-4" />
+                                <h3 className="text-xl font-bold mb-2">Tournament Data Error</h3>
+                                <p className="mb-6">The tournament data seems to be corrupted.</p>
+                                <button
+                                    onClick={() => {
+                                        localStorage.removeItem(STORAGE_KEY)
+                                        setActiveTournament(null)
+                                    }}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold"
+                                >
+                                    Reset Tournament Data
+                                </button>
+                            </div>
+                        )
+                    }
+                })()}
             </div>
 
             {/* Match Modal */}
