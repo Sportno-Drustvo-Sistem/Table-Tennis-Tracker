@@ -247,7 +247,7 @@ export default function App() {
 
   const isPingPong = activeSport === 'pingpong'
   const sportEmoji = isPingPong ? '🏓' : '🎾'
-  const sportName = isPingPong ? 'Ping Pong Tracker' : 'Padel Tracker'
+  const sportName = isPingPong ? 'Ping Pong' : 'Padel'
   const sportSubtitle = isPingPong ? 'Track your garage glory.' : 'Track your doubles domination.'
 
   return (
