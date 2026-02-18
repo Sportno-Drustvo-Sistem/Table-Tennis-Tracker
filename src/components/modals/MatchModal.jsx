@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { Scale } from 'lucide-react'
+import { Scale, Skull } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule } from '../../utils'
 
-const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId }) => {
+const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
     const [saving, setSaving] = useState(false)
@@ -11,19 +11,22 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
     if (!isOpen || !player1 || !player2) return null
 
     // Calculate Handicap
-    // matches prop is needed here for history lookup
-    // If not passed (legacy check), we might miss it, but let's assume it's passed or we fetch it. 
-    // Actually looking at usage in App.jsx:
-    // <MatchModal ... /> doesn't pass matches currently. We need to update App.jsx too.
-
-    // Check for Handicap
     const { streak, winnerId } = matches ? getHeadToHeadStreak(player1.id, player2.id, matches) : { streak: 0, winnerId: null }
-    let handicapRule = null
+    let streakRule = null
 
     if (streak >= 8 && winnerId) {
         const winnerName = winnerId === player1.id ? player1.name : player2.name
         const loserName = winnerId === player1.id ? player2.name : player1.name
-        handicapRule = getHandicapRule(streak, winnerName, loserName)
+        streakRule = getHandicapRule(streak, winnerName, loserName)
+    }
+
+    // Combine rules
+    const activeRules = []
+    if (streakRule) activeRules.push({ ...streakRule, type: 'streak' })
+
+    if (debuffs) {
+        if (debuffs[player1.id]) activeRules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
+        if (debuffs[player2.id]) activeRules.push({ ...debuffs[player2.id], targetPlayerId: player2.id, targetPlayerName: player2.name, type: 'mayhem' })
     }
 
     const handleSave = async () => {
@@ -38,7 +41,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         player2_id: player2.id,
                         score1: parseInt(score1),
                         score2: parseInt(score2),
-                        handicap_rule: handicapRule,
+                        handicap_rule: activeRules.length > 0 ? activeRules : null,
                         tournament_id: tournamentId || null
                     }
                 ])
@@ -63,19 +66,32 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-lg m-4 shadow-xl border border-gray-100 dark:border-gray-700">
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-white">Record Match Result</h2>
 
-                {handicapRule && (
-                    <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-900/40 border-l-4 border-amber-500 rounded-r-lg text-left shadow-sm">
-                        <div className="flex items-start">
-                            <Scale className="text-amber-600 dark:text-amber-400 mr-3 mt-1 flex-shrink-0" size={24} />
-                            <div>
-                                <h4 className="font-bold text-amber-800 dark:text-amber-200 uppercase text-sm tracking-wide mb-1">
-                                    {handicapRule.title}
-                                </h4>
-                                <p className="text-amber-700 dark:text-amber-100 font-medium">
-                                    {handicapRule.description}
-                                </p>
+                {activeRules.length > 0 && (
+                    <div className="mb-8 space-y-3">
+                        {activeRules.map((rule, idx) => (
+                            <div key={idx} className={`p-4 border-l-4 rounded-r-lg text-left shadow-sm ${rule.type === 'mayhem'
+                                    ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
+                                    : 'bg-amber-50 dark:bg-amber-900/40 border-amber-500'
+                                }`}>
+                                <div className="flex items-start">
+                                    {rule.type === 'mayhem' ? (
+                                        <Skull className="text-purple-600 dark:text-purple-400 mr-3 mt-1 flex-shrink-0" size={24} />
+                                    ) : (
+                                        <Scale className="text-amber-600 dark:text-amber-400 mr-3 mt-1 flex-shrink-0" size={24} />
+                                    )}
+                                    <div>
+                                        <h4 className={`font-bold uppercase text-sm tracking-wide mb-1 ${rule.type === 'mayhem' ? 'text-purple-800 dark:text-purple-200' : 'text-amber-800 dark:text-amber-200'
+                                            }`}>
+                                            {rule.targetPlayerName ? `${rule.targetPlayerName}: ` : ''}{rule.title}
+                                        </h4>
+                                        <p className={`font-medium ${rule.type === 'mayhem' ? 'text-purple-700 dark:text-purple-100' : 'text-amber-700 dark:text-amber-100'
+                                            }`}>
+                                            {rule.description}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        ))}
                     </div>
                 )}
 

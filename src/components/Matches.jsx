@@ -192,12 +192,20 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                         <span>{match.score2}</span>
                                                     </div>
                                                     {match.handicap_rule && (
-                                                        <div
-                                                            className="mt-1 flex items-center text-amber-600 dark:text-amber-400 text-xs bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full cursor-help"
-                                                            title={`${match.handicap_rule.title}: ${match.handicap_rule.description}`}
-                                                        >
-                                                            <Scale size={12} className="mr-1" />
-                                                            <span>Handicap</span>
+                                                        <div className="mt-1 flex flex-col gap-1 items-center">
+                                                            {(Array.isArray(match.handicap_rule) ? match.handicap_rule : [match.handicap_rule]).map((rule, idx) => (
+                                                                <div
+                                                                    key={idx}
+                                                                    className={`flex items-center text-xs px-2 py-0.5 rounded-full cursor-help ${rule.type === 'mayhem'
+                                                                            ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30'
+                                                                            : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+                                                                        }`}
+                                                                    title={`${rule.targetPlayerName ? rule.targetPlayerName + ': ' : ''}${rule.title}: ${rule.description}`}
+                                                                >
+                                                                    {rule.type === 'mayhem' ? <Scale size={12} className="mr-1" /> : <Scale size={12} className="mr-1" />}
+                                                                    <span>{rule.title}</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     )}
                                                 </div>

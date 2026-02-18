@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import TournamentSetup from './TournamentSetup'
 import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
 import { Trophy, RefreshCw, X, ShieldAlert } from 'lucide-react'
+import { getActiveDebuffs, getRandomDebuff } from '../../utils'
 
 // Helper to shuffle array
 const shuffle = (array) => {
@@ -20,6 +20,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     // State
     const [activeTournament, setActiveTournament] = useState(null) // { id, name, rounds, players, status }
     const [loading, setLoading] = useState(true)
+    const [cachedDebuffs, setCachedDebuffs] = useState([])
 
     // Match Execution State
     const [selectedMatchId, setSelectedMatchId] = useState(null)
@@ -29,13 +30,15 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
     useEffect(() => {
         // Check local storage for active tournament state first
-        // In a real expanded version, we'd fetch "active" tournament from DB.
-        // However, to keep it simple and responsive as requested, we sync local state mainly 
-        // and rely on DB only for history.
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
             try {
-                setActiveTournament(JSON.parse(saved))
+                const parsed = JSON.parse(saved)
+                setActiveTournament(parsed)
+                // If mayhem mode, ensure we have debuffs cached
+                if (parsed.config?.mayhemMode) {
+                    getActiveDebuffs().then(setCachedDebuffs)
+                }
             } catch (e) {
                 console.error("Failed to parse saved tournament", e)
             }
@@ -46,18 +49,53 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     useEffect(() => {
         if (activeTournament) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(activeTournament))
-        } else {
-            // Don't clear immediately if null to avoid flicker if we change logic, 
-            // but for now strict sync is fine.
-            // localStorage.removeItem(STORAGE_KEY) 
         }
     }, [activeTournament])
 
-    const handleStartTournament = async ({ name, playerIds, format, useSwissSeeding }) => {
+    // Helper to assign debuffs to a match
+    const assignDebuffsToMatch = (match, debuffsPool, usersMap) => {
+        if (!debuffsPool || debuffsPool.length === 0) return match
+
+        const p1 = match.player1
+        const p2 = match.player2
+
+        if (p1 && p2) {
+            // Find full user objects to get Elo
+            const u1 = usersMap[p1.id] || p1
+            const u2 = usersMap[p2.id] || p2
+
+            const p1Elo = u1.elo_rating || 1200
+            const p2Elo = u2.elo_rating || 1200
+
+            // Assign debuffs
+            const d1 = getRandomDebuff(debuffsPool, p1Elo)
+            const d2 = getRandomDebuff(debuffsPool, p2Elo)
+
+            match.debuffs = {
+                [p1.id]: d1,
+                [p2.id]: d2
+            }
+        }
+        return match
+    }
+
+    const handleStartTournament = async ({ name, playerIds, format, useSwissSeeding, mayhemMode }) => {
+        // 0. Fetch debuffs if needed
+        let debuffsPool = []
+        if (mayhemMode) {
+            debuffsPool = await getActiveDebuffs()
+            setCachedDebuffs(debuffsPool)
+        }
+
         // 1. Create Tournament in DB
         const { data: tourneyData, error: tourneyError } = await supabase
             .from('tournaments')
-            .insert({ name, format, status: 'active' })
+            .insert({
+                name,
+                format,
+                status: 'active',
+                config: { mayhemMode, useSwissSeeding }
+            })
             .select()
             .single()
 
@@ -71,8 +109,11 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         // 2. Setup Initial Bracket
         const participants = shuffle(users.filter(u => playerIds.includes(u.id)))
 
-        // Simple Single Elim Logic for now (Expand for Double/Swiss later or next step loops)
-        let rounds = generateSingleEliminationBracket(participants)
+        // User Map for Elo lookup
+        const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+
+        // Simple Single Elim Logic for now
+        let rounds = generateSingleEliminationBracket(participants, mayhemMode, debuffsPool, usersMap)
 
         const newTournament = {
             id: tournamentId,
@@ -81,25 +122,21 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             players: participants,
             rounds,
             status: 'active',
-            winner: null
+            winner: null,
+            config: { mayhemMode, useSwissSeeding }
         }
 
         setActiveTournament(newTournament)
     }
 
-    const generateSingleEliminationBracket = (participants) => {
-        // Needs to be power of 2 size usually, or handle byes.
-        // For MVP we enforce 4, 8, 16 in UI or handle simple byes if not.
-        // Let's assume we pad with "Bye" users if needed or just valid power of 2 for simplicity 1st pass.
-        // Actually, let's pad closely.
-
+    const generateSingleEliminationBracket = (participants, mayhemMode, debuffsPool, usersMap) => {
         const count = participants.length
         let size = 2;
         while (size < count) size *= 2;
 
         const filledParticipants = [...participants]
         while (filledParticipants.length < size) {
-            filledParticipants.push(null) // Bye slot (though we might want distinct Bye object)
+            filledParticipants.push(null) // Bye slot
         }
 
         // Round 1
@@ -107,7 +144,8 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         for (let i = 0; i < size; i += 2) {
             const p1 = filledParticipants[i]
             const p2 = filledParticipants[i + 1]
-            matches.push({
+
+            let match = {
                 id: `r1_m${i / 2}`,
                 player1: p1,
                 player2: p2,
@@ -115,7 +153,14 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                 score2: null,
                 winner: (!p1 && p2) ? p2 : ((p1 && !p2) ? p1 : null), // Auto-advance byes
                 isBye: !p1 || !p2
-            })
+            }
+
+            // Assign Debuffs if Mayhem Mode
+            if (mayhemMode && !match.isBye && !match.winner) {
+                match = assignDebuffsToMatch(match, debuffsPool, usersMap)
+            }
+
+            matches.push(match)
         }
 
         // Subsequent Rounds
@@ -128,7 +173,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             for (let i = 0; i < currentSize; i += 2) {
                 nextMatches.push({
                     id: `r${roundNum}_m${i / 2}`,
-                    player1: null, // Will be filled by winners
+                    player1: null,
                     player2: null,
                     score1: null,
                     score2: null,
@@ -164,27 +209,6 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     }
 
     const handleMatchSaved = async () => {
-        // Fetch the latest match from DB (or we trust the local modal save for now... 
-        // but we need the outcome to update bracket).
-        // Actually, MatchModal calls onMatchSaved after saving to DB.
-        // We need to know WHO won.
-        // To avoid complex fetching, we can pass a callback to MatchModal or just refetch global matches?
-        // Better: We query the last match added for these 2 players or rely on what we know.
-        // Simplest: We won't use the standard MatchModal directly without modification or wrapper
-        // because we need to know the result immediately to update local bracket state.
-
-        // WAIT. The standard MatchModal saves to Supabase `matches`.
-        // We need that ID to link to tournament? Or we pass tournament_id to MatchModal?
-        // Existing MatchModal doesn't know about tournaments.
-        // We might need to Modify MatchModal or wrap the save logic.
-
-        // For now, let's assume `fetchData` is called by MatchModal, we update global matches.
-        // We also need to update the LOCAL bracket correctly.
-        // Let's cheat a bit: We will use a specialized handling here or intercept the save.
-
-        // Actually, standard MatchModal takes `onMatchSaved`. We can query the DB for the match 
-        // that was just created (timestamp desc limit 1) to get the score.
-
         const { data: latestMatch } = await supabase
             .from('matches')
             .select('*')
@@ -226,20 +250,21 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         match.dbMatchId = dbMatch.id // Link persistence
 
         // If needed, update Supabase match with tournament_id if not already done
-        // (Ideally we'd pass tournament_id to the creation, but MatchModal doesn't have it yet.
-        // We can patch it here.)
         if (!dbMatch.tournament_id) {
             await supabase.from('matches').update({ tournament_id: newTournament.id }).eq('id', dbMatch.id)
         }
 
+        // Use cached debuffs or fetch if missing (though we should have them)
+        let debuffsPool = cachedDebuffs
+        if (newTournament.config?.mayhemMode && (!debuffsPool || debuffsPool.length === 0)) {
+            debuffsPool = await getActiveDebuffs()
+            setCachedDebuffs(debuffsPool)
+        }
+        const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+
         // Propagate to next round
         const nextRoundIdx = roundIdx + 1
         if (nextRoundIdx < newTournament.rounds.length) {
-            // Calculate destination match index. 
-            // R1 M0 -> R2 M0 (P1 slot)
-            // R1 M1 -> R2 M0 (P2 slot)
-            // R1 M2 -> R2 M1 (P1 slot)
-            // ...
             const nextMatchIdx = Math.floor(matchIndex / 2)
             const isPlayer1Slot = matchIndex % 2 === 0
 
@@ -248,6 +273,19 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
             if (isPlayer1Slot) nextMatch.player1 = winner
             else nextMatch.player2 = winner
+
+            // Check if both players are now ready in the next match
+            if (nextMatch.player1 && nextMatch.player2 && newTournament.config?.mayhemMode) {
+                // Calculate debuffs for the new matchup
+                const p1 = nextMatch.player1
+                const p2 = nextMatch.player2
+                // Note: assignDebuffsToMatch mutates the object, which is fine here since we cloned the tournament state via spread? 
+                // Actually we only shallow cloned tournament, rounds array is same ref? 
+                // We should be careful. React state immutability.
+                // Ideally we deep clone, but for this simple app lets just mutate the deep objects as we are calling setActiveTournament with new reference for top object.
+                assignDebuffsToMatch(nextMatch, debuffsPool, usersMap)
+            }
+
         } else {
             // Tournament Over! Champion found.
             newTournament.status = 'completed'
@@ -338,12 +376,14 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     // Find selected match info for Modal
     let modalPlayer1 = null
     let modalPlayer2 = null
+    let modalDebuffs = null
     if (selectedMatchId) {
         const r = activeTournament.rounds[selectedMatchId.roundIndex]
         const m = r.matches.find(m => m.id === selectedMatchId.matchId)
         if (m) {
             modalPlayer1 = m.player1
             modalPlayer2 = m.player2
+            modalDebuffs = m.debuffs
         }
     }
 
@@ -391,6 +431,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     onMatchSaved={handleMatchSaved}
                     matches={globalMatches} // Passed for H2H history context inside modal
                     tournamentId={activeTournament.id}
+                    debuffs={modalDebuffs}
                 />
             )}
         </div>

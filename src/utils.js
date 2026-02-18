@@ -198,13 +198,69 @@ export const getHandicapRule = (streak, winnerName, loserName) => {
     return null
 }
 
+
 export const generateTournamentName = () => {
     const adjectives = ['Grand', 'Epic', 'Royal', 'Ultimate', 'Hyper', 'Super', 'Mega', 'Iron', 'Golden', 'Silver', 'Crystal', 'Neon', 'Thunder', 'Lightning', 'Storm', 'Blazing', 'Frozen', 'Savage', 'Wild', 'Prime']
-    const nouns = ['Smash', 'Slam', 'Cup', 'Open', 'Clash', 'Battle', 'War', 'Showdown', 'Series', 'Circuit', 'League', 'Tour', 'Masters', 'Challenge', 'Rally', 'Spin', 'Drive', 'Net', 'Paddle', 'Arena']
+    const nouns = ['Smash', 'Slam', 'Cup', 'Open', 'Clash', 'Battle', 'War', 'Showdown', 'Series', 'Circuit', 'Tour', 'Masters', 'Challenge', 'Rally', 'Spin', 'Drive', 'Net', 'Paddle', 'Arena']
     const years = [new Date().getFullYear()]
 
     const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
     const noun = nouns[Math.floor(Math.random() * nouns.length)]
 
     return `${adj} ${noun} ${years[0]}`
+}
+
+export const getActiveDebuffs = async () => {
+    const { data, error } = await supabase
+        .from('debuffs')
+        .select('*')
+        .eq('is_active', true)
+        .eq('trigger_type', 'mayhem')
+
+    if (error) {
+        console.error('Error fetching debuffs:', error)
+        return []
+    }
+    return data
+}
+
+export const getRandomDebuff = (debuffs, playerElo) => {
+    if (!debuffs || debuffs.length === 0) return null
+
+    // Weighted random selection based on Elo
+    // Higher Elo -> Higher chance of drawing higher severity debuffs
+
+    // Sort debuffs by severity (asc)
+    const sortedDebuffs = [...debuffs].sort((a, b) => a.severity - b.severity)
+
+    // Base weight for each debuff
+    const weights = sortedDebuffs.map(d => {
+        let weight = 10
+
+        // Elo adjust: For every 100 points above 1200, increase weight of high severity items
+        const eloFactor = Math.max(0, (playerElo - 1200) / 100)
+
+        if (d.severity >= 7) {
+            // High severity: Amplify weight by Elo
+            weight += eloFactor * 5
+        } else if (d.severity <= 3) {
+            // Low severity: Reduce weight for high Elo players
+            weight = Math.max(1, weight - eloFactor * 2)
+        }
+
+        return weight
+    })
+
+    // Select based on weights
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0)
+    let random = Math.random() * totalWeight
+
+    for (let i = 0; i < sortedDebuffs.length; i++) {
+        random -= weights[i]
+        if (random <= 0) {
+            return sortedDebuffs[i]
+        }
+    }
+
+    return sortedDebuffs[sortedDebuffs.length - 1]
 }

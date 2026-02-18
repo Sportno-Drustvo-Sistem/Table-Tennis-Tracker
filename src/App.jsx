@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords } from 'lucide-react'
+import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords, Settings } from 'lucide-react'
 import { supabase } from './supabaseClient'
 import { recalculatePlayerStats } from './utils'
 import UserCard from './components/UserCard'
@@ -14,6 +14,7 @@ import MatchModal from './components/modals/MatchModal'
 import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
 import LoginModal from './components/modals/LoginModal'
 import AdminButton from './components/AdminButton'
+import DebuffSettings from './components/DebuffSettings'
 
 // Padel imports
 import PadelLeaderboard from './components/PadelLeaderboard'
@@ -373,6 +374,17 @@ function App() {
                   <Swords size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
                 </button>
               )}
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'settings'
+                    ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                >
+                  <Settings size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Settings</span>
+                </button>
+              )}
             </div>
 
             <div className="flex gap-2 shrink-0">
@@ -480,6 +492,10 @@ function App() {
               fetchData={fetchData}
               isAdmin={isAdmin}
             />
+          )}
+
+          {activeTab === 'settings' && isAdmin && (
+            <DebuffSettings isAdmin={isAdmin} />
           )}
         </main>
 
