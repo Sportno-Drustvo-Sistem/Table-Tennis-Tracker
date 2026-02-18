@@ -25,7 +25,7 @@ import Tournament from './components/tournament/Tournament'
 
 // --- Main App ---
 
-export default function App() {
+function App() {
   const [users, setUsers] = useState([])
   const [matches, setMatches] = useState([])
   const [padelMatches, setPadelMatches] = useState([])
@@ -346,7 +346,7 @@ export default function App() {
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                 >
-                  <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
+                  <Swords size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
                 </button>
               )}
             </div>
@@ -401,6 +401,7 @@ export default function App() {
                       isSelected={false}
                       onClick={() => handleUserClick(user)}
                       onEdit={setEditingUser}
+                      isAdmin={isAdmin}
                     />
                   ))}
                 </div>
@@ -410,9 +411,9 @@ export default function App() {
 
           {activeTab === 'leaderboard' && (
             isPingPong ? (
-              <Leaderboard users={users} matches={matches} />
+              <Leaderboard users={users} matches={matches} isAdmin={isAdmin} />
             ) : (
-              <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} />
+              <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} isAdmin={isAdmin} />
             )
           )}
 
@@ -432,6 +433,7 @@ export default function App() {
                 onEditMatch={setEditingMatch}
                 onMatchDeleted={fetchData}
                 onGenerateMatch={() => setIsGeneratorOpen(true)}
+                isAdmin={isAdmin}
               />
             ) : (
               <PadelMatches
@@ -441,6 +443,7 @@ export default function App() {
                 onEditMatch={setEditingPadelMatch}
                 onMatchDeleted={fetchData}
                 onGenerateMatch={() => setIsPadelGeneratorOpen(true)}
+                isAdmin={isAdmin}
               />
             )
           )
@@ -451,7 +454,7 @@ export default function App() {
               users={users}
               matches={matches}
               fetchData={fetchData}
-              isAdmin={true} // TODO: Replace with real auth check later
+              isAdmin={isAdmin}
             />
           )}
         </main>
@@ -468,6 +471,13 @@ export default function App() {
           user={editingUser}
           onClose={() => setEditingUser(null)}
           onUserUpdated={fetchData}
+          isAdmin={isAdmin}
+        />
+
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          onLogin={handleAdminLogin}
         />
 
         {/* Ping Pong Modals */}
@@ -491,6 +501,7 @@ export default function App() {
           match={editingMatch}
           onClose={() => setEditingMatch(null)}
           onMatchUpdated={fetchData}
+          isAdmin={isAdmin}
         />
 
         {selectedPlayers[0] && selectedPlayers[1] && (
@@ -529,6 +540,7 @@ export default function App() {
           match={editingPadelMatch}
           onClose={() => setEditingPadelMatch(null)}
           onMatchUpdated={fetchData}
+          isAdmin={isAdmin}
         />
 
         {padelTeams.team1 && padelTeams.team2 && (
@@ -548,3 +560,5 @@ export default function App() {
     </div>
   )
 }
+
+export default App

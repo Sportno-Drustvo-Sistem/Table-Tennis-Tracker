@@ -1,7 +1,7 @@
 import React from 'react'
 import { Check, Trophy, Pencil } from 'lucide-react'
 
-const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit }) => {
+const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin }) => {
     return (
         <div
             onClick={onClick}
@@ -23,7 +23,7 @@ const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit }) => {
                         <Check size={16} />
                     </div>
                 )}
-                {!selectionMode && (
+                {!selectionMode && isAdmin && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation()

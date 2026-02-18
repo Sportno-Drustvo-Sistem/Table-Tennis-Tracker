@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient'
 import { recalculatePadelStats } from '../padelUtils'
 import { calculateEloChange, getKFactor } from '../utils'
 
-const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted, onGenerateMatch }) => {
+const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted, onGenerateMatch, isAdmin }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -260,22 +260,27 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <button
-                                                                onClick={() => onEditMatch(match)}
-                                                                className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
-                                                                title="Edit Match"
-                                                                disabled={loading}
-                                                            >
-                                                                <Edit2 size={18} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteRequest(match.id)}
-                                                                className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
-                                                                title="Delete Match"
-                                                                disabled={loading}
-                                                            >
-                                                                <Trash2 size={18} />
-                                                            </button>
+                                                            {isAdmin && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => onEditMatch(match)}
+                                                                        className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                                        title="Edit Match"
+                                                                        disabled={loading}
+                                                                    >
+                                                                        <Edit2 size={18} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteRequest(match.id)}
+                                                                        className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                                        title="Delete Match"
+                                                                        disabled={loading}
+                                                                    >
+                                                                        <Trash2 size={18} />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {!isAdmin && <span className="text-gray-400 dark:text-gray-600 text-xs italic">Read-only</span>}
                                                         </>
                                                     )}
                                                 </div>

@@ -1,7 +1,8 @@
+```javascript
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 
-const EditUserModal = ({ isOpen, onClose, user, onUserUpdated }) => {
+const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAdmin }) => {
     const [name, setName] = useState('')
     const [file, setFile] = useState(null)
     const [uploading, setUploading] = useState(false)
@@ -25,7 +26,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated }) => {
 
             if (file) {
                 const fileExt = file.name.split('.').pop()
-                const fileName = `${Date.now()}.${fileExt}`
+                const fileName = `${ Date.now() }.${ fileExt } `
                 const { error: uploadError } = await supabase.storage
                     .from('avatars')
                     .upload(fileName, file)
