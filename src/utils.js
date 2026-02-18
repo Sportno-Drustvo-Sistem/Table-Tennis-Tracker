@@ -193,8 +193,11 @@ export const getActiveDebuffs = async () => {
 }
 
 export const getRandomDebuff = (debuffs, playerElo) => {
-    // Filter for Mayhem type only
-    const mayhemDebuffs = debuffs.filter(d => d.trigger_type === 'mayhem')
+    // Filter for Mayhem type only (checking new array or legacy string)
+    const mayhemDebuffs = debuffs.filter(d => {
+        const types = d.trigger_types || (d.trigger_type ? [d.trigger_type] : [])
+        return types.includes('mayhem')
+    })
 
     if (!mayhemDebuffs || mayhemDebuffs.length === 0) return null
 
@@ -249,7 +252,10 @@ export const getRandomDebuff = (debuffs, playerElo) => {
 // Now accepts 'allDebuffs' as a 4th argument which is the list of active debuffs from DB
 export const getHandicapRule = (streak, winnerName, loserName, allDebuffs = []) => {
     // Filter debuffs by type 'streak_loss'
-    const streakDebuffs = allDebuffs.filter(d => d.trigger_type === 'streak_loss')
+    const streakDebuffs = allDebuffs.filter(d => {
+        const types = d.trigger_types || (d.trigger_type ? [d.trigger_type] : [])
+        return types.includes('streak_loss')
+    })
 
     // Find rules matching the streak threshold
     // We want the highest threshold that is <= streak.

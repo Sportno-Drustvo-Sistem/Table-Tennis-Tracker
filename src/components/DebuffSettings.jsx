@@ -11,7 +11,7 @@ const DebuffSettings = ({ isAdmin }) => {
         title: '',
         description: '',
         severity: 5,
-        trigger_type: 'mayhem',
+        trigger_types: ['mayhem'], // Default to mayhem
         trigger_value: null,
         is_active: true
     })
@@ -30,20 +30,31 @@ const DebuffSettings = ({ isAdmin }) => {
         if (error) {
             console.error('Error fetching debuffs:', error)
         } else {
-            setDebuffs(data || [])
+            // Ensure trigger_types is populated if missing (migration should have handled it)
+            const cleanData = (data || []).map(d => ({
+                ...d,
+                trigger_types: d.trigger_types || (d.trigger_type ? [d.trigger_type] : [])
+            }))
+            setDebuffs(cleanData)
         }
         setLoading(false)
     }
 
     const handleSave = async () => {
         if (!formData.title || !formData.description) return
+        if (formData.trigger_types.length === 0) {
+            alert('Please select at least one trigger type.')
+            return
+        }
 
         const debuffData = {
             title: formData.title,
             description: formData.description,
             severity: parseInt(formData.severity),
-            trigger_type: formData.trigger_type,
-            trigger_value: formData.trigger_type === 'streak_loss' ? parseInt(formData.trigger_value) : null,
+            trigger_types: formData.trigger_types,
+            // Keep trigger_type for legacy compatibility if needed, or null
+            trigger_type: formData.trigger_types[0] || null,
+            trigger_value: formData.trigger_types.includes('streak_loss') ? parseInt(formData.trigger_value) : null,
             is_active: formData.is_active
         }
 
@@ -63,7 +74,7 @@ const DebuffSettings = ({ isAdmin }) => {
         }
 
         setEditingId(null)
-        setFormData({ title: '', description: '', severity: 5, trigger_type: 'mayhem', trigger_value: null, is_active: true })
+        setFormData({ title: '', description: '', severity: 5, trigger_types: ['mayhem'], trigger_value: null, is_active: true })
         fetchDebuffs()
     }
 
@@ -73,7 +84,7 @@ const DebuffSettings = ({ isAdmin }) => {
             title: debuff.title,
             description: debuff.description,
             severity: debuff.severity,
-            trigger_type: debuff.trigger_type,
+            trigger_types: debuff.trigger_types || (debuff.trigger_type ? [debuff.trigger_type] : []),
             trigger_value: debuff.trigger_value,
             is_active: debuff.is_active
         })
@@ -96,7 +107,18 @@ const DebuffSettings = ({ isAdmin }) => {
 
     const handleCancel = () => {
         setEditingId(null)
-        setFormData({ title: '', description: '', severity: 5, trigger_type: 'mayhem', trigger_value: null, is_active: true })
+        setFormData({ title: '', description: '', severity: 5, trigger_types: ['mayhem'], trigger_value: null, is_active: true })
+    }
+
+    const toggleTrigger = (type) => {
+        setFormData(prev => {
+            const current = prev.trigger_types
+            if (current.includes(type)) {
+                return { ...prev, trigger_types: current.filter(t => t !== type) }
+            } else {
+                return { ...prev, trigger_types: [...current, type] }
+            }
+        })
     }
 
     if (!isAdmin) {
@@ -136,30 +158,40 @@ const DebuffSettings = ({ isAdmin }) => {
                         />
                     </div>
                     <div>
-                        <div className="flex gap-2">
-                            <div className="flex-1">
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Trigger Type</label>
-                                <select
-                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={formData.trigger_type}
-                                    onChange={e => setFormData({ ...formData, trigger_type: e.target.value })}
-                                >
-                                    <option value="mayhem">Mayhem Mode (Random)</option>
-                                    <option value="streak_loss">Loss Streak</option>
-                                </select>
-                            </div>
-                            {formData.trigger_type === 'streak_loss' && (
-                                <div className="w-24">
-                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Count</label>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Triggers</label>
+                        <div className="flex flex-col gap-2">
+                            <label className="flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                    checked={formData.trigger_types.includes('mayhem')}
+                                    onChange={() => toggleTrigger('mayhem')}
+                                />
+                                <span className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Mayhem Mode (Random)</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <label className="flex items-center cursor-pointer">
                                     <input
-                                        type="number"
-                                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="8"
-                                        value={formData.trigger_value || ''}
-                                        onChange={e => setFormData({ ...formData, trigger_value: e.target.value })}
+                                        type="checkbox"
+                                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                        checked={formData.trigger_types.includes('streak_loss')}
+                                        onChange={() => toggleTrigger('streak_loss')}
                                     />
-                                </div>
-                            )}
+                                    <span className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Loss Streak</span>
+                                </label>
+                                {formData.trigger_types.includes('streak_loss') && (
+                                    <div className="flex items-center gap-2 ml-2">
+                                        <span className="text-xs text-gray-500">Count:</span>
+                                        <input
+                                            type="number"
+                                            className="w-16 p-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="8"
+                                            value={formData.trigger_value || ''}
+                                            onChange={e => setFormData({ ...formData, trigger_value: e.target.value })}
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -245,14 +277,18 @@ const DebuffSettings = ({ isAdmin }) => {
                                         <div className="flex flex-wrap items-center gap-2 mb-2">
                                             <h4 className="font-bold text-gray-900 dark:text-white text-lg">{debuff.title}</h4>
 
-                                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wide uppercase ${debuff.trigger_type === 'mayhem'
-                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                                }`}>
-                                                {debuff.trigger_type === 'streak_loss'
-                                                    ? `Loss Streak ${debuff.trigger_value}+`
-                                                    : debuff.trigger_type.replace(/_/g, ' ')}
-                                            </span>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(debuff.trigger_types || (debuff.trigger_type ? [debuff.trigger_type] : [])).map(type => (
+                                                    <span key={type} className={`text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wide uppercase ${type === 'mayhem'
+                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                                            : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                                        }`}>
+                                                        {type === 'streak_loss'
+                                                            ? `Loss Streak ${debuff.trigger_value}+`
+                                                            : type.replace(/_/g, ' ')}
+                                                    </span>
+                                                ))}
+                                            </div>
 
                                             <div className="flex items-center text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 font-mono font-bold">
                                                 <AlertTriangle size={10} className="mr-1" />
