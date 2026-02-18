@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar } from 'lucide-react'
+import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords } from 'lucide-react'
 import { supabase } from './supabaseClient'
 import { recalculatePlayerStats } from './utils'
 import UserCard from './components/UserCard'
@@ -12,6 +12,8 @@ import EditMatchModal from './components/modals/EditMatchModal'
 import PlayerSelectionModal from './components/modals/PlayerSelectionModal'
 import MatchModal from './components/modals/MatchModal'
 import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
+import LoginModal from './components/modals/LoginModal'
+import AdminButton from './components/AdminButton'
 
 // Padel imports
 import PadelLeaderboard from './components/PadelLeaderboard'
@@ -44,6 +46,22 @@ function App() {
     if (localStorage.getItem('theme') === 'dark') return true
     return false
   })
+
+  // Admin State
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return localStorage.getItem('isAdmin') === 'true'
+  })
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+
+  const handleAdminLogin = () => {
+    setIsAdmin(true)
+    localStorage.setItem('isAdmin', 'true')
+  }
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false)
+    localStorage.removeItem('isAdmin')
+  }
 
   // Navigation State
   const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats', 'matches', 'tournament'
@@ -299,6 +317,12 @@ function App() {
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
+
+            {/* Admin Button */}
+            <AdminButton
+              isAdmin={isAdmin}
+              onClick={() => isAdmin ? handleAdminLogout() : setIsLoginModalOpen(true)}
+            />
 
             {/* Navigation Tabs */}
             <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
