@@ -1,10 +1,21 @@
-# 🏓 Ping Pong Tracker
+# 🏓 Ping Pong & Padel Tracker
 
-A modern, web-based tracker for ping pong matches you play in your garage. Keep track of scores, view leaderboards, and analyze player statistics to see who truly rules the table.
+A modern, web-based tracker for your local sports club or office league. Initially built for ping pong, now expanded to support Padel doubles! Keep track of scores, run tournaments, view leaderboards, and analyze player statistics to see who truly rules the court.
 
 ## Features
 
-### 🏆 Leaderboard
+### 🏆 Tournaments (New!)
+*   **Bracket Generator**: Create Single or Double Elimination brackets for 4-16 players.
+*   **Seeding**: Optional Swiss stage (coming soon) or random seeding.
+*   **Trophy Case**: Tournament results are permanently saved. Winners get virtual trophies displayed on their profile.
+*   **Integrated Stats**: Tournament matches count towards your global ELO and win/loss records.
+
+### 🎾 Padel Support
+*   **Doubles Tracking**: Record matches for 2v2 Padel games.
+*   **Separate Stats**: Padel ELO and stats are tracked separately from Ping Pong.
+*   **Team Analysis**: See which partnerships work best.
+
+### 🏅 Leaderboard
 *   **Rankings**: Automatically ranked by Wins, Losses, Win %, and Score Difference.
 *   **Streaks**: See who is currently on a hot winning streak or a cold losing streak.
 *   **Sorting**: Click any column header to sort the leaderboard by that metric.
@@ -12,19 +23,17 @@ A modern, web-based tracker for ping pong matches you play in your garage. Keep 
 
 ### 📊 Player Stats
 *   **Deep Dive**: Select any player to view their detailed performance metrics.
-*   **Current Streak**: View the player's current active streak.
+*   **Trophy Case**: View a collection of badges and medals from tournament performances.
 *   **Head-to-Head**: See your win/loss record against every opponent.
 *   **Timeline**: View a history of recent matches with win/loss indicators.
-*   **Date Filtering**: Analyze performance over specific time periods.
 
 ### ⚔️ Match Tracking
-*   **Quick Entry**: Select two players and logging a match takes seconds.
+*   **Quick Entry**: Select players/teams and log a match in seconds.
+*   **Handicap System**: Automatic handicap suggestions if a player is on a massive winning streak against another.
 *   **Avatar Support**: Upload profile pictures for players.
-*   **Match History**: View and edit/delete past match records.
 
 ### 🌗 Dark Mode
-*   **Theme Toggle**: Switch between Light and Dark mode to suit your environment (or mood).
-*   **Persistent**: Your theme preference is saved automatically.
+*   **Theme Toggle**: Switch between Light and Dark mode to suit your environment.
 
 ## Tech Stack
 *   **Frontend**: React + Vite
@@ -52,6 +61,10 @@ A modern, web-based tracker for ping pong matches you play in your garage. Keep 
     ```
 
 ## Database Schema
-The app uses two main tables in Supabase:
-*   `users`: Stores player info (id, name, avatar_url, total_wins).
-*   `matches`: Stores match records (id, player1_id, player2_id, score1, score2, created_at).
+The app uses Supabase for data persistence. Key tables:
+
+*   `users`: Player info (id, name, avatar_url, stats).
+*   `matches`: Ping pong match records.
+*   `padel_matches`: Padel match records.
+*   `tournaments`: Tournament metadata (name, status, format).
+*   `tournament_results`: Player placements in tournaments.
