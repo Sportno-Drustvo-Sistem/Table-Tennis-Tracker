@@ -1,8 +1,9 @@
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import TournamentSetup from './TournamentSetup'
 import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
-import { Trophy, RefreshCw, X, ShieldAlert } from 'lucide-react'
+import { Trophy, RefreshCw, X, AlertTriangle } from 'lucide-react'
 import { getActiveDebuffs, getRandomDebuff } from '../../utils'
 
 // Helper to shuffle array
@@ -441,7 +442,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                         console.error("Render Error in Tournament:", err)
                         return (
                             <div className="flex flex-col items-center justify-center h-full p-8 text-center text-red-500">
-                                <ShieldAlert size={48} className="mb-4" />
+                                <AlertTriangle size={48} className="mb-4" />
                                 <h3 className="text-xl font-bold mb-2">Tournament Data Error</h3>
                                 <p className="mb-6">The tournament data seems to be corrupted.</p>
                                 <button
