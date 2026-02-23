@@ -33,7 +33,7 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
         }
     }
 
-    const canStart = selectedPlayerIds.length >= 4 && selectedPlayerIds.length <= 16 && name.trim().length > 0
+    const canStart = selectedPlayerIds.length >= 3 && selectedPlayerIds.length <= 16 && name.trim().length > 0
 
     if (!isAdmin) {
         return (
@@ -153,7 +153,7 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
                     <div className="flex justify-between items-end mb-3">
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                             Select Players ({selectedPlayerIds.length}/16)
-                            <span className="ml-2 text-xs font-normal text-red-500">{selectedPlayerIds.length < 4 ? '(Min 4 required)' : ''}</span>
+                            <span className="ml-2 text-xs font-normal text-red-500">{selectedPlayerIds.length < 3 ? '(Min 3 required)' : ''}</span>
                         </label>
                         <button
                             onClick={handleSelectAll}
