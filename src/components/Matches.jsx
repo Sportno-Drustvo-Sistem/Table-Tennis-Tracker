@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X } from 'lucide-react'
+import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, calculateEloChange, getKFactor } from '../utils'
 
@@ -7,6 +7,44 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+    const [selectedIds, setSelectedIds] = useState(new Set())
+    const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === matches.length) {
+            setSelectedIds(new Set())
+        } else {
+            setSelectedIds(new Set(matches.map(m => m.id)))
+        }
+    }
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return
+        setLoading(true)
+        setBulkDeleteConfirm(false)
+        try {
+            const ids = [...selectedIds]
+            const { error } = await supabase.from('matches').delete().in('id', ids)
+            if (error) throw error
+
+            await recalculatePlayerStats()
+            setSelectedIds(new Set())
+            if (onMatchDeleted) onMatchDeleted()
+        } catch (error) {
+            alert('Error deleting matches: ' + error.message)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     // Compute ELO ratings and changes for every match
     const matchEloData = useMemo(() => {
@@ -143,6 +181,38 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                 </div>
             </div>
 
+            {/* Bulk Delete Action Bar */}
+            {selectedIds.size > 0 && isAdmin && (
+                <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-red-700 dark:text-red-300">
+                            {selectedIds.size} match{selectedIds.size > 1 ? 'es' : ''} selected
+                        </span>
+                        <button onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">
+                            Clear selection
+                        </button>
+                    </div>
+                    {bulkDeleteConfirm ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-red-600 dark:text-red-400 font-bold">Are you sure?</span>
+                            <button onClick={handleBulkDelete} disabled={loading}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm disabled:opacity-50 flex items-center gap-1">
+                                <Trash2 size={14} /> {loading ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
+                            <button onClick={() => setBulkDeleteConfirm(false)}
+                                className="px-3 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 font-bold text-sm">
+                                Cancel
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setBulkDeleteConfirm(true)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm flex items-center gap-2">
+                            <Trash2 size={14} /> Delete Selected
+                        </button>
+                    )}
+                </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {matches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
@@ -155,6 +225,13 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    {isAdmin && (
+                                        <th className="px-3 py-4 w-10">
+                                            <button onClick={toggleSelectAll} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                                {selectedIds.size === matches.length ? <CheckSquare size={18} /> : selectedIds.size > 0 ? <MinusSquare size={18} /> : <Square size={18} />}
+                                            </button>
+                                        </th>
+                                    )}
                                     <th className="px-6 py-4 text-right">Player 1</th>
                                     <th className="px-6 py-4 text-center">Score</th>
                                     <th className="px-6 py-4">Player 2</th>
@@ -169,8 +246,16 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                     const matchDate = new Date(match.created_at)
                                     const eloData = matchEloData[match.id]
 
+                                    const isSelected = selectedIds.has(match.id)
                                     return (
-                                        <tr key={match.id} className="hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
+                                        <tr key={match.id} className={`transition-colors ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}>
+                                            {isAdmin && (
+                                                <td className="px-3 py-4">
+                                                    <button onClick={() => toggleSelect(match.id)} className={`transition-colors ${isSelected ? 'text-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400'}`}>
+                                                        {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                    </button>
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end space-x-3">
                                                     <div className="text-right">
@@ -197,8 +282,8 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                                 <div
                                                                     key={idx}
                                                                     className={`flex items-center text-xs px-2 py-0.5 rounded-full cursor-help ${rule.type === 'mayhem'
-                                                                            ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30'
-                                                                            : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+                                                                        ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30'
+                                                                        : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
                                                                         }`}
                                                                     title={`${rule.targetPlayerName ? rule.targetPlayerName + ': ' : ''}${rule.title}: ${rule.description}`}
                                                                 >

@@ -366,40 +366,55 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         const currentRound = rounds[roundIdx]
 
         if (currentRound.bracket === 'grand_final') {
-            // Tournament over
             tournament.status = 'completed'
             tournament.winner = winner
             finishTournament(tournament)
             return
         }
 
+        // Calculate WB-relative round index for feedsFrom matching
+        const wbRounds = rounds.filter(r => r.bracket === 'winners')
+        const wbRelativeIdx = wbRounds.indexOf(currentRound)
+        const isWBFinal = currentRound.name === 'WB Final'
+
         if (currentRound.bracket === 'winners') {
-            // Advance winner in winners bracket
-            const nextWBIdx = roundIdx + 1
-            if (nextWBIdx < rounds.length && rounds[nextWBIdx].bracket === 'winners') {
-                const nextMatch = rounds[nextWBIdx].matches[Math.floor(matchIndex / 2)]
-                if (nextMatch) {
-                    if (matchIndex % 2 === 0) nextMatch.player1 = winner
-                    else nextMatch.player2 = winner
-                }
-            }
+            if (isWBFinal) {
+                // WB Final: winner → Grand Final, loser → LB Final
+                const gf = rounds.find(r => r.bracket === 'grand_final')
+                if (gf) gf.matches[0].player1 = winner
 
-            // Send loser to losers bracket
-            const lbRound = rounds.find(r => r.bracket === 'losers' && r.matches.some(m => m.feedsFrom?.type === 'wb_losers' && m.feedsFrom.wbRound === roundIdx) || (r.bracket === 'losers' && r.matches.some(m => m.feedsFrom?.type === 'wb_drop' && m.feedsFrom.wbRound === roundIdx)))
-
-            if (lbRound) {
-                const lbMatch = lbRound.matches.find(m => (!m.player1 || !m.player2))
-                if (lbMatch) {
+                const lbFinal = rounds.find(r => r.name === 'LB Final')
+                if (lbFinal) {
+                    const lbMatch = lbFinal.matches[0]
                     if (!lbMatch.player1) lbMatch.player1 = loser
                     else lbMatch.player2 = loser
                 }
-            }
+            } else {
+                // Normal WB round: advance winner to next WB round
+                const nextWBIdx = roundIdx + 1
+                if (nextWBIdx < rounds.length && rounds[nextWBIdx].bracket === 'winners') {
+                    const nextMatch = rounds[nextWBIdx].matches[Math.floor(matchIndex / 2)]
+                    if (nextMatch) {
+                        if (matchIndex % 2 === 0) nextMatch.player1 = winner
+                        else nextMatch.player2 = winner
+                    }
+                }
 
-            // Check for WB Final winner → Grand Final
-            const wbFinal = rounds.find(r => r.name === 'WB Final')
-            if (wbFinal?.matches[0]?.winner) {
-                const gf = rounds.find(r => r.bracket === 'grand_final')
-                if (gf) gf.matches[0].player1 = wbFinal.matches[0].winner
+                // Send loser to matching LB round (using WB-relative index for feedsFrom)
+                const lbRound = rounds.find(r =>
+                    r.bracket === 'losers' && r.matches.some(m =>
+                        (m.feedsFrom?.type === 'wb_losers' && m.feedsFrom.wbRound === wbRelativeIdx) ||
+                        (m.feedsFrom?.type === 'wb_drop' && m.feedsFrom.wbRound === wbRelativeIdx)
+                    )
+                )
+
+                if (lbRound) {
+                    const lbMatch = lbRound.matches.find(m => (!m.player1 || !m.player2))
+                    if (lbMatch) {
+                        if (!lbMatch.player1) lbMatch.player1 = loser
+                        else lbMatch.player2 = loser
+                    }
+                }
             }
         }
 
@@ -407,20 +422,18 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             // Advance winner in losers bracket
             const lbRounds = rounds.filter(r => r.bracket === 'losers')
             const lbIdx = lbRounds.indexOf(currentRound)
-            if (lbIdx < lbRounds.length - 1) {
+
+            if (currentRound.name === 'LB Final') {
+                // LB Final winner → Grand Final player2
+                const gf = rounds.find(r => r.bracket === 'grand_final')
+                if (gf) gf.matches[0].player2 = winner
+            } else if (lbIdx < lbRounds.length - 1) {
                 const nextLBRound = lbRounds[lbIdx + 1]
                 const nextMatch = nextLBRound.matches.find(m => !m.player1 || !m.player2)
                 if (nextMatch) {
                     if (!nextMatch.player1) nextMatch.player1 = winner
                     else nextMatch.player2 = winner
                 }
-            }
-
-            // LB Final winner → Grand Final
-            const lbFinal = rounds.find(r => r.name === 'LB Final')
-            if (lbFinal?.matches[0]?.winner) {
-                const gf = rounds.find(r => r.bracket === 'grand_final')
-                if (gf) gf.matches[0].player2 = lbFinal.matches[0].winner
             }
         }
 
