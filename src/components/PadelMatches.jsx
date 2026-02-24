@@ -214,11 +214,41 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col items-center">
-                                                    <div className="flex items-center justify-center space-x-2 font-mono font-bold text-xl text-gray-900 dark:text-white">
-                                                        <span className={match.score1 > match.score2 ? 'text-green-600 dark:text-green-400' : ''}>{match.score1}</span>
-                                                        <span className="text-gray-400">-</span>
-                                                        <span className={match.score2 > match.score1 ? 'text-green-600 dark:text-green-400' : ''}>{match.score2}</span>
-                                                    </div>
+                                                    {(() => {
+                                                        // Calculate Sets won for display
+                                                        let s1 = 0;
+                                                        let s2 = 0;
+                                                        if (match.sets_data && match.sets_data.length > 0) {
+                                                            match.sets_data.forEach(s => {
+                                                                if (s.team1Games > s.team2Games) s1++;
+                                                                else if (s.team2Games > s.team1Games) s2++;
+                                                            });
+                                                        } else {
+                                                            // Legacy match directly uses score1/score2
+                                                            s1 = match.score1;
+                                                            s2 = match.score2;
+                                                        }
+
+                                                        return (
+                                                            <>
+                                                                <div className="flex items-center justify-center space-x-2 font-mono font-bold text-xl text-gray-900 dark:text-white pb-1">
+                                                                    <span className={s1 > s2 ? 'text-green-600 dark:text-green-400' : ''}>{s1}</span>
+                                                                    <span className="text-gray-400">-</span>
+                                                                    <span className={s2 > s1 ? 'text-green-600 dark:text-green-400' : ''}>{s2}</span>
+                                                                </div>
+                                                                {match.sets_data && match.sets_data.length > 0 && (
+                                                                    <div className="flex space-x-2 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                                                        {match.sets_data.map((set, idx) => (
+                                                                            <span key={idx} className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                                                {set.team1Games}-{set.team2Games}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    })()}
+
                                                     {match.handicap_rule && (
                                                         <div
                                                             className="mt-1 flex items-center text-amber-600 dark:text-amber-400 text-xs bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full cursor-help"
