@@ -32,6 +32,12 @@ export const generateSingleEliminationBracket = (participants, mayhemMode, debuf
 
     // Round 1
     const matches = []
+    let r1Name = 'Round 1';
+    if (size === 2) r1Name = 'Grand Final';
+    else if (size === 4) r1Name = 'Semi-Finals';
+    else if (size === 8) r1Name = 'Quarter-Finals';
+    else if (size === 16) r1Name = 'Round of 16';
+
     for (let i = 0; i < size; i += 2) {
         const p1 = ordered[i]
         const p2 = ordered[i + 1]
@@ -53,7 +59,7 @@ export const generateSingleEliminationBracket = (participants, mayhemMode, debuf
     }
 
     // Subsequent Rounds
-    const allRounds = [{ name: 'Round 1', matches }]
+    const allRounds = [{ name: r1Name, matches }]
     let currentSize = matches.length
     let roundNum = 2
 

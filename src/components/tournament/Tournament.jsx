@@ -336,6 +336,13 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             }
         }
 
+        if (roundIdx === grandFinalRoundIdx) {
+            if (rounds[grandFinalRoundIdx]?.matches[0]?.winner) {
+                checkTournamentComplete(tournament)
+            }
+            return
+        }
+
         // Normal advancement to next round (skip 3rd place match round)
         let nextRoundIdx = roundIdx + 1
         if (nextRoundIdx < rounds.length && rounds[nextRoundIdx].name === '3rd Place Match') {
@@ -552,9 +559,29 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     }
 
     const handleCloseTournament = () => {
-        showConfirm("Are you sure you want to close this tournament view? Active tournament data will be cleared.", () => { // Replaced confirm
+        showConfirm("Are you sure you want to cancel this tournament? Active tournament data will be cleared and no results will be saved.", () => {
             setActiveTournament(null)
             localStorage.removeItem(STORAGE_KEY)
+        })
+    }
+
+    const handleManuallyFinishTournament = () => {
+        showConfirm("Are you sure you want to finish the tournament early? Results will be saved based on current progress.", () => {
+            const t = { ...activeTournament }
+            t.status = 'completed'
+
+            if (!t.winner) {
+                if (t.phase === 'swiss') {
+                    const sorted = [...t.swiss.standings].sort((a, b) => b.score !== a.score ? b.score - a.score : b.pointDiff - a.pointDiff)
+                    t.winner = sorted[0]?.player || t.players[0]
+                } else {
+                    const gf = t.rounds.find(r => r.bracket === 'grand_final' || r.name === 'Grand Final')
+                    t.winner = gf?.matches[0]?.winner || t.players[0]
+                }
+            }
+
+            finishTournament(t)
+            setActiveTournament(t)
         })
     }
 
@@ -596,9 +623,16 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     </div>
                 </div>
                 {isAdmin && (
-                    <button onClick={handleCloseTournament} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center">
-                        <X size={20} className="mr-1" /> Close
-                    </button>
+                    <div className="flex gap-2">
+                        {activeTournament.status === 'active' && (
+                            <button onClick={handleManuallyFinishTournament} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex items-center font-bold">
+                                <Trophy size={18} className="mr-1" /> Finish
+                            </button>
+                        )}
+                        <button onClick={handleCloseTournament} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center">
+                            <X size={20} className="mr-1" /> {activeTournament.status === 'active' ? 'Cancel' : 'Exit View'}
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -655,8 +689,8 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                                     <div key={idx}
                                         onClick={() => !isDone && handleSwissMatchClick(pairing)}
                                         className={`flex items - center justify - between p - 4 rounded - lg border transition - all ${isDone
-                                                ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10'
-                                                : isAdmin ? 'border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 hover:shadow-md' : 'border-gray-200 dark:border-gray-700'
+                                            ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10'
+                                            : isAdmin ? 'border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 hover:shadow-md' : 'border-gray-200 dark:border-gray-700'
                                             } `}
                                     >
                                         <div className="flex items-center gap-3">

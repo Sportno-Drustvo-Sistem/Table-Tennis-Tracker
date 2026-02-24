@@ -142,6 +142,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             headToHead,
             timeline,
             streakType,
+            streak: currentStreak,
             maxElo: Math.round(maxElo),
             minElo: Math.round(minElo),
             avgScoreDiff: (wins + losses) > 0 ? ((pointsFor - pointsAgainst) / (wins + losses)).toFixed(1) : 0

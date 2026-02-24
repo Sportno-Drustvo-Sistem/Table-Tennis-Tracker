@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Scale, Skull } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
@@ -20,24 +20,28 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
     if (!isOpen || !player1 || !player2) return null
 
     // Calculate Handicap
-    const { streak, winnerId } = matches ? getHeadToHeadStreak(player1.id, player2.id, matches) : { streak: 0, winnerId: null }
-    let streakRule = null
+    const activeRules = useMemo(() => {
+        if (!isOpen || !player1 || !player2) return []
 
-    if (streak >= 8 && winnerId) {
-        const winnerName = winnerId === player1.id ? player1.name : player2.name
-        const loserName = winnerId === player1.id ? player2.name : player1.name
-        // Use DB rules if available, otherwise legacy fallback (which is now removed/refactored in utils so we MUST pass debuffs)
-        streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
-    }
+        const { streak, winnerId } = matches ? getHeadToHeadStreak(player1.id, player2.id, matches) : { streak: 0, winnerId: null }
+        let streakRule = null
 
-    // Combine rules
-    const activeRules = []
-    if (streakRule) activeRules.push({ ...streakRule, type: 'streak' })
+        if (streak >= 8 && winnerId) {
+            const winnerName = winnerId === player1.id ? player1.name : player2.name
+            const loserName = winnerId === player1.id ? player2.name : player1.name
+            streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
+        }
 
-    if (debuffs) {
-        if (debuffs[player1.id]) activeRules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
-        if (debuffs[player2.id]) activeRules.push({ ...debuffs[player2.id], targetPlayerId: player2.id, targetPlayerName: player2.name, type: 'mayhem' })
-    }
+        const rules = []
+        if (streakRule) rules.push({ ...streakRule, type: 'streak' })
+
+        if (debuffs) {
+            if (debuffs[player1.id]) rules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
+            if (debuffs[player2.id]) rules.push({ ...debuffs[player2.id], targetPlayerId: player2.id, targetPlayerName: player2.name, type: 'mayhem' })
+        }
+
+        return rules
+    }, [isOpen, player1, player2, matches, allDebuffs, debuffs])
 
     const handleSave = async () => {
         setSaving(true)
