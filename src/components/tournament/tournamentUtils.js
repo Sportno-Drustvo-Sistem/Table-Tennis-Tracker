@@ -231,7 +231,7 @@ export const generateDoubleEliminationBracket = (participants, mayhemMode, debuf
                     player1: null, player2: null,
                     score1: null, score2: null,
                     winner: null, bracket: 'losers',
-                    feedsFrom: { type: 'wb_losers', wbRound: 0 }
+                    feedsFrom: { type: 'wb_losers', wbRound: 0, reverse: false }
                 })
             }
             losersRounds.push({ name: `LB Round ${lbRound}`, matches: lbMatches, bracket: 'losers' })
@@ -249,7 +249,7 @@ export const generateDoubleEliminationBracket = (participants, mayhemMode, debuf
                     player1: null, player2: null, // slot1 = LB survivor, slot2 = WB dropout
                     score1: null, score2: null,
                     winner: null, bracket: 'losers',
-                    feedsFrom: { type: 'wb_drop', wbRound: wbr }
+                    feedsFrom: { type: 'wb_drop', wbRound: wbr, reverse: wbr % 2 === 1 }
                 })
             }
             losersRounds.push({ name: `LB Round ${lbRound}`, matches: dropMatches, bracket: 'losers' })

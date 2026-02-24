@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { Activity, Users, Calendar } from 'lucide-react'
+import { Activity, Users, Calendar, TrendingUp, TrendingDown, Target } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
+import { calculateEloChange, getKFactor } from '../utils'
 
 const PlayerStats = ({ users, matches, initialPlayerId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
@@ -36,6 +37,49 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         let pointsAgainst = 0
         const headToHead = {}
         const timeline = []
+
+        // Build global ELO history to get Max and Min ELO
+        const sortedAllMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        const ratings = {}
+        const matchesPlayed = {}
+        users.forEach(u => {
+            ratings[u.id] = 1200
+            matchesPlayed[u.id] = 0
+        })
+
+        let maxElo = 1200
+        let minElo = 1200
+        if (selectedPlayer?.matches_played > 0) {
+            maxElo = -Infinity
+            minElo = Infinity
+        }
+
+        sortedAllMatches.forEach(match => {
+            const p1Id = match.player1_id
+            const p2Id = match.player2_id
+            if (ratings[p1Id] === undefined || ratings[p2Id] === undefined) return
+
+            matchesPlayed[p1Id] = (matchesPlayed[p1Id] || 0) + 1
+            matchesPlayed[p2Id] = (matchesPlayed[p2Id] || 0) + 1
+
+            const p1Change = calculateEloChange(ratings[p1Id], ratings[p2Id], match.score1, match.score2, getKFactor(matchesPlayed[p1Id]))
+            const p2Change = calculateEloChange(ratings[p2Id], ratings[p1Id], match.score2, match.score1, getKFactor(matchesPlayed[p2Id]))
+
+            ratings[p1Id] += p1Change
+            ratings[p2Id] += p2Change
+
+            if (p1Id === selectedPlayerId) {
+                if (ratings[p1Id] > maxElo) maxElo = ratings[p1Id]
+                if (ratings[p1Id] < minElo) minElo = ratings[p1Id]
+            }
+            if (p2Id === selectedPlayerId) {
+                if (ratings[p2Id] > maxElo) maxElo = ratings[p2Id]
+                if (ratings[p2Id] < minElo) minElo = ratings[p2Id]
+            }
+        })
+
+        if (maxElo === -Infinity) maxElo = 1200
+        if (minElo === Infinity) minElo = 1200
 
         relevantMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // Sort latest first
 
@@ -97,10 +141,12 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             avgPoints: (wins + losses) > 0 ? (pointsFor / (wins + losses)).toFixed(1) : 0,
             headToHead,
             timeline,
-            streak: streakType ? `${currentStreak}${streakType}` : '-',
-            streakType
+            streakType,
+            maxElo: Math.round(maxElo),
+            minElo: Math.round(minElo),
+            avgScoreDiff: (wins + losses) > 0 ? ((pointsFor - pointsAgainst) / (wins + losses)).toFixed(1) : 0
         }
-    }, [selectedPlayerId, matches, startDate, endDate])
+    }, [selectedPlayerId, matches, startDate, endDate, users])
 
     if (!selectedPlayer) return <div>Select a player</div>
 
@@ -167,8 +213,20 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                     <div className={`text-4xl font-extrabold ${stats?.streakType === 'W' ? 'text-green-600 dark:text-green-400' : (stats?.streakType === 'L' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400')}`}>{stats?.streak}</div>
                 </div>
                 <div className="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-xl border border-purple-100 dark:border-purple-800">
-                    <div className="text-purple-800 dark:text-purple-400 text-sm font-bold uppercase">Point Diff</div>
+                    <div className="text-purple-800 dark:text-purple-400 text-sm font-bold uppercase flex items-center gap-1"><Target size={14} /> Total +/-</div>
                     <div className="text-4xl font-extrabold text-purple-600 dark:text-purple-400">{stats?.pointsDiff > 0 ? '+' : ''}{stats?.pointsDiff}</div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-xl border border-orange-100 dark:border-orange-800">
+                    <div className="text-orange-800 dark:text-orange-400 text-[11px] sm:text-sm font-bold uppercase flex items-center gap-1"><Target size={14} /> Avg +/-</div>
+                    <div className="text-3xl sm:text-4xl font-extrabold text-orange-600 dark:text-orange-400">{stats?.avgScoreDiff > 0 ? '+' : ''}{stats?.avgScoreDiff}</div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                    <div className="text-emerald-800 dark:text-emerald-400 text-sm font-bold uppercase flex items-center gap-1"><TrendingUp size={14} /> Max ELO</div>
+                    <div className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400">{stats?.maxElo}</div>
+                </div>
+                <div className="bg-rose-50 dark:bg-rose-900/10 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
+                    <div className="text-rose-800 dark:text-rose-400 text-sm font-bold uppercase flex items-center gap-1"><TrendingDown size={14} /> Min ELO</div>
+                    <div className="text-4xl font-extrabold text-rose-600 dark:text-rose-400">{stats?.minElo}</div>
                 </div>
             </div>
 

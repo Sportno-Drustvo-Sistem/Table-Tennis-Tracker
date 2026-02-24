@@ -1,10 +1,13 @@
 import React, { useState, useMemo } from 'react'
 import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X } from 'lucide-react'
+import { Math } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { recalculatePadelStats } from '../padelUtils'
 import { calculateEloChange, getKFactor } from '../utils'
+import { useToast } from '../contexts/ToastContext'
 
 const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted, onGenerateMatch, isAdmin }) => {
+    const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -72,7 +75,7 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
             console.error(error)
-            alert('Error recalculating padel stats')
+            showToast('Error recalculating padel stats', 'error')
         } finally {
             setRecalculating(false)
         }
@@ -92,7 +95,7 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
             await recalculatePadelStats()
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
-            alert('Error deleting match: ' + error.message)
+            showToast('Error deleting match: ' + error.message, 'error')
         } finally {
             setLoading(false)
         }

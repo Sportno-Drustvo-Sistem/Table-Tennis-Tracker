@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Scale, Skull } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
+import { useToast } from '../../contexts/ToastContext'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
-    const [score1, setScore1] = useState(0)
+    const { showToast } = useToast()
+    const [score1, setScore1] = useState('')
     const [score2, setScore2] = useState(0)
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
@@ -60,10 +62,11 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
             await recalculatePlayerStats()
 
             onMatchSaved()
-            setScore1(0)
+            setScore1('')
             setScore2(0)
         } catch (error) {
-            alert('Error saving match: ' + error.message)
+            console.error(error)
+            showToast('Error saving match: ' + error.message, 'error')
         } finally {
             setSaving(false)
         }

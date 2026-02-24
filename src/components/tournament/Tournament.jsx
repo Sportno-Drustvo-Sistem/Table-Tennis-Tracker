@@ -5,6 +5,7 @@ import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
 import { Trophy, RefreshCw, X, AlertTriangle } from 'lucide-react'
 import { getActiveDebuffs, getRandomDebuff } from '../../utils'
+import { useToast } from '../../contexts/ToastContext' // Added import for useToast
 import {
     shuffle,
     generateSingleEliminationBracket,
@@ -16,6 +17,7 @@ import {
 } from './tournamentUtils'
 
 const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
+    const { showToast, showConfirm } = useToast() // Added useToast hook
     const [activeTournament, setActiveTournament] = useState(null)
     const [loading, setLoading] = useState(true)
     const [cachedDebuffs, setCachedDebuffs] = useState([])
@@ -81,7 +83,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             .insert({ name, format, status: 'active', config: { mayhemMode, useSwissSeeding } })
             .select().single()
 
-        if (tourneyError) { alert('Error starting tournament: ' + tourneyError.message); return }
+        if (tourneyError) { showToast('Error starting tournament: ' + tourneyError.message, 'error'); return }
 
         const tournamentId = tourneyData.id
         const participants = shuffle(users.filter(u => playerIds.includes(u.id)))
@@ -409,7 +411,19 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                 )
 
                 if (lbRound) {
-                    const lbMatch = lbRound.matches.find(m => (!m.player1 || !m.player2))
+                    const isDrop = lbRound.matches[0].feedsFrom?.type === 'wb_drop'
+                    const reverse = lbRound.matches[0].feedsFrom?.reverse
+                    const wbSize = currentRound.matches.length
+
+                    let targetMatchIdx
+                    if (isDrop) {
+                        targetMatchIdx = reverse ? wbSize - 1 - matchIndex : matchIndex
+                    } else {
+                        targetMatchIdx = Math.floor(matchIndex / 2)
+                        if (reverse) targetMatchIdx = (wbSize / 2) - 1 - targetMatchIdx
+                    }
+
+                    const lbMatch = lbRound.matches[targetMatchIdx]
                     if (lbMatch) {
                         if (!lbMatch.player1) lbMatch.player1 = loser
                         else lbMatch.player2 = loser
@@ -534,14 +548,14 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             if (error) console.error("Error saving results", error)
         }
 
-        alert(`🏆 Tournament Complete! ${tournament.winner.name} is the champion!`)
+        showToast(`🏆 Tournament Complete! ${tournament.winner.name} is the champion!`, 'success') // Replaced alert
     }
 
     const handleCloseTournament = () => {
-        if (confirm("Are you sure you want to close this tournament view? Active tournament data will be cleared.")) {
+        showConfirm("Are you sure you want to close this tournament view? Active tournament data will be cleared.", () => { // Replaced confirm
             setActiveTournament(null)
             localStorage.removeItem(STORAGE_KEY)
-        }
+        })
     }
 
     // ─── Render ────────────────────────────────────
@@ -618,7 +632,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                                                 <td className="p-2 text-center font-bold text-green-600 dark:text-green-400">{s.score}</td>
                                                 <td className="p-2 text-center text-gray-600 dark:text-gray-300">{s.pointsFor}</td>
                                                 <td className="p-2 text-center text-gray-600 dark:text-gray-300">{s.pointsAgainst}</td>
-                                                <td className={`p-2 text-center font-bold ${s.pointDiff > 0 ? 'text-green-600' : s.pointDiff < 0 ? 'text-red-500' : 'text-gray-400'}`}>{s.pointDiff > 0 ? '+' : ''}{s.pointDiff}</td>
+                                                <td className={`p - 2 text - center font - bold ${s.pointDiff > 0 ? 'text-green-600' : s.pointDiff < 0 ? 'text-red-500' : 'text-gray-400'} `}>{s.pointDiff > 0 ? '+' : ''}{s.pointDiff}</td>
                                             </tr>
                                         ))}
                                 </tbody>
@@ -640,10 +654,10 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                                 return (
                                     <div key={idx}
                                         onClick={() => !isDone && handleSwissMatchClick(pairing)}
-                                        className={`flex items-center justify-between p-4 rounded-lg border transition-all ${isDone
-                                            ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10'
-                                            : isAdmin ? 'border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 hover:shadow-md' : 'border-gray-200 dark:border-gray-700'
-                                            }`}
+                                        className={`flex items - center justify - between p - 4 rounded - lg border transition - all ${isDone
+                                                ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10'
+                                                : isAdmin ? 'border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 hover:shadow-md' : 'border-gray-200 dark:border-gray-700'
+                                            } `}
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">

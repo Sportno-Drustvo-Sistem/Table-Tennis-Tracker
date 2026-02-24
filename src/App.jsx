@@ -25,10 +25,13 @@ import PadelMatchModal from './components/modals/PadelMatchModal'
 import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
 import PadelMatchGeneratorModal from './components/modals/PadelMatchGeneratorModal'
 import Tournament from './components/tournament/Tournament'
+import { useToast } from './contexts/ToastContext'
 
 // --- Main App ---
 
 function App() {
+  const { showToast } = useToast()
+
   const [users, setUsers] = useState([])
   const [matches, setMatches] = useState([])
   const [padelMatches, setPadelMatches] = useState([])
@@ -199,13 +202,13 @@ function App() {
           .catch(err => {
             console.error('Migration failed:', err)
             if (err.message && err.message.includes('column')) {
-              alert('Automatic update failed: Missing database columns. Please run the SQL migration to add elo_rating, matches_played, and is_ranked columns.')
+              showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
             }
           })
           .finally(() => setMigrating(false))
       }
     }
-  }, [loading, matches.length, users.length, fetchData])
+  }, [loading, matches.length, users.length, fetchData, showToast])
 
   const handleUserClick = (user) => {
     setStatsPlayerId(user.id)

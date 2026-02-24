@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculatePadelStats } from '../../padelUtils'
+import { useToast } from '../../contexts/ToastContext'
 
 const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved }) => {
-    const [score1, setScore1] = useState(0)
+    const { showToast } = useToast()
+    const [score1, setScore1] = useState('')
     const [score2, setScore2] = useState(0)
     const [localTeam1, setLocalTeam1] = useState(team1)
     const [localTeam2, setLocalTeam2] = useState(team2)
@@ -47,7 +49,8 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved })
             setScore1(0)
             setScore2(0)
         } catch (error) {
-            alert('Error saving padel match: ' + error.message)
+            console.error(error)
+            showToast('Error saving padel match: ' + error.message, 'error')
         } finally {
             setSaving(false)
         }

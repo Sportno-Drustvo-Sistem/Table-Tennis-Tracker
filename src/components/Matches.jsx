@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare } from 'lucide-react'
+import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks } from 'lucide-react'
+import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, calculateEloChange, getKFactor } from '../utils'
 
@@ -9,6 +10,8 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
     const [selectedIds, setSelectedIds] = useState(new Set())
     const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
+    const [isBulkMode, setIsBulkMode] = useState(false)
+    const { showToast } = useToast()
 
     const toggleSelect = (id) => {
         setSelectedIds(prev => {
@@ -38,9 +41,10 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
 
             await recalculatePlayerStats()
             setSelectedIds(new Set())
+            setIsBulkMode(false)
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
-            alert('Error deleting matches: ' + error.message)
+            showToast('Error deleting matches: ' + error.message, 'error')
         } finally {
             setLoading(false)
         }
@@ -100,8 +104,8 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
             await recalculatePlayerStats()
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
-            console.error(error)
-            alert('Error recalculating stats')
+            console.error('Error recalculating stats:', error)
+            showToast('Error recalculating stats', 'error')
         } finally {
             setRecalculating(false)
         }
@@ -122,7 +126,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
 
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
-            alert('Error deleting match: ' + error.message)
+            showToast('Error deleting match: ' + error.message, 'error')
         } finally {
             setLoading(false)
         }
@@ -160,29 +164,42 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                 <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
                     <Calendar className="mr-2 text-blue-500" /> Matches
                 </h2>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2 sm:gap-3">
+                    {isAdmin && (
+                        <button
+                            onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
+                            className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-blue-600 text-white shadow-inner' : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30'}`}
+                            title="Toggle Bulk Actions"
+                        >
+                            <ListChecks size={16} className="mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Bulk Actions</span>
+                            <span className="sm:hidden">Bulk</span>
+                        </button>
+                    )}
                     <button
                         onClick={onGenerateMatch}
-                        className="flex items-center text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg"
+                        className="flex items-center text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg"
                         title="Random Match Generator"
                     >
-                        <RefreshCw size={16} className="mr-2" />
-                        Generate Match
+                        <RefreshCw size={16} className="mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Generate Match</span>
+                        <span className="sm:hidden">Gen</span>
                     </button>
                     <button
                         onClick={handleRecalculate}
                         disabled={recalculating}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
+                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
                         title="Recalculate ELO and Stats"
                     >
-                        <RefreshCw size={16} className={`mr-1 ${recalculating ? 'animate-spin' : ''}`} />
-                        {recalculating ? 'Recalculating...' : 'Sync Stats'}
+                        <RefreshCw size={16} className={`mr-1 sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
+                        <span className="sm:hidden">{recalculating ? '...' : 'Sync'}</span>
                     </button>
                 </div>
             </div>
 
             {/* Bulk Delete Action Bar */}
-            {selectedIds.size > 0 && isAdmin && (
+            {isBulkMode && isAdmin && (
                 <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-red-700 dark:text-red-300">
@@ -224,19 +241,19 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {isAdmin && (
-                                        <th className="px-3 py-4 w-10">
+                                <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    {isAdmin && isBulkMode && (
+                                        <th className="px-2 sm:px-3 py-3 sm:py-4 w-8 sm:w-10">
                                             <button onClick={toggleSelectAll} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                                {selectedIds.size === matches.length ? <CheckSquare size={18} /> : selectedIds.size > 0 ? <MinusSquare size={18} /> : <Square size={18} />}
+                                                {selectedIds.size === matches.length && matches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : selectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
                                             </button>
                                         </th>
                                     )}
-                                    <th className="px-6 py-4 text-right">Player 1</th>
-                                    <th className="px-6 py-4 text-center">Score</th>
-                                    <th className="px-6 py-4">Player 2</th>
-                                    <th className="px-6 py-4">Date Played</th>
-                                    <th className="px-6 py-4 text-center">Actions</th>
+                                    <th className="px-2 sm:px-6 py-3 sm:py-4 text-right">P1</th>
+                                    <th className="px-1 sm:px-6 py-3 sm:py-4 text-center">Score</th>
+                                    <th className="px-2 sm:px-6 py-3 sm:py-4 text-left">P2</th>
+                                    <th className="px-2 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">Date</th>
+                                    <th className="px-2 sm:px-6 py-3 sm:py-4 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -248,30 +265,30 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
 
                                     const isSelected = selectedIds.has(match.id)
                                     return (
-                                        <tr key={match.id} className={`transition-colors ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}>
-                                            {isAdmin && (
-                                                <td className="px-3 py-4">
+                                        <tr key={match.id} className={`transition-colors text-sm ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}>
+                                            {isAdmin && isBulkMode && (
+                                                <td className="px-2 sm:px-3 py-3 sm:py-4">
                                                     <button onClick={() => toggleSelect(match.id)} className={`transition-colors ${isSelected ? 'text-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400'}`}>
-                                                        {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                        {isSelected ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
                                                     </button>
                                                 </td>
                                             )}
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-end space-x-3">
-                                                    <div className="text-right">
-                                                        <span className={`font-bold ${match.score1 > match.score2 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4">
+                                                <div className="flex items-center justify-end space-x-2 sm:space-x-3">
+                                                    <div className="text-right flex flex-col items-end">
+                                                        <span className={`font-bold truncate max-w-[70px] sm:max-w-[none] ${match.score1 > match.score2 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                                             {player1.name}
                                                         </span>
                                                         {eloData && (
                                                             <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />
                                                         )}
                                                     </div>
-                                                    <img src={player1.avatar_url} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
+                                                    <img src={player1.avatar_url} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-1 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col items-center">
-                                                    <div className="flex items-center justify-center space-x-2 font-mono font-bold text-xl text-gray-900 dark:text-white">
+                                                    <div className="flex items-center justify-center space-x-1 sm:space-x-2 font-mono font-bold text-lg sm:text-xl text-gray-900 dark:text-white whitespace-nowrap">
                                                         <span>{match.score1}</span>
                                                         <span className="text-gray-400">-</span>
                                                         <span>{match.score2}</span>
@@ -295,11 +312,11 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center space-x-3">
-                                                    <img src={player2.avatar_url} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
-                                                    <div>
-                                                        <span className={`font-bold ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4">
+                                                <div className="flex items-center space-x-2 sm:space-x-3">
+                                                    <img src={player2.avatar_url} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
+                                                    <div className="flex flex-col items-start">
+                                                        <span className={`font-bold truncate max-w-[70px] sm:max-w-[none] ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                                             {player2.name}
                                                         </span>
                                                         {eloData && (
@@ -308,10 +325,10 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600 dark:text-gray-400 font-mono text-sm whitespace-nowrap">
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-gray-600 dark:text-gray-400 font-mono text-[9px] sm:text-sm whitespace-nowrap hidden sm:table-cell">
                                                 {matchDate.toLocaleDateString()} {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex justify-center items-center space-x-1">
                                                     {confirmDeleteId === match.id ? (
                                                         <div className="flex items-center gap-2">
@@ -343,14 +360,16 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                                     >
                                                                         <Edit2 size={18} />
                                                                     </button>
-                                                                    <button
-                                                                        onClick={() => handleDeleteRequest(match.id)}
-                                                                        className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
-                                                                        title="Delete Match"
-                                                                        disabled={loading}
-                                                                    >
-                                                                        <Trash2 size={18} />
-                                                                    </button>
+                                                                    {!isBulkMode && (
+                                                                        <button
+                                                                            onClick={() => handleDeleteRequest(match.id)}
+                                                                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[36px] sm:min-w-[44px] min-h-[36px] sm:min-h-[44px] flex items-center justify-center p-1 sm:p-2"
+                                                                            title="Delete Match"
+                                                                            disabled={loading}
+                                                                        >
+                                                                            <Trash2 size={18} />
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                             {!isAdmin && <span className="text-gray-400 dark:text-gray-600 text-xs italic">Read-only</span>}

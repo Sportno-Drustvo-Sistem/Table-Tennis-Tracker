@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { useToast } from '../../contexts/ToastContext'
 
 const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAdmin }) => {
+    const { showToast } = useToast()
     const [name, setName] = useState('')
     const [file, setFile] = useState(null)
     const [uploading, setUploading] = useState(false)
@@ -9,15 +12,14 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
     useEffect(() => {
         if (user) {
             setName(user.name)
-            setFile(null)
         }
     }, [user])
 
-    if (!isOpen || !user) return null
+    if (!isOpen) return null
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!name) return alert('Please provide a name')
+        if (!name) return showToast('Please provide a name', 'error')
 
         setUploading(true)
         try {
@@ -25,7 +27,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
 
             if (file) {
                 const fileExt = file.name.split('.').pop()
-                const fileName = `${Date.now()}.${fileExt}`
+                const fileName = `${user.id}-${Date.now()}.${fileExt}`
                 const { error: uploadError } = await supabase.storage
                     .from('avatars')
                     .upload(fileName, file)
@@ -48,7 +50,8 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
             onUserUpdated()
             onClose()
         } catch (error) {
-            alert('Error updating user: ' + error.message)
+            console.error(error)
+            showToast('Error updating user: ' + error.message, 'error')
         } finally {
             setUploading(false)
         }

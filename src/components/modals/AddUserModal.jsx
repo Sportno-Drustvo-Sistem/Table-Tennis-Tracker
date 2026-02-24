@@ -1,7 +1,10 @@
 import React, { useState } from 'react'
+import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { useToast } from '../../contexts/ToastContext'
 
 const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
+    const { showToast } = useToast()
     const [name, setName] = useState('')
     const [file, setFile] = useState(null)
     const [uploading, setUploading] = useState(false)
@@ -10,7 +13,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!name || !file) return alert('Please provide name and image')
+        if (!name || !file) return showToast('Please provide name and image', 'error')
 
         setUploading(true)
         try {
@@ -37,7 +40,8 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
             setName('')
             setFile(null)
         } catch (error) {
-            alert('Error adding user: ' + error.message)
+            console.error(error)
+            showToast('Error adding user: ' + error.message, 'error')
         } finally {
             setUploading(false)
         }

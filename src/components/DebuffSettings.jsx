@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2, AlertTriangle, Save, X, Settings } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { useToast } from '../contexts/ToastContext'
 
 const DebuffSettings = ({ isAdmin }) => {
+    const { showToast, showConfirm } = useToast()
     const [debuffs, setDebuffs] = useState([])
     const [loading, setLoading] = useState(true)
     const [editingId, setEditingId] = useState(null)
@@ -43,7 +45,7 @@ const DebuffSettings = ({ isAdmin }) => {
     const handleSave = async () => {
         if (!formData.title || !formData.description) return
         if (formData.trigger_types.length === 0) {
-            alert('Please select at least one trigger type.')
+            showToast('Please select at least one trigger type.', 'error')
             return
         }
 
@@ -64,13 +66,13 @@ const DebuffSettings = ({ isAdmin }) => {
                 .update(debuffData)
                 .eq('id', editingId)
 
-            if (error) alert('Error updating debuff: ' + error.message)
+            if (error) showToast('Error updating debuff: ' + error.message, 'error')
         } else {
             const { error } = await supabase
                 .from('debuffs')
                 .insert([debuffData])
 
-            if (error) alert('Error creating debuff: ' + error.message)
+            if (error) showToast('Error creating debuff: ' + error.message, 'error')
         }
 
         setEditingId(null)
@@ -91,18 +93,18 @@ const DebuffSettings = ({ isAdmin }) => {
     }
 
     const handleDelete = async (id) => {
-        if (!confirm('Are you sure you want to delete this debuff?')) return
+        showConfirm('Are you sure you want to delete this debuff?', async () => {
+            const { error } = await supabase
+                .from('debuffs')
+                .delete()
+                .eq('id', id)
 
-        const { error } = await supabase
-            .from('debuffs')
-            .delete()
-            .eq('id', id)
-
-        if (error) {
-            alert('Error deleting debuff: ' + error.message)
-        } else {
-            fetchDebuffs()
-        }
+            if (error) {
+                showToast('Error deleting debuff: ' + error.message, 'error')
+            } else {
+                fetchDebuffs()
+            }
+        })
     }
 
     const handleCancel = () => {
@@ -280,8 +282,8 @@ const DebuffSettings = ({ isAdmin }) => {
                                             <div className="flex flex-wrap gap-2">
                                                 {(debuff.trigger_types || (debuff.trigger_type ? [debuff.trigger_type] : [])).map(type => (
                                                     <span key={type} className={`text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wide uppercase ${type === 'mayhem'
-                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                                            : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
                                                         }`}>
                                                         {type === 'streak_loss'
                                                             ? `Loss Streak ${debuff.trigger_value}+`

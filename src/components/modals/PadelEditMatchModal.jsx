@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { useToast } from '../../contexts/ToastContext'
 import { recalculatePadelStats } from '../../padelUtils'
 
-const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated }) => {
-    const [score1, setScore1] = useState(0)
+const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) => {
+    const { showToast } = useToast()
+    const [score1, setScore1] = useState('')
     const [score2, setScore2] = useState(0)
     const [saving, setSaving] = useState(false)
 
@@ -34,7 +36,8 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated }) => {
             onMatchUpdated()
             onClose()
         } catch (error) {
-            alert('Error updating padel match: ' + error.message)
+            console.error(error)
+            showToast('Error updating padel match: ' + error.message, 'error')
         } finally {
             setSaving(false)
         }
