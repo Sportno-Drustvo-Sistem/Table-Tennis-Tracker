@@ -177,8 +177,6 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 </div>
             </div>
 
-            <TrophyCase playerId={selectedPlayerId} />
-
             <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
@@ -290,6 +288,8 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                         })}
                     </div>
                 </div>
+
+                <TrophyCase playerId={selectedPlayerId} />
 
             </div>
         </div>

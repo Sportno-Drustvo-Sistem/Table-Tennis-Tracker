@@ -13,6 +13,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const [score2, setScore2] = useState(0)
     const [history, setHistory] = useState([]) // array of 1 or 2 indicating who scored
     const [winner, setWinner] = useState(null) // null | 1 | 2
+    const [initialServer, setInitialServer] = useState(null) // 1 | 2
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
     const [showWinAnimation, setShowWinAnimation] = useState(false)
@@ -27,8 +28,23 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setSaving(false)
             setShowWinAnimation(false)
             getActiveDebuffs().then(setAllDebuffs)
+
+            // Determine initial server: Higher seed (Lower Elo) serves first
+            if (player1 && player2) {
+                const p1Elo = player1.elo_rating || 1200
+                const p2Elo = player2.elo_rating || 1200
+                // User said "higher seed serves first" and "higher seed = lower elo"
+                if (p1Elo < p2Elo) {
+                    setInitialServer(1)
+                } else if (p2Elo < p1Elo) {
+                    setInitialServer(2)
+                } else {
+                    // Equal Elo, random
+                    setInitialServer(Math.random() > 0.5 ? 1 : 2)
+                }
+            }
         }
-    }, [isOpen])
+    }, [isOpen, player1, player2])
 
     // Check win condition
     const checkWin = useCallback((s1, s2) => {
@@ -120,6 +136,22 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const matchPoint1 = !winner && score1 >= 10 && score1 > score2 && score1 - score2 >= 1
     const matchPoint2 = !winner && score2 >= 10 && score2 > score1 && score2 - score1 >= 1
 
+    // Serve Tracking Logic
+    const currentServer = useMemo(() => {
+        if (!initialServer) return null
+        const totalPoints = score1 + score2
+        const isDeuceMode = score1 >= 10 && score2 >= 10
+
+        if (isDeuceMode) {
+            // Every point alternates in deuce
+            return (totalPoints % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
+        } else {
+            // Every two points alternates normally
+            const periods = Math.floor(totalPoints / 2)
+            return (periods % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
+        }
+    }, [score1, score2, initialServer])
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
@@ -190,11 +222,18 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             }
                         `}
                     >
-                        <img
-                            src={player1.avatar_url || 'https://via.placeholder.com/150'}
-                            alt={player1.name}
-                            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg mb-3 ${winner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
-                        />
+                        <div className="flex items-center gap-2 mb-3">
+                            <img
+                                src={player1.avatar_url || 'https://via.placeholder.com/150'}
+                                alt={player1.name}
+                                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${winner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
+                            />
+                            {currentServer === 1 && !winner && (
+                                <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce">
+                                    <div className="w-3 h-3 bg-white rounded-full"></div>
+                                </div>
+                            )}
+                        </div>
                         <span className={`font-bold text-sm sm:text-base truncate max-w-full ${winner === 1 ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
                             {player1.name}
                         </span>
@@ -228,11 +267,18 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             }
                         `}
                     >
-                        <img
-                            src={player2.avatar_url || 'https://via.placeholder.com/150'}
-                            alt={player2.name}
-                            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg mb-3 ${winner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
-                        />
+                        <div className="flex items-center gap-2 mb-3">
+                            {currentServer === 2 && !winner && (
+                                <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce">
+                                    <div className="w-3 h-3 bg-white rounded-full"></div>
+                                </div>
+                            )}
+                            <img
+                                src={player2.avatar_url || 'https://via.placeholder.com/150'}
+                                alt={player2.name}
+                                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${winner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
+                            />
+                        </div>
                         <span className={`font-bold text-sm sm:text-base truncate max-w-full ${winner === 2 ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
                             {player2.name}
                         </span>

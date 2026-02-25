@@ -13,15 +13,33 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
     // Reset state when modal opens
     useEffect(() => {
         if (isOpen) {
-            // Select all users by default
-            const allUserIds = users.map(u => u.id)
-            setSelectedPool(allUserIds)
+            // Load from localStorage or default to all users
+            const savedPool = localStorage.getItem('matchGeneratorPool')
+            if (savedPool) {
+                try {
+                    const parsedPool = JSON.parse(savedPool)
+                    // Ensure saved IDs still exist in current users list
+                    const validIds = parsedPool.filter(id => users.some(u => u.id === id))
+                    setSelectedPool(validIds)
+                } catch (e) {
+                    setSelectedPool(users.map(u => u.id))
+                }
+            } else {
+                setSelectedPool(users.map(u => u.id))
+            }
+
             setGeneratedMatch(null)
             setHandicapRule(null)
             setError(null)
             identifyExcludedPlayers()
         }
     }, [isOpen, users, matches])
+
+    // Save selected pool when it changes
+    const updateSelectedPool = (newPool) => {
+        setSelectedPool(newPool)
+        localStorage.setItem('matchGeneratorPool', JSON.stringify(newPool))
+    }
 
     const identifyExcludedPlayers = () => {
         // Find players who played the last 2 consecutive matches
@@ -55,9 +73,9 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
 
     const togglePlayer = (userId) => {
         if (selectedPool.includes(userId)) {
-            setSelectedPool(selectedPool.filter(id => id !== userId))
+            updateSelectedPool(selectedPool.filter(id => id !== userId))
         } else {
-            setSelectedPool([...selectedPool, userId])
+            updateSelectedPool([...selectedPool, userId])
         }
     }
 
