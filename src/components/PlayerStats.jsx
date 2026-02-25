@@ -229,6 +229,8 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 </div>
             </div>
 
+            <TrophyCase playerId={selectedPlayerId} />
+
             <div className="grid md:grid-cols-2 gap-6">
 
                 {/* Head to Head */}
@@ -288,9 +290,6 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                         })}
                     </div>
                 </div>
-
-                <TrophyCase playerId={selectedPlayerId} />
-
             </div>
         </div>
     )
