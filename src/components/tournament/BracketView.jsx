@@ -7,7 +7,7 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
     const winner = match.winner
     const isThirdPlace = match.isThirdPlace
 
-    const isClickable = !readOnly && p1 && p2 && !winner
+    const isClickable = !readOnly
     const isCompleted = !!winner
     const isWaiting = !p1 || !p2
 

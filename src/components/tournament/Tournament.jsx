@@ -246,7 +246,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                 if (m) { match = m; roundIndex = rIdx }
             })
         }
-        if (match && match.player1 && match.player2 && !match.winner) {
+        if (match) {
             setSelectedMatchId({ type: 'bracket', matchId, roundIndex })
         }
     }
@@ -305,6 +305,9 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         } else {
             handleSingleElimAdvancement(newTournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap)
         }
+
+        // Run robust propagation to catch any byes or complex DE advancements
+        propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
 
         setActiveTournament(newTournament)
     }
@@ -766,6 +769,18 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     matches={globalMatches}
                     tournamentId={activeTournament.id}
                     debuffs={modalDebuffs}
+                    isAdmin={isAdmin}
+                    availablePlayers={activeTournament.players}
+                    onOverridePlayers={(p1, p2) => {
+                        const newTournament = { ...activeTournament }
+                        const r = newTournament.rounds[selectedMatchId.roundIndex]
+                        const m = r.matches.find(m => m.id === selectedMatchId.matchId)
+                        if (m) {
+                            m.player1 = p1
+                            m.player2 = p2
+                            setActiveTournament(newTournament)
+                        }
+                    }}
                 />
             )}
         </div>

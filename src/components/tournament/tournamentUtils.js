@@ -101,7 +101,7 @@ export const generateSingleEliminationBracket = (participants, mayhemMode, debuf
     }
 
     // Auto-advance byes through rounds
-    autoAdvanceByes(allRounds)
+    propagateAdvancements(allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
 
     return allRounds
 }
@@ -126,38 +126,149 @@ function generateSeededOrder(size) {
     return result
 }
 
-// Auto-advance byes through bracket rounds
-function autoAdvanceByes(rounds) {
-    for (let rIdx = 0; rIdx < rounds.length - 1; rIdx++) {
-        const round = rounds[rIdx]
-        if (round.name === '3rd Place Match') continue
+// Unified propagation logic for byes and advancements
+export const propagateAdvancements = (allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch) => {
+    let changed = true
+    let limit = 50 // Increased safety limit for DE brackets
 
-        round.matches.forEach((match, mIdx) => {
-            if (match.winner && match.isBye) {
-                // Propagate to next round
-                const nextRoundIdx = rIdx + 1
-                const nextRound = rounds[nextRoundIdx]
-                if (!nextRound || nextRound.name === '3rd Place Match') return
+    while (changed && limit > 0) {
+        changed = false
+        limit--
 
-                const nextMatchIdx = Math.floor(mIdx / 2)
-                const isP1Slot = mIdx % 2 === 0
-                const nextMatch = nextRound.matches[nextMatchIdx]
-                if (!nextMatch) return
+        allRounds.forEach((round, rIdx) => {
+            // Skip 3rd place match for normal advancement logic
+            if (round.name === '3rd Place Match') return
 
-                if (isP1Slot) nextMatch.player1 = match.winner
-                else nextMatch.player2 = match.winner
-
-                // Check if next match also becomes a bye
-                if (nextMatch.player1 && !nextMatch.player2) {
-                    // Wait for other match
-                } else if (!nextMatch.player1 && nextMatch.player2) {
-                    // Wait for other match
-                } else if (nextMatch.player1 && nextMatch.player2) {
-                    // Both filled, check if one is bye (shouldn't happen at this level)
+            round.matches.forEach((match, mIdx) => {
+                // 1. Determine winner if it's a bye or has only one valid player
+                if (!match.winner) {
+                    // One player is real, the other is null or missing
+                    if (match.player1 && !match.player2) {
+                        match.winner = match.player1
+                        match.isBye = true
+                        changed = true
+                    } else if (!match.player1 && match.player2) {
+                        match.winner = match.player2
+                        match.isBye = true
+                        changed = true
+                    } else if (match.isBye && !match.player1 && !match.player2) {
+                        // Special case: both null (e.g. propagated bye in LB)
+                        match.winner = null
+                    }
                 }
-            }
+
+                // 2. Propagate advancement if match has a result (winner or null-bye)
+                if (match.winner !== undefined && (match.winner !== null || match.isBye)) {
+                    // --- Winner Advancement ---
+                    const nextRoundIdx = findNextRoundIdx(allRounds, rIdx, match)
+                    if (nextRoundIdx !== -1) {
+                        const nextRound = allRounds[nextRoundIdx]
+                        const isP1Slot = mIdx % 2 === 0
+
+                        let targetMatchIdx = Math.floor(mIdx / 2)
+
+                        // In some LB rounds (drop-downs), matches don't halve but stay same count
+                        if (nextRound.matches.length === round.matches.length) {
+                            targetMatchIdx = mIdx
+                        }
+
+                        const nextMatch = nextRound.matches[targetMatchIdx]
+                        if (nextMatch) {
+                            if (isP1Slot) {
+                                if (nextMatch.player1?.id !== match.winner?.id) {
+                                    nextMatch.player1 = match.winner
+                                    changed = true
+                                }
+                            } else {
+                                if (nextMatch.player2?.id !== match.winner?.id) {
+                                    nextMatch.player2 = match.winner
+                                    changed = true
+                                }
+                            }
+                        }
+                    }
+
+                    // --- Loser Drop-down (Double Elim Winners Bracket only) ---
+                    if (round.bracket === 'winners') {
+                        const loser = match.winner?.id === match.player1?.id ? match.player2 : match.player1
+                        propagateLoser(allRounds, rIdx, mIdx, loser, (hasChanged) => { if (hasChanged) changed = true })
+                    }
+                }
+
+                // 3. Assign debuffs if match just became ready
+                if (mayhemMode && match.player1 && match.player2 && !match.winner && !match.debuffs) {
+                    if (assignDebuffsToMatch) {
+                        const updated = assignDebuffsToMatch(match, debuffsPool, usersMap)
+                        Object.assign(match, updated)
+                        changed = true
+                    }
+                }
+            })
         })
     }
+}
+
+function propagateLoser(allRounds, roundIdx, matchIndex, loser, setChanged) {
+    const currentRound = allRounds[roundIdx]
+    const wbRounds = allRounds.filter(r => r.bracket === 'winners')
+    const wbRelativeIdx = wbRounds.indexOf(currentRound)
+    const isWBFinal = currentRound.name === 'WB Final'
+
+    if (isWBFinal) {
+        const lbFinal = allRounds.find(r => r.name === 'LB Final')
+        if (lbFinal) {
+            const m = lbFinal.matches[0]
+            if (m.player1?.id !== loser?.id && !m.player1) { m.player1 = loser; setChanged(true) }
+            else if (m.player2?.id !== loser?.id && !m.player2) { m.player2 = loser; setChanged(true) }
+        }
+        return
+    }
+
+    const lbRound = allRounds.find(r =>
+        r.bracket === 'losers' && r.matches.some(m =>
+            (m.feedsFrom?.type === 'wb_losers' && m.feedsFrom.wbRound === wbRelativeIdx) ||
+            (m.feedsFrom?.type === 'wb_drop' && m.feedsFrom.wbRound === wbRelativeIdx)
+        )
+    )
+
+    if (lbRound) {
+        const isDrop = lbRound.matches[0].feedsFrom?.type === 'wb_drop'
+        const reverse = lbRound.matches[0].feedsFrom?.reverse
+        const wbSize = currentRound.matches.length
+
+        let targetMatchIdx
+        if (isDrop) {
+            targetMatchIdx = reverse ? wbSize - 1 - matchIndex : matchIndex
+        } else {
+            targetMatchIdx = Math.floor(matchIndex / 2)
+            if (reverse) targetMatchIdx = (wbSize / 2) - 1 - targetMatchIdx
+        }
+
+        const lbMatch = lbRound.matches[targetMatchIdx]
+        if (lbMatch) {
+            if (!lbMatch.player1 && lbMatch.player1?.id !== loser?.id) { lbMatch.player1 = loser; setChanged(true) }
+            else if (!lbMatch.player2 && lbMatch.player2?.id !== loser?.id) { lbMatch.player2 = loser; setChanged(true) }
+        }
+    }
+}
+
+function findNextRoundIdx(allRounds, currentRoundIdx, match) {
+    if (match.isThirdPlace) return -1
+
+    // For single elimination, find the round with 1/2 the matches or Grand Final
+    const currentRound = allRounds[currentRoundIdx]
+    if (currentRound.name === 'Grand Final' || currentRound.bracket === 'grand_final') return -1
+
+    // Determine type: winners or losers
+    const currentBracket = currentRound.bracket || 'winners'
+
+    // Generic next round search
+    for (let i = currentRoundIdx + 1; i < allRounds.length; i++) {
+        const r = allRounds[i]
+        if (r.name === '3rd Place Match') continue
+        if (r.bracket === currentBracket || (currentBracket === 'winners' && r.bracket === 'grand_final') || (currentBracket === 'losers' && r.name === 'LB Final')) return i
+    }
+    return -1
 }
 
 // ─── DOUBLE ELIMINATION ───────────────────────────────────────────
@@ -307,26 +418,10 @@ export const generateDoubleEliminationBracket = (participants, mayhemMode, debuf
 
     const allRounds = [...winnersRounds, ...losersRounds, grandFinal]
 
-    // Auto-advance byes in winners bracket
-    autoAdvanceByesDE(allRounds, winnersRounds.length)
+    // Auto-advance byes in all brackets
+    propagateAdvancements(allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
 
     return allRounds
-}
-
-function autoAdvanceByesDE(allRounds, wbRoundCount) {
-    // Only auto-advance within winners bracket
-    for (let rIdx = 0; rIdx < wbRoundCount - 1; rIdx++) {
-        const round = allRounds[rIdx]
-        round.matches.forEach((match, mIdx) => {
-            if (match.winner && match.isBye) {
-                const nextRoundIdx = rIdx + 1
-                const nextMatch = allRounds[nextRoundIdx].matches[Math.floor(mIdx / 2)]
-                if (!nextMatch) return
-                if (mIdx % 2 === 0) nextMatch.player1 = match.winner
-                else nextMatch.player2 = match.winner
-            }
-        })
-    }
 }
 
 // ─── SWISS STAGE ──────────────────────────────────────────────────
