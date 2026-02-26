@@ -2,6 +2,27 @@ import { supabase } from './supabaseClient'
 import { getKFactor, calculateExpectedScore, calculateEloChange } from './utils'
 
 /**
+ * Determine the winner of a padel match by sets won, or games won if no sets exist.
+ * Returns 1 for Team 1, 2 for Team 2, 0 for Tie.
+ */
+export const getMatchWinner = (match) => {
+    if (match.sets_data && match.sets_data.length > 0) {
+        let s1 = 0;
+        let s2 = 0;
+        match.sets_data.forEach(s => {
+            if (s.team1Games > s.team2Games) s1++;
+            else if (s.team2Games > s.team1Games) s2++;
+        });
+        if (s1 > s2) return 1;
+        if (s2 > s1) return 2;
+        return 0; // tie within sets (rare but possible)
+    }
+    if (match.score1 > match.score2) return 1;
+    if (match.score2 > match.score1) return 2;
+    return 0;
+}
+
+/**
  * Ensure a padel_stats row exists for a given user.
  * If no row exists, insert one with default values.
  */
@@ -71,11 +92,12 @@ export const recalculatePadelStats = async () => {
                 stats[pid].matches_played += 1
             })
 
-        // Update wins
-        if (match.score1 > match.score2) {
+        // Update wins based on Sets (or games fallback)
+        const winner = getMatchWinner(match)
+        if (winner === 1) {
             stats[t1p1].total_wins += 1
             stats[t1p2].total_wins += 1
-        } else if (match.score2 > match.score1) {
+        } else if (winner === 2) {
             stats[t2p1].total_wins += 1
             stats[t2p2].total_wins += 1
         }
@@ -150,7 +172,13 @@ export const getPadelTeamStreak = (team1Ids, team2Ids, matches) => {
 
     for (const match of h2hMatches) {
         const mT1 = new Set([match.team1_player1_id, match.team1_player2_id])
-        const winnerSet = match.score1 > match.score2 ? mT1 : new Set([match.team2_player1_id, match.team2_player2_id])
+        const winnerNum = getMatchWinner(match)
+        let winnerSet = null;
+        if (winnerNum === 1) winnerSet = mT1;
+        else if (winnerNum === 2) winnerSet = new Set([match.team2_player1_id, match.team2_player2_id]);
+
+        if (!winnerSet) continue;
+
         const winnerKey = [...winnerSet].sort().join(',')
 
         if (currentWinnerKey === null) {

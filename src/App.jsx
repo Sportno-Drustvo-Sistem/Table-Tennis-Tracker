@@ -12,6 +12,7 @@ import EditMatchModal from './components/modals/EditMatchModal'
 import PlayerSelectionModal from './components/modals/PlayerSelectionModal'
 import MatchModal from './components/modals/MatchModal'
 import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
+import LiveMatchModal from './components/modals/LiveMatchModal'
 import LoginModal from './components/modals/LoginModal'
 import AdminButton from './components/AdminButton'
 import DebuffSettings from './components/DebuffSettings'
@@ -26,10 +27,13 @@ import PadelMatchModal from './components/modals/PadelMatchModal'
 import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
 import PadelMatchGeneratorModal from './components/modals/PadelMatchGeneratorModal'
 import Tournament from './components/tournament/Tournament'
+import { useToast } from './contexts/ToastContext'
 
 // --- Main App ---
 
 function App() {
+  const { showToast } = useToast()
+
   const [users, setUsers] = useState([])
   const [matches, setMatches] = useState([])
   const [padelMatches, setPadelMatches] = useState([])
@@ -75,7 +79,8 @@ function App() {
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false)
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
-  const [isMatchFromGenerator, setIsMatchFromGenerator] = useState(false)
+  const [isLiveMatchOpen, setIsLiveMatchOpen] = useState(false)
+  const [liveMatchPlayers, setLiveMatchPlayers] = useState([null, null])
   const [editingUser, setEditingUser] = useState(null)
   const [editingMatch, setEditingMatch] = useState(null)
 
@@ -200,43 +205,42 @@ function App() {
           .catch(err => {
             console.error('Migration failed:', err)
             if (err.message && err.message.includes('column')) {
-              alert('Automatic update failed: Missing database columns. Please run the SQL migration to add elo_rating, matches_played, and is_ranked columns.')
+              showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
             }
           })
           .finally(() => setMigrating(false))
       }
     }
-  }, [loading, matches.length, users.length, fetchData])
+  }, [loading, matches.length, users.length, fetchData, showToast])
 
   const handleUserClick = (user) => {
     setStatsPlayerId(user.id)
     setActiveTab('stats')
   }
 
-  // Ping Pong handlers
   const handlePlayersSelected = (player1, player2) => {
     setSelectedPlayers([player1, player2])
-    setIsMatchFromGenerator(false)
     setIsPlayerSelectionOpen(false)
     setIsMatchModalOpen(true)
   }
 
   const handleMatchGenerated = (player1, player2) => {
-    setSelectedPlayers([player1, player2])
-    setIsMatchFromGenerator(true)
+    setLiveMatchPlayers([player1, player2])
     setIsGeneratorOpen(false)
-    setIsMatchModalOpen(true)
+    setIsLiveMatchOpen(true)
   }
 
   const handleMatchSaved = () => {
     setIsMatchModalOpen(false)
     setSelectedPlayers([null, null])
     fetchData()
+  }
 
-    if (isMatchFromGenerator) {
-      setIsMatchFromGenerator(false)
-      setIsGeneratorOpen(true)
-    }
+  const handleLiveMatchSaved = () => {
+    setIsLiveMatchOpen(false)
+    setLiveMatchPlayers([null, null])
+    fetchData()
+    setIsGeneratorOpen(true)
   }
 
   // Padel handlers
@@ -398,12 +402,22 @@ function App() {
               </button>
 
               {activeTab === 'matches' && (
-                <button
-                  onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
-                  className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
-                >
-                  <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">New Match</span>
-                </button>
+                <>
+                  {isPingPong && (
+                    <button
+                      onClick={() => setIsGeneratorOpen(true)}
+                      className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md mr-2"
+                    >
+                      <Trophy size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
+                    className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
+                  >
+                    <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">Record Match</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -558,6 +572,20 @@ function App() {
             player1={selectedPlayers[0]}
             player2={selectedPlayers[1]}
             onMatchSaved={handleMatchSaved}
+            matches={matches}
+          />
+        )}
+
+        {liveMatchPlayers[0] && liveMatchPlayers[1] && (
+          <LiveMatchModal
+            isOpen={isLiveMatchOpen}
+            onClose={() => {
+              setIsLiveMatchOpen(false)
+              setLiveMatchPlayers([null, null])
+            }}
+            player1={liveMatchPlayers[0]}
+            player2={liveMatchPlayers[1]}
+            onMatchSaved={handleLiveMatchSaved}
             matches={matches}
           />
         )}
