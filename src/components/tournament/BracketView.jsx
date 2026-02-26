@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Trophy } from 'lucide-react'
+import { Trophy, RefreshCw, Swords } from 'lucide-react'
 
 const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, totalRounds }) => {
     const p1 = match.player1
@@ -13,15 +13,14 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
 
     return (
         <div
-            onClick={() => isClickable && onMatchClick(match.id)}
             className={`
                 relative flex flex-col justify-center min-w-[200px] bg-white dark:bg-gray-800 rounded-lg shadow-sm border
                 transition-all duration-200
-                ${isClickable ? 'cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500' : ''}
                 ${isCompleted ? 'border-green-200 dark:border-green-900/50 bg-green-50/30 dark:bg-green-900/10' : 'border-gray-200 dark:border-gray-700'}
                 ${isThirdPlace ? 'border-orange-300 dark:border-orange-700 ring-2 ring-orange-100 dark:ring-orange-900/20' : ''}
                 ${match.isBye ? 'opacity-50' : ''}
                 ${isWaiting ? 'opacity-70' : ''}
+                ${!isCompleted && isClickable ? 'hover:border-blue-400 dark:hover:border-blue-500' : ''}
             `}
         >
             <div className="p-1 flex flex-col gap-0.5">
@@ -54,7 +53,26 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
                     )}
                 </div>
 
-                <div className="h-px bg-gray-100 dark:bg-gray-700 mx-2" />
+                <div className="h-px bg-gray-100 dark:bg-gray-700 mx-2 flex items-center justify-center">
+                    {!isCompleted && isClickable && p1 && p2 && !match.isBye && (
+                        <div className="flex bg-white dark:bg-gray-800 px-2 gap-2 z-10">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onMatchClick(match.id, false) }}
+                                className="p-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 transition-colors border border-blue-200 dark:border-blue-800"
+                                title="Record Result"
+                            >
+                                <RefreshCw size={12} />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onMatchClick(match.id, true) }}
+                                className="p-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 transition-colors border border-red-200 dark:border-red-800"
+                                title="Live Match"
+                            >
+                                <Trophy size={12} />
+                            </button>
+                        </div>
+                    )}
+                </div>
 
                 {/* Player 2 Slot */}
                 <div className={`
@@ -88,6 +106,7 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
         </div>
     )
 }
+
 
 const RoundColumn = ({ round, rIndex, onMatchClick, readOnly, totalRounds }) => (
     <div className="flex flex-col justify-around gap-8">

@@ -3,17 +3,19 @@ import { supabase } from '../../supabaseClient'
 import TournamentSetup from './TournamentSetup'
 import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
-import { Trophy, RefreshCw, X, AlertTriangle } from 'lucide-react'
+import LiveMatchModal from '../modals/LiveMatchModal'
+import { Trophy, RefreshCw, X, AlertTriangle, Swords } from 'lucide-react'
 import { getActiveDebuffs, getRandomDebuff } from '../../utils'
 import { useToast } from '../../contexts/ToastContext' // Added import for useToast
 import {
     shuffle,
     generateSingleEliminationBracket,
     generateDoubleEliminationBracket,
-    generateSwissRound,
-    initSwissStandings,
-    getSwissRoundCount,
-    seedFromSwiss
+    generateGroups,
+    generateRoundRobinMatches,
+    initGroupStandings,
+    seedFromGroups,
+    propagateAdvancements
 } from './tournamentUtils'
 
 const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
@@ -31,7 +33,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             try {
                 const parsed = JSON.parse(saved)
                 const isValid = parsed && (
-                    (parsed.phase === 'swiss' && parsed.swiss) ||
+                    (parsed.phase === 'groups' && parsed.groups) ||
                     (parsed.rounds && Array.isArray(parsed.rounds) &&
                         parsed.rounds.every(r => r.matches && Array.isArray(r.matches)))
                 )
@@ -74,13 +76,13 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
     // ─── Start Tournament ──────────────────────────
 
-    const handleStartTournament = async ({ name, playerIds, format, useSwissSeeding, mayhemMode }) => {
+    const handleStartTournament = async ({ name, playerIds, format, useGroupStage, mayhemMode }) => {
         const debuffsPool = await getActiveDebuffs()
         setCachedDebuffs(debuffsPool)
 
         const { data: tourneyData, error: tourneyError } = await supabase
             .from('tournaments')
-            .insert({ name, format, status: 'active', config: { mayhemMode, useSwissSeeding } })
+            .insert({ name, format, status: 'active', config: { mayhemMode, useGroupStage } })
             .select().single()
 
         if (tourneyError) { showToast('Error starting tournament: ' + tourneyError.message, 'error'); return }
@@ -89,27 +91,26 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         const participants = shuffle(users.filter(u => playerIds.includes(u.id)))
         const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
 
-        if (useSwissSeeding) {
-            // Start Swiss phase
-            const standings = initSwissStandings(participants)
-            const totalRounds = getSwissRoundCount(participants.length)
-            const { pairings, byePlayerId } = generateSwissRound(standings, [], participants)
-
-            // Grant bye
-            if (byePlayerId) {
-                const s = standings.find(s => s.playerId === byePlayerId)
-                if (s) { s.score += 1; s.hadBye = true }
-            }
+        if (useGroupStage) {
+            // Start Groups phase
+            const groupsData = generateGroups(participants)
+            const groups = groupsData.map(g => {
+                const standings = initGroupStandings(g.players)
+                const matchups = generateRoundRobinMatches(g.players)
+                return {
+                    name: g.name,
+                    players: g.players,
+                    standings,
+                    pairings: matchups,
+                    completedMatches: []
+                }
+            })
 
             setActiveTournament({
                 id: tournamentId, name, format, players: participants,
-                phase: 'swiss', status: 'active', winner: null,
-                config: { mayhemMode, useSwissSeeding },
-                swiss: {
-                    standings, roundHistory: [], currentRound: 1, totalRounds,
-                    currentPairings: pairings, byePlayerId,
-                    completedMatches: []
-                }
+                phase: 'groups', status: 'active', winner: null,
+                config: { mayhemMode, useGroupStage },
+                groups
             })
         } else {
             // Go directly to bracket
@@ -122,25 +123,29 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             setActiveTournament({
                 id: tournamentId, name, format, players: participants,
                 rounds, phase: 'bracket', status: 'active', winner: null,
-                config: { mayhemMode, useSwissSeeding }
+                config: { mayhemMode, useGroupStage }
             })
         }
     }
 
-    // ─── Swiss Match Click ─────────────────────────
+    // ─── Match Click Handlers ──────────────────────
 
-    const handleSwissMatchClick = (pairing) => {
+    const handleGroupMatchClick = (groupIndex, pairing, isLive = false) => {
         if (!isAdmin) return
-        const p1 = activeTournament.players.find(p => p.id === pairing.player1Id)
-        const p2 = activeTournament.players.find(p => p.id === pairing.player2Id)
+        const group = activeTournament.groups[groupIndex]
+        const p1 = group.players.find(p => p.id === pairing.player1Id)
+        const p2 = group.players.find(p => p.id === pairing.player2Id)
         if (p1 && p2) {
-            setSelectedMatchId({ type: 'swiss', pairing, player1: p1, player2: p2 })
+            setSelectedMatchId({ type: 'group', groupIndex, pairing, player1: p1, player2: p2, isLive })
         }
     }
 
+
     // ─── Swiss Match Saved ─────────────────────────
 
-    const handleSwissMatchSaved = async () => {
+    // ─── Group Match Saved ─────────────────────────
+
+    const handleGroupMatchSaved = async () => {
         const { data: latestMatch } = await supabase
             .from('matches').select('*')
             .order('created_at', { ascending: false }).limit(1).single()
@@ -153,8 +158,9 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         }
 
         const t = { ...activeTournament }
-        const swiss = { ...t.swiss }
-        const standings = [...swiss.standings]
+        const groupIndex = selectedMatchId.groupIndex
+        const group = { ...t.groups[groupIndex] }
+        const standings = [...group.standings]
 
         const pairing = selectedMatchId.pairing
         const p1Idx = standings.findIndex(s => s.playerId === pairing.player1Id)
@@ -165,71 +171,61 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             const s1Score = s1isP1 ? latestMatch.score1 : latestMatch.score2
             const s2Score = s1isP1 ? latestMatch.score2 : latestMatch.score1
 
-            standings[p1Idx] = { ...standings[p1Idx], matchesPlayed: standings[p1Idx].matchesPlayed + 1, pointsFor: standings[p1Idx].pointsFor + s1Score, pointsAgainst: standings[p1Idx].pointsAgainst + s2Score, pointDiff: standings[p1Idx].pointDiff + s1Score - s2Score }
-            standings[p2Idx] = { ...standings[p2Idx], matchesPlayed: standings[p2Idx].matchesPlayed + 1, pointsFor: standings[p2Idx].pointsFor + s2Score, pointsAgainst: standings[p2Idx].pointsAgainst + s1Score, pointDiff: standings[p2Idx].pointDiff + s2Score - s1Score }
+            standings[p1Idx] = {
+                ...standings[p1Idx],
+                matchesPlayed: standings[p1Idx].matchesPlayed + 1,
+                pointsFor: standings[p1Idx].pointsFor + s1Score,
+                pointsAgainst: standings[p1Idx].pointsAgainst + s2Score,
+                pointDiff: standings[p1Idx].pointDiff + s1Score - s2Score
+            }
+            standings[p2Idx] = {
+                ...standings[p2Idx],
+                matchesPlayed: standings[p2Idx].matchesPlayed + 1,
+                pointsFor: standings[p2Idx].pointsFor + s2Score,
+                pointsAgainst: standings[p2Idx].pointsAgainst + s1Score,
+                pointDiff: standings[p2Idx].pointDiff + s2Score - s1Score
+            }
 
             if (s1Score > s2Score) standings[p1Idx].score += 1
             else standings[p2Idx].score += 1
         }
 
         // Mark this pairing as completed
-        const completedMatches = [...(swiss.completedMatches || []), { player1Id: pairing.player1Id, player2Id: pairing.player2Id, matchId: latestMatch.id }]
+        group.completedMatches = [...(group.completedMatches || []), { player1Id: pairing.player1Id, player2Id: pairing.player2Id, matchId: latestMatch.id }]
+        group.standings = standings
+        t.groups[groupIndex] = group
 
-        // Check if all pairings in this round are done
-        const allDone = swiss.currentPairings.every(p =>
-            completedMatches.some(c =>
-                (c.player1Id === p.player1Id && c.player2Id === p.player2Id) ||
-                (c.player1Id === p.player2Id && c.player2Id === p.player1Id)
+        // Check if all groups are done
+        const allGroupsDone = t.groups.every(g =>
+            g.pairings.every(p =>
+                g.completedMatches.some(c =>
+                    (c.player1Id === p.player1Id && c.player2Id === p.player2Id) ||
+                    (c.player1Id === p.player2Id && c.player2Id === p.player1Id)
+                )
             )
         )
 
-        swiss.standings = standings
-        swiss.completedMatches = completedMatches
-
-        if (allDone) {
-            // Round complete
-            const roundRecord = swiss.currentPairings.map(p => ({ player1Id: p.player1Id, player2Id: p.player2Id }))
-            const roundHistory = [...swiss.roundHistory, roundRecord]
-            swiss.roundHistory = roundHistory
-
-            if (swiss.currentRound >= swiss.totalRounds) {
-                // Swiss complete → transition to bracket
-                const seeded = seedFromSwiss(standings)
-                const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
-                let debuffsPool = cachedDebuffs
-                if (!debuffsPool || debuffsPool.length === 0) {
-                    debuffsPool = await getActiveDebuffs()
-                    setCachedDebuffs(debuffsPool)
-                }
-
-                let rounds
-                if (t.format === 'double_elim') {
-                    rounds = generateDoubleEliminationBracket(seeded, t.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
-                } else {
-                    rounds = generateSingleEliminationBracket(seeded, t.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
-                }
-
-                t.rounds = rounds
-                t.phase = 'bracket'
-                t.swiss = { ...swiss, completed: true }
-            } else {
-                // Generate next Swiss round
-                swiss.currentRound += 1
-                swiss.completedMatches = []
-                const { pairings, byePlayerId } = generateSwissRound(standings, swiss.roundHistory, t.players)
-                swiss.currentPairings = pairings
-                swiss.byePlayerId = byePlayerId
-
-                if (byePlayerId) {
-                    const byeIdx = standings.findIndex(s => s.playerId === byePlayerId)
-                    if (byeIdx !== -1 && !standings[byeIdx].hadBye) {
-                        standings[byeIdx] = { ...standings[byeIdx], score: standings[byeIdx].score + 1, hadBye: true }
-                    }
-                }
+        if (allGroupsDone) {
+            // Group Stage complete → transition to bracket
+            const seeded = seedFromGroups(t.groups)
+            const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+            let debuffsPool = cachedDebuffs
+            if (!debuffsPool || debuffsPool.length === 0) {
+                debuffsPool = await getActiveDebuffs()
+                setCachedDebuffs(debuffsPool)
             }
+
+            let rounds
+            if (t.format === 'double_elim') {
+                rounds = generateDoubleEliminationBracket(seeded, t.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
+            } else {
+                rounds = generateSingleEliminationBracket(seeded, t.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
+            }
+
+            t.rounds = rounds
+            t.phase = 'bracket'
         }
 
-        t.swiss = swiss
         setActiveTournament(t)
         setSelectedMatchId(null)
         if (fetchData) fetchData()
@@ -237,7 +233,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
     // ─── Bracket Match Click ───────────────────────
 
-    const handleMatchClick = (matchId) => {
+    const handleMatchClick = (matchId, isLive = false) => {
         if (!isAdmin) return
         let match = null, roundIndex = -1
         if (activeTournament?.rounds) {
@@ -247,9 +243,10 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             })
         }
         if (match) {
-            setSelectedMatchId({ type: 'bracket', matchId, roundIndex })
+            setSelectedMatchId({ type: 'bracket', matchId, roundIndex, isLive })
         }
     }
+
 
     // ─── Bracket Match Saved ───────────────────────
 
@@ -639,89 +636,112 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                 )}
             </div>
 
-            {/* Swiss Phase */}
-            {activeTournament.phase === 'swiss' && activeTournament.swiss && (
-                <div className="space-y-6 mb-6">
-                    {/* Swiss Standings */}
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white">
-                            Swiss Standings — Round {activeTournament.swiss.currentRound}/{activeTournament.swiss.totalRounds}
-                        </h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                                        <th className="text-left p-2 font-bold text-gray-500 dark:text-gray-400">#</th>
-                                        <th className="text-left p-2 font-bold text-gray-500 dark:text-gray-400">Player</th>
-                                        <th className="text-center p-2 font-bold text-gray-500 dark:text-gray-400">W</th>
-                                        <th className="text-center p-2 font-bold text-gray-500 dark:text-gray-400">PF</th>
-                                        <th className="text-center p-2 font-bold text-gray-500 dark:text-gray-400">PA</th>
-                                        <th className="text-center p-2 font-bold text-gray-500 dark:text-gray-400">Diff</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[...activeTournament.swiss.standings]
-                                        .sort((a, b) => b.score !== a.score ? b.score - a.score : b.pointDiff - a.pointDiff)
-                                        .map((s, idx) => (
-                                            <tr key={s.playerId} className="border-b border-gray-100 dark:border-gray-800">
-                                                <td className="p-2 font-mono text-gray-400">{idx + 1}</td>
-                                                <td className="p-2 font-bold text-gray-900 dark:text-white">{s.playerName}{s.hadBye ? ' 🔄' : ''}</td>
-                                                <td className="p-2 text-center font-bold text-green-600 dark:text-green-400">{s.score}</td>
-                                                <td className="p-2 text-center text-gray-600 dark:text-gray-300">{s.pointsFor}</td>
-                                                <td className="p-2 text-center text-gray-600 dark:text-gray-300">{s.pointsAgainst}</td>
-                                                <td className={`p - 2 text - center font - bold ${s.pointDiff > 0 ? 'text-green-600' : s.pointDiff < 0 ? 'text-red-500' : 'text-gray-400'} `}>{s.pointDiff > 0 ? '+' : ''}{s.pointDiff}</td>
+            {/* Group Phase */}
+            {activeTournament.phase === 'groups' && activeTournament.groups && (
+                <div className="space-y-8 mb-6">
+                    {activeTournament.groups.map((group, gIdx) => (
+                        <div key={gIdx} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Standings */}
+                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white flex items-center justify-between">
+                                    <span>{group.name} Standings</span>
+                                    <Users size={20} className="text-blue-500" />
+                                </h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                                                <th className="text-left p-2 font-bold text-gray-500 dark:text-gray-400">#</th>
+                                                <th className="text-left p-2 font-bold text-gray-500 dark:text-gray-400">Player</th>
+                                                <th className="text-center p-2 font-bold text-gray-500 dark:text-gray-400">W</th>
+                                                <th className="text-center p-2 font-bold text-gray-500 dark:text-gray-400">Diff</th>
                                             </tr>
-                                        ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Current Pairings */}
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white">Round {activeTournament.swiss.currentRound} Pairings</h3>
-                        <div className="space-y-3">
-                            {activeTournament.swiss.currentPairings.map((pairing, idx) => {
-                                const p1 = activeTournament.players.find(p => p.id === pairing.player1Id)
-                                const p2 = activeTournament.players.find(p => p.id === pairing.player2Id)
-                                const isDone = (activeTournament.swiss.completedMatches || []).some(c =>
-                                    (c.player1Id === pairing.player1Id && c.player2Id === pairing.player2Id) ||
-                                    (c.player1Id === pairing.player2Id && c.player2Id === pairing.player1Id)
-                                )
-                                return (
-                                    <div key={idx}
-                                        onClick={() => !isDone && handleSwissMatchClick(pairing)}
-                                        className={`flex items - center justify - between p - 4 rounded - lg border transition - all ${isDone
-                                            ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10'
-                                            : isAdmin ? 'border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 hover:shadow-md' : 'border-gray-200 dark:border-gray-700'
-                                            } `}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                                {p1?.avatar_url && <img src={p1.avatar_url} className="w-full h-full object-cover" alt="" />}
-                                            </div>
-                                            <span className="font-bold text-gray-900 dark:text-white">{p1?.name}</span>
-                                        </div>
-                                        <span className="text-gray-400 font-bold">VS</span>
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-bold text-gray-900 dark:text-white">{p2?.name}</span>
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                                {p2?.avatar_url && <img src={p2.avatar_url} className="w-full h-full object-cover" alt="" />}
-                                            </div>
-                                        </div>
-                                        {isDone && <span className="text-green-500 font-bold text-sm">✓</span>}
-                                    </div>
-                                )
-                            })}
-                            {activeTournament.swiss.byePlayerId && (
-                                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-700 dark:text-yellow-300">
-                                    🔄 <strong>{activeTournament.players.find(p => p.id === activeTournament.swiss.byePlayerId)?.name}</strong> receives a bye this round
+                                        </thead>
+                                        <tbody>
+                                            {[...group.standings]
+                                                .sort((a, b) => b.score !== a.score ? b.score - a.score : b.pointDiff - a.pointDiff)
+                                                .map((s, idx) => (
+                                                    <tr key={s.playerId} className="border-b border-gray-100 dark:border-gray-800">
+                                                        <td className="p-2 font-mono text-gray-400">{idx + 1}</td>
+                                                        <td className="p-2 font-bold text-gray-900 dark:text-white">{s.playerName}</td>
+                                                        <td className="p-2 text-center font-bold text-green-600 dark:text-green-400">{s.score}</td>
+                                                        <td className={`p-2 text-center font-bold ${s.pointDiff > 0 ? 'text-green-600' : s.pointDiff < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                            {s.pointDiff > 0 ? '+' : ''}{s.pointDiff}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Pairings */}
+                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white flex items-center justify-between">
+                                    <span>{group.name} Matches</span>
+                                    <Swords size={20} className="text-red-500" />
+                                </h3>
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                                    {group.pairings.map((pairing, idx) => {
+                                        const p1 = group.players.find(p => p.id === pairing.player1Id)
+                                        const p2 = group.players.find(p => p.id === pairing.player2Id)
+                                        const isDone = (group.completedMatches || []).some(c =>
+                                            (c.player1Id === pairing.player1Id && c.player2Id === pairing.player2Id) ||
+                                            (c.player1Id === pairing.player2Id && c.player2Id === pairing.player1Id)
+                                        )
+                                        return (
+                                            <div key={idx}
+                                                className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isDone
+                                                    ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10'
+                                                    : 'border-gray-200 dark:border-gray-700'
+                                                    }`}
+                                            >
+                                                <div className="flex-1 flex items-center justify-end gap-2 text-right">
+                                                    <span className="font-bold text-gray-900 dark:text-white truncate max-w-[80px]">{p1?.name}</span>
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                                        {p1?.avatar_url && <img src={p1.avatar_url} className="w-full h-full object-cover" alt="" />}
+                                                    </div>
+                                                </div>
+
+                                                <div className="px-4 flex flex-col items-center gap-1">
+                                                    <span className="text-gray-400 font-bold text-xs">VS</span>
+                                                    {!isDone && isAdmin && (
+                                                        <div className="flex gap-1">
+                                                            <button
+                                                                onClick={() => handleGroupMatchClick(gIdx, pairing, false)}
+                                                                className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-200 transition-colors"
+                                                                title="Record Result"
+                                                            >
+                                                                <RefreshCw size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleGroupMatchClick(gIdx, pairing, true)}
+                                                                className="p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200 transition-colors"
+                                                                title="Live Match"
+                                                            >
+                                                                <Trophy size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {isDone && <span className="text-green-500 font-bold text-sm">✓</span>}
+                                                </div>
+
+                                                <div className="flex-1 flex items-center justify-start gap-2 text-left">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                                        {p2?.avatar_url && <img src={p2.avatar_url} className="w-full h-full object-cover" alt="" />}
+                                                    </div>
+                                                    <span className="font-bold text-gray-900 dark:text-white truncate max-w-[80px]">{p2?.name}</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    ))}
                 </div>
             )}
+
 
             {/* Bracket Phase */}
             {activeTournament.phase === 'bracket' && (
@@ -758,14 +778,14 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                 </div>
             )}
 
-            {/* Match Modal */}
-            {modalPlayer1 && modalPlayer2 && (
+            {/* Match Modals */}
+            {selectedMatchId && !selectedMatchId.isLive && modalPlayer1 && modalPlayer2 && (
                 <MatchModal
-                    isOpen={!!selectedMatchId}
+                    isOpen={true}
                     onClose={() => setSelectedMatchId(null)}
                     player1={modalPlayer1}
                     player2={modalPlayer2}
-                    onMatchSaved={selectedMatchId?.type === 'swiss' ? handleSwissMatchSaved : handleMatchSaved}
+                    onMatchSaved={selectedMatchId.type === 'group' ? handleGroupMatchSaved : handleMatchSaved}
                     matches={globalMatches}
                     tournamentId={activeTournament.id}
                     debuffs={modalDebuffs}
@@ -773,16 +793,30 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     availablePlayers={activeTournament.players}
                     onOverridePlayers={(p1, p2) => {
                         const newTournament = { ...activeTournament }
-                        const r = newTournament.rounds[selectedMatchId.roundIndex]
-                        const m = r.matches.find(m => m.id === selectedMatchId.matchId)
-                        if (m) {
-                            m.player1 = p1
-                            m.player2 = p2
-                            setActiveTournament(newTournament)
+                        if (selectedMatchId.type === 'bracket') {
+                            const r = newTournament.rounds[selectedMatchId.roundIndex]
+                            const m = r.matches.find(m => m.id === selectedMatchId.matchId)
+                            if (m) {
+                                m.player1 = p1
+                                m.player2 = p2
+                                setActiveTournament(newTournament)
+                            }
                         }
                     }}
                 />
             )}
+
+            {selectedMatchId && selectedMatchId.isLive && modalPlayer1 && modalPlayer2 && (
+                <LiveMatchModal
+                    isOpen={true}
+                    onClose={() => setSelectedMatchId(null)}
+                    player1={modalPlayer1}
+                    player2={modalPlayer2}
+                    onMatchSaved={selectedMatchId.type === 'group' ? handleGroupMatchSaved : handleMatchSaved}
+                    matches={globalMatches}
+                />
+            )}
+
         </div>
     )
 }

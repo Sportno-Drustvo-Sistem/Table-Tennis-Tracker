@@ -424,77 +424,56 @@ export const generateDoubleEliminationBracket = (participants, mayhemMode, debuf
     return allRounds
 }
 
-// ─── SWISS STAGE ──────────────────────────────────────────────────
+// ─── GROUP STAGE ──────────────────────────────────────────────────
 
-export const generateSwissRound = (standings, roundHistory, allPlayers) => {
-    // Sort by score desc, then by tiebreaker (point diff)
-    const sorted = [...standings].sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score
-        return b.pointDiff - a.pointDiff
-    })
-
-    const paired = []
-    const usedIds = new Set()
-    const pairings = []
-
-    // Build set of previous matchups to avoid
-    const previousMatchups = new Set()
-    roundHistory.forEach(round => {
-        round.forEach(m => {
-            if (m.player1Id && m.player2Id) {
-                previousMatchups.add(`${m.player1Id}_${m.player2Id}`)
-                previousMatchups.add(`${m.player2Id}_${m.player1Id}`)
-            }
-        })
-    })
-
-    // Greedy pairing by proximity in standings
-    for (let i = 0; i < sorted.length; i++) {
-        if (usedIds.has(sorted[i].playerId)) continue
-
-        let bestJ = -1
-        for (let j = i + 1; j < sorted.length; j++) {
-            if (usedIds.has(sorted[j].playerId)) continue
-            const key = `${sorted[i].playerId}_${sorted[j].playerId}`
-            if (!previousMatchups.has(key)) {
-                bestJ = j
-                break
-            }
-        }
-
-        // Fallback: pick next available even if rematch
-        if (bestJ === -1) {
-            for (let j = i + 1; j < sorted.length; j++) {
-                if (!usedIds.has(sorted[j].playerId)) {
-                    bestJ = j
-                    break
-                }
-            }
-        }
-
-        if (bestJ !== -1) {
-            usedIds.add(sorted[i].playerId)
-            usedIds.add(sorted[bestJ].playerId)
-            pairings.push({
-                player1Id: sorted[i].playerId,
-                player2Id: sorted[bestJ].playerId
-            })
-        }
+/**
+ * Divides participants into groups based on the requirements:
+ * - If odd number of players: Single group.
+ * - If even and < 6 players: Single group.
+ * - If even and >= 6 players: Two groups.
+ */
+export const generateGroups = (participants) => {
+    const n = participants.length
+    if (n % 2 !== 0 || n < 6) {
+        return [{ name: 'Group A', players: participants }]
+    } else {
+        const mid = n / 2
+        return [
+            { name: 'Group A', players: participants.slice(0, mid) },
+            { name: 'Group B', players: participants.slice(mid) }
+        ]
     }
-
-    // Handle bye for odd player out
-    let byePlayerId = null
-    for (const s of sorted) {
-        if (!usedIds.has(s.playerId)) {
-            byePlayerId = s.playerId
-            break
-        }
-    }
-
-    return { pairings, byePlayerId }
 }
 
-export const initSwissStandings = (players) => {
+/**
+ * Standard Round Robin pairing (Circle Method)
+ */
+export const generateRoundRobinMatches = (players) => {
+    const pairings = []
+    const n = players.length
+    if (n < 2) return pairings
+
+    const tempPlayers = [...players]
+    if (n % 2 !== 0) tempPlayers.push(null) // Bye placeholder
+
+    const rounds = tempPlayers.length - 1
+    const half = tempPlayers.length / 2
+
+    for (let round = 0; round < rounds; round++) {
+        for (let i = 0; i < half; i++) {
+            const p1 = tempPlayers[i]
+            const p2 = tempPlayers[tempPlayers.length - 1 - i]
+            if (p1 && p2) {
+                pairings.push({ player1Id: p1.id, player2Id: p2.id })
+            }
+        }
+        // Rotate: keep first element, move others
+        tempPlayers.splice(1, 0, tempPlayers.pop())
+    }
+    return pairings
+}
+
+export const initGroupStandings = (players) => {
     return players.map(p => ({
         playerId: p.id,
         playerName: p.name,
@@ -503,21 +482,78 @@ export const initSwissStandings = (players) => {
         pointsFor: 0,
         pointsAgainst: 0,
         pointDiff: 0,
-        matchesPlayed: 0,
-        hadBye: false
+        matchesPlayed: 0
     }))
 }
 
-export const getSwissRoundCount = (playerCount) => {
-    return Math.ceil(Math.log2(playerCount))
-}
-
-// Seed players into elimination bracket based on Swiss standings
-export const seedFromSwiss = (standings) => {
-    return [...standings]
-        .sort((a, b) => {
+/**
+ * Seed players into elimination bracket based on Group standings
+ * and the specific pairing rules:
+ * - Single group: 1st vs last, 2nd vs second-to-last, etc.
+ * - Two groups: A1 vs BLAST, B1 vs ALAST, etc.
+ */
+export const seedFromGroups = (groups) => {
+    // Rank each group first
+    const rankedGroups = groups.map(group => {
+        return [...group.standings].sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score
             return b.pointDiff - a.pointDiff
         })
-        .map(s => s.player)
+    })
+
+    const participants = []
+
+    if (rankedGroups.length === 1) {
+        const sorted = rankedGroups[0]
+        const n = sorted.length
+
+        // Custom rule: for 5 players (or any odd N), 1st seed gets a bye
+        if (n % 2 !== 0) {
+            // Rank 1 gets bye, others pair up
+            participants.push(sorted[0].player) // Seed 1
+            participants.push(null)             // Bye for Seed 1
+
+            // Remaining players (2, 3, 4, 5...) paired 2nd vs last, 3rd vs second-to-last
+            const remaining = sorted.slice(1)
+            for (let i = 0; i < Math.floor(remaining.length / 2); i++) {
+                participants.push(remaining[i].player)
+                participants.push(remaining[remaining.length - 1 - i].player)
+            }
+        } else {
+            // Even: 1vN, 2v(N-1) etc.
+            for (let i = 0; i < n / 2; i++) {
+                participants.push(sorted[i].player)
+                participants.push(sorted[n - 1 - i].player)
+            }
+        }
+    } else {
+        // Two groups: A1 vs BLAST, B1 vs ALAST, A2 vs B(LAST-1), etc.
+        const groupA = rankedGroups[0]
+        const groupB = rankedGroups[1]
+        const m = groupA.length // They are split evenly
+
+        for (let i = 0; i < Math.floor(m / 2); i++) {
+            const oppositeIdx = m - 1 - i
+
+            // Pair Ai vs B(opposite)
+            participants.push(groupA[i].player)
+            participants.push(groupB[oppositeIdx].player)
+
+            // Pair Bi vs A(opposite)
+            participants.push(groupB[i].player)
+            participants.push(groupA[oppositeIdx].player)
+        }
+
+        // If m is odd, pair the middle players from each group
+        if (m % 2 !== 0) {
+            const mid = Math.floor(m / 2)
+            participants.push(groupA[mid].player)
+            participants.push(groupB[mid].player)
+        }
+    }
+
+
+
+    return participants
 }
+

@@ -6,7 +6,7 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
     const [name, setName] = useState(generateTournamentName())
     const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
     const [format, setFormat] = useState('single_elim') // 'single_elim', 'double_elim'
-    const [useSwissSeeding, setUseSwissSeeding] = useState(false)
+    const [useGroupStage, setUseGroupStage] = useState(false)
     const [mayhemMode, setMayhemMode] = useState(false)
 
     // Available players (filtered slightly to avoid partial/broken users if any)
@@ -107,21 +107,21 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
                     </div>
                 </div>
 
-                {/* Swiss Seeding Option */}
+                {/* Group Stage Option */}
                 <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
                     <label className="flex items-start cursor-pointer">
                         <div className="relative flex items-center mt-1">
                             <input
                                 type="checkbox"
                                 className="sr-only peer"
-                                checked={useSwissSeeding}
-                                onChange={(e) => setUseSwissSeeding(e.target.checked)}
+                                checked={useGroupStage}
+                                onChange={(e) => setUseGroupStage(e.target.checked)}
                             />
                             <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-600 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
                         </div>
                         <div className="ml-3">
-                            <span className="block text-sm font-bold text-gray-900 dark:text-white">Enable Swiss Seeding Stage</span>
-                            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">Play a Swiss round-robin stage first to determine seeding for the bracket. Adds more games!</span>
+                            <span className="block text-sm font-bold text-gray-900 dark:text-white">Enable Group Stage Seeding</span>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">Play a Round Robin group stage first to determine seeding for the bracket. More games for everyone!</span>
                         </div>
                     </label>
                 </div>
@@ -186,7 +186,7 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
 
                 {/* Start Button */}
                 <button
-                    onClick={() => onStart({ name, playerIds: selectedPlayerIds, format, useSwissSeeding, mayhemMode })}
+                    onClick={() => onStart({ name, playerIds: selectedPlayerIds, format, useGroupStage, mayhemMode })}
                     disabled={!canStart}
                     className={`
             w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-all shadow-lg
