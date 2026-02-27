@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
-import { Plus, Users, ArrowRight, Dices, Trophy, Shield, Settings } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Plus, Users, ArrowRight, Dices, Trophy, Shield, Settings, Trash2 } from 'lucide-react'
 import { generateTournamentName } from '../../utils'
+import { supabase } from '../../supabaseClient'
+import { useToast } from '../../contexts/ToastContext'
 
 const TournamentSetup = ({ users, onStart, isAdmin }) => {
     const [name, setName] = useState(generateTournamentName())
@@ -8,9 +10,46 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
     const [format, setFormat] = useState('single_elim') // 'single_elim', 'double_elim'
     const [useGroupStage, setUseGroupStage] = useState(false)
     const [mayhemMode, setMayhemMode] = useState(false)
+    const [pastTournaments, setPastTournaments] = useState([])
+    const { showConfirm, showToast } = useToast()
 
     // Available players (filtered slightly to avoid partial/broken users if any)
     const availableUsers = users.filter(u => u && u.name)
+
+    useEffect(() => {
+        if (isAdmin) {
+            fetchPastTournaments()
+        }
+    }, [isAdmin])
+
+    const fetchPastTournaments = async () => {
+        const { data, error } = await supabase
+            .from('tournaments')
+            .select('*')
+            .order('created_at', { ascending: false })
+
+        if (error) {
+            console.error("Error fetching tournaments:", error)
+        } else {
+            setPastTournaments(data || [])
+        }
+    }
+
+    const handleDeleteTournament = (id, name) => {
+        showConfirm(`Are you sure you want to delete the tournament "${name}"? This action cannot be undone.`, async () => {
+            const { error } = await supabase
+                .from('tournaments')
+                .delete()
+                .eq('id', id)
+
+            if (error) {
+                showToast(`Failed to delete tournament: ${error.message}`, 'error')
+            } else {
+                showToast(`Tournament "${name}" deleted.`, 'success')
+                fetchPastTournaments()
+            }
+        })
+    }
 
     const handleTogglePlayer = (id) => {
         if (selectedPlayerIds.includes(id)) {
@@ -200,6 +239,39 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
                 </button>
 
             </div>
+
+            {/* Manage Tournaments Section */}
+            {pastTournaments.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h2 className="text-xl font-bold mb-6 flex items-center text-gray-900 dark:text-white">
+                        <Settings className="mr-3 text-gray-500" />
+                        Manage Tournaments
+                    </h2>
+
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        {pastTournaments.map(t => (
+                            <div key={t.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                <div>
+                                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        {t.name}
+                                        {t.status === 'active' && <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 roundedbg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 bg-green-100 rounded-sm">Active</span>}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        {new Date(t.created_at).toLocaleDateString()} • {t.format === 'double_elim' ? 'Double Elim' : 'Single Elim'}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleDeleteTournament(t.id, t.name)}
+                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Delete Tournament"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

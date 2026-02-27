@@ -559,6 +559,12 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     }
 
     const handleCloseTournament = () => {
+        if (activeTournament.status === 'completed') {
+            setActiveTournament(null)
+            localStorage.removeItem(STORAGE_KEY)
+            return
+        }
+
         showConfirm("Are you sure you want to cancel this tournament? Active tournament data will be cleared and no results will be saved.", () => {
             setActiveTournament(null)
             localStorage.removeItem(STORAGE_KEY)
