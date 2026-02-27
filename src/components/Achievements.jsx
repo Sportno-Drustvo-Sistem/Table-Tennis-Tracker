@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Shield } from 'lucide-react'
-import { calculateEloChange, getKFactor } from '../utils'
+import { buildEloHistory } from '../utils'
 
 const BADGE_DEFS = [
     {
@@ -91,83 +91,43 @@ const Achievements = ({ playerId, users, matches }) => {
         }
         if (streak >= 5) badges.add('on_fire')
 
+        const eloData = buildEloHistory(users, matches)
+
         // --- Giant Killer: beat someone 200+ ELO above you ---
-        // Build ELO ratings at time of each match
-        const ratings = {}
-        const mpc = {}
-        users.forEach(u => { ratings[u.id] = 1200; mpc[u.id] = 0 })
-
-        sortedMatches.forEach(m => {
-            const p1 = m.player1_id, p2 = m.player2_id
-            if (ratings[p1] === undefined || ratings[p2] === undefined) return
-
-            mpc[p1] = (mpc[p1] || 0) + 1
-            mpc[p2] = (mpc[p2] || 0) + 1
-
-            const eloBefore1 = ratings[p1]
-            const eloBefore2 = ratings[p2]
-
-            const c1 = calculateEloChange(ratings[p1], ratings[p2], m.score1, m.score2, getKFactor(mpc[p1]))
-            const c2 = calculateEloChange(ratings[p2], ratings[p1], m.score2, m.score1, getKFactor(mpc[p2]))
-
-            // Check Giant Killer for our player
-            if (p1 === playerId && m.score1 > m.score2 && eloBefore2 - eloBefore1 >= 200) badges.add('giant_killer')
-            if (p2 === playerId && m.score2 > m.score1 && eloBefore1 - eloBefore2 >= 200) badges.add('giant_killer')
-
-            // Check Rising Star: track ELO at each match date
-            ratings[p1] += c1
-            ratings[p2] += c2
+        const checkGK = eloData.matchHistory.some(m => {
+            if (m.p1Id === playerId && m.score1 > m.score2 && m.p2EloBefore - m.p1EloBefore >= 200) return true
+            if (m.p2Id === playerId && m.score2 > m.score1 && m.p1EloBefore - m.p2EloBefore >= 200) return true
+            return false
         })
+        if (checkGK) badges.add('giant_killer')
 
         // --- Summit: was ever #1 ---
-        // Rebuild ratings and check after every match if player was top
         const ratingsCheck = {}
         const mpcCheck = {}
         users.forEach(u => { ratingsCheck[u.id] = 1200; mpcCheck[u.id] = 0 })
 
-        sortedMatches.forEach(m => {
-            const p1 = m.player1_id, p2 = m.player2_id
-            if (ratingsCheck[p1] === undefined || ratingsCheck[p2] === undefined) return
-            mpcCheck[p1] = (mpcCheck[p1] || 0) + 1
-            mpcCheck[p2] = (mpcCheck[p2] || 0) + 1
+        for (const m of eloData.matchHistory) {
+            ratingsCheck[m.p1Id] = m.p1EloAfter
+            ratingsCheck[m.p2Id] = m.p2EloAfter
+            mpcCheck[m.p1Id] = (mpcCheck[m.p1Id] || 0) + 1
+            mpcCheck[m.p2Id] = (mpcCheck[m.p2Id] || 0) + 1
 
-            ratingsCheck[p1] += calculateEloChange(ratingsCheck[p1], ratingsCheck[p2], m.score1, m.score2, getKFactor(mpcCheck[p1]))
-            ratingsCheck[p2] += calculateEloChange(ratingsCheck[p2], ratingsCheck[p1], m.score2, m.score1, getKFactor(mpcCheck[p2]))
-
-            // Check if player is #1 among those with 10+ matches
-            if (p1 === playerId || p2 === playerId) {
+            if (m.p1Id === playerId || m.p2Id === playerId) {
                 const rankedPlayers = users.filter(u => mpcCheck[u.id] >= 10)
                 if (rankedPlayers.length > 0 && mpcCheck[playerId] >= 10) {
                     const isTop = rankedPlayers.every(u => ratingsCheck[playerId] >= ratingsCheck[u.id])
                     if (isTop) badges.add('summit')
                 }
             }
-        })
+        }
 
         // --- Rising Star: gained 100+ ELO in any 7-day window ---
-        const eloTimeline = []
-        const rsRatings = {}
-        const rsMpc = {}
-        users.forEach(u => { rsRatings[u.id] = 1200; rsMpc[u.id] = 0 })
-
-        sortedMatches.forEach(m => {
-            const p1 = m.player1_id, p2 = m.player2_id
-            if (rsRatings[p1] === undefined || rsRatings[p2] === undefined) return
-            rsMpc[p1] = (rsMpc[p1] || 0) + 1
-            rsMpc[p2] = (rsMpc[p2] || 0) + 1
-            rsRatings[p1] += calculateEloChange(rsRatings[p1], rsRatings[p2], m.score1, m.score2, getKFactor(rsMpc[p1]))
-            rsRatings[p2] += calculateEloChange(rsRatings[p2], rsRatings[p1], m.score2, m.score1, getKFactor(rsMpc[p2]))
-
-            if (p1 === playerId || p2 === playerId) {
-                eloTimeline.push({ date: new Date(m.created_at), elo: rsRatings[playerId] })
-            }
-        })
-
-        for (let i = 0; i < eloTimeline.length; i++) {
-            for (let j = i + 1; j < eloTimeline.length; j++) {
-                const daysDiff = (eloTimeline[j].date - eloTimeline[i].date) / (1000 * 60 * 60 * 24)
+        const myTimeline = eloData.playerEloTimelines[playerId] || []
+        for (let i = 0; i < myTimeline.length; i++) {
+            for (let j = i + 1; j < myTimeline.length; j++) {
+                const daysDiff = (myTimeline[j].date - myTimeline[i].date) / (1000 * 60 * 60 * 24)
                 if (daysDiff > 7) break
-                if (eloTimeline[j].elo - eloTimeline[i].elo >= 100) {
+                if (myTimeline[j].elo - myTimeline[i].elo >= 100) {
                     badges.add('rising_star')
                     break
                 }
@@ -223,8 +183,8 @@ const Achievements = ({ playerId, users, matches }) => {
                         <div
                             key={badge.id}
                             className={`flex flex-col items-center p-3 rounded-lg border text-center transition-all ${isEarned
-                                    ? `${badge.bg}`
-                                    : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-35 grayscale'
+                                ? `${badge.bg}`
+                                : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-35 grayscale'
                                 }`}
                             title={badge.desc}
                         >

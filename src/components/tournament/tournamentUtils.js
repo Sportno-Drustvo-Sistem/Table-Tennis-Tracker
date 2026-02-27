@@ -560,3 +560,161 @@ export const seedFromGroups = (groups) => {
     return participants
 }
 
+export const checkTournamentComplete = (tournament) => {
+    const rounds = tournament.rounds
+    const grandFinal = rounds.find(r => r.name === 'Grand Final')
+    const thirdPlace = rounds.find(r => r.name === '3rd Place Match')
+
+    const gfDone = grandFinal?.matches[0]?.winner
+    const tpDone = !thirdPlace || thirdPlace?.matches[0]?.winner
+
+    if (gfDone && tpDone) {
+        tournament.status = 'completed'
+        return true;
+    }
+    return false;
+}
+
+export const handleSingleElimAdvancement = (tournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap, assignDebuffsToMatch) => {
+    const rounds = tournament.rounds
+    const thirdPlaceRoundIdx = rounds.findIndex(r => r.name === '3rd Place Match')
+    const grandFinalRoundIdx = rounds.findIndex(r => r.name === 'Grand Final')
+
+    const isSemiFinal = rounds[roundIdx]?.name === 'Semi-Finals'
+
+    if (match.isThirdPlace) {
+        return checkTournamentComplete(tournament)
+    }
+
+    if (isSemiFinal && thirdPlaceRoundIdx !== -1) {
+        const thirdMatch = rounds[thirdPlaceRoundIdx].matches[0]
+        if (!thirdMatch.player1) thirdMatch.player1 = loser
+        else if (!thirdMatch.player2) thirdMatch.player2 = loser
+
+        if (thirdMatch.player1 && thirdMatch.player2 && tournament.config?.mayhemMode) {
+            assignDebuffsToMatch(thirdMatch, debuffsPool, usersMap)
+        }
+    }
+
+    if (roundIdx === grandFinalRoundIdx) {
+        if (rounds[grandFinalRoundIdx]?.matches[0]?.winner) {
+            return checkTournamentComplete(tournament)
+        }
+        return false
+    }
+
+    let nextRoundIdx = roundIdx + 1
+    if (nextRoundIdx < rounds.length && rounds[nextRoundIdx].name === '3rd Place Match') {
+        nextRoundIdx = grandFinalRoundIdx
+    }
+
+    if (nextRoundIdx !== -1 && nextRoundIdx < rounds.length && !rounds[nextRoundIdx].matches[0]?.isThirdPlace) {
+        const nextMatchIdx = Math.floor(matchIndex / 2)
+        const isP1Slot = matchIndex % 2 === 0
+        const nextMatch = rounds[nextRoundIdx].matches[nextMatchIdx]
+        if (nextMatch) {
+            if (isP1Slot) nextMatch.player1 = winner
+            else nextMatch.player2 = winner
+
+            if (nextMatch.player1 && nextMatch.player2 && tournament.config?.mayhemMode) {
+                assignDebuffsToMatch(nextMatch, debuffsPool, usersMap)
+            }
+        }
+    }
+
+    if (rounds[grandFinalRoundIdx]?.matches[0]?.winner) {
+        return checkTournamentComplete(tournament)
+    }
+    return false
+}
+
+export const handleDoubleElimAdvancement = (tournament, roundIdx, matchIndex, winner, loser, debuffsPool, usersMap, assignDebuffsToMatch) => {
+    const rounds = tournament.rounds
+    const currentRound = rounds[roundIdx]
+
+    if (currentRound.bracket === 'grand_final') {
+        tournament.status = 'completed'
+        return true
+    }
+
+    const wbRounds = rounds.filter(r => r.bracket === 'winners')
+    const wbRelativeIdx = wbRounds.indexOf(currentRound)
+    const isWBFinal = currentRound.name === 'WB Final'
+
+    if (currentRound.bracket === 'winners') {
+        if (isWBFinal) {
+            const gf = rounds.find(r => r.bracket === 'grand_final')
+            if (gf) gf.matches[0].player1 = winner
+
+            const lbFinal = rounds.find(r => r.name === 'LB Final')
+            if (lbFinal) {
+                const lbMatch = lbFinal.matches[0]
+                if (!lbMatch.player1) lbMatch.player1 = loser
+                else lbMatch.player2 = loser
+            }
+        } else {
+            const nextWBIdx = roundIdx + 1
+            if (nextWBIdx < rounds.length && rounds[nextWBIdx].bracket === 'winners') {
+                const nextMatch = rounds[nextWBIdx].matches[Math.floor(matchIndex / 2)]
+                if (nextMatch) {
+                    if (matchIndex % 2 === 0) nextMatch.player1 = winner
+                    else nextMatch.player2 = winner
+                }
+            }
+
+            const lbRound = rounds.find(r =>
+                r.bracket === 'losers' && r.matches.some(m =>
+                    (m.feedsFrom?.type === 'wb_losers' && m.feedsFrom.wbRound === wbRelativeIdx) ||
+                    (m.feedsFrom?.type === 'wb_drop' && m.feedsFrom.wbRound === wbRelativeIdx)
+                )
+            )
+
+            if (lbRound) {
+                const isDrop = lbRound.matches[0].feedsFrom?.type === 'wb_drop'
+                const reverse = lbRound.matches[0].feedsFrom?.reverse
+                const wbSize = currentRound.matches.length
+
+                let targetMatchIdx
+                if (isDrop) {
+                    targetMatchIdx = reverse ? wbSize - 1 - matchIndex : matchIndex
+                } else {
+                    targetMatchIdx = Math.floor(matchIndex / 2)
+                    if (reverse) targetMatchIdx = (wbSize / 2) - 1 - targetMatchIdx
+                }
+
+                const lbMatch = lbRound.matches[targetMatchIdx]
+                if (lbMatch) {
+                    if (!lbMatch.player1) lbMatch.player1 = loser
+                    else lbMatch.player2 = loser
+                }
+            }
+        }
+    }
+
+    if (currentRound.bracket === 'losers') {
+        const lbRounds = rounds.filter(r => r.bracket === 'losers')
+        const lbIdx = lbRounds.indexOf(currentRound)
+
+        if (currentRound.name === 'LB Final') {
+            const gf = rounds.find(r => r.bracket === 'grand_final')
+            if (gf) gf.matches[0].player2 = winner
+        } else if (lbIdx < lbRounds.length - 1) {
+            const nextLBRound = lbRounds[lbIdx + 1]
+            const nextMatch = nextLBRound.matches.find(m => !m.player1 || !m.player2)
+            if (nextMatch) {
+                if (!nextMatch.player1) nextMatch.player1 = winner
+                else nextMatch.player2 = winner
+            }
+        }
+    }
+
+    rounds.forEach(r => {
+        r.matches.forEach(m => {
+            if (m.player1 && m.player2 && !m.winner && !m.debuffs && tournament.config?.mayhemMode) {
+                assignDebuffsToMatch(m, debuffsPool, usersMap)
+            }
+        })
+    })
+
+    return false
+}

@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
-import { calculateEloChange, getKFactor } from '../utils'
+import { calculateEloChange, getKFactor, buildEloHistory } from '../utils'
 
 const PlayerStats = ({ users, matches, initialPlayerId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
@@ -41,13 +41,8 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         const timeline = []
 
         // Build global ELO history to get Max and Min ELO + chart data
-        const sortedAllMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        const ratings = {}
-        const matchesPlayedCount = {}
-        users.forEach(u => {
-            ratings[u.id] = 1200
-            matchesPlayedCount[u.id] = 0
-        })
+        const eloData = buildEloHistory(users, matches)
+        const myTimeline = eloData.playerEloTimelines[selectedPlayerId] || []
 
         let maxElo = 1200
         let minElo = 1200
@@ -56,36 +51,16 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             minElo = Infinity
         }
 
-        const eloHistory = [{ matchNum: 0, elo: 1200, opponent: 'Start' }]
-        let playerMatchNum = 0
-
-        sortedAllMatches.forEach(match => {
-            const p1Id = match.player1_id
-            const p2Id = match.player2_id
-            if (ratings[p1Id] === undefined || ratings[p2Id] === undefined) return
-
-            matchesPlayedCount[p1Id] = (matchesPlayedCount[p1Id] || 0) + 1
-            matchesPlayedCount[p2Id] = (matchesPlayedCount[p2Id] || 0) + 1
-
-            const p1Change = calculateEloChange(ratings[p1Id], ratings[p2Id], match.score1, match.score2, getKFactor(matchesPlayedCount[p1Id]))
-            const p2Change = calculateEloChange(ratings[p2Id], ratings[p1Id], match.score2, match.score1, getKFactor(matchesPlayedCount[p2Id]))
-
-            ratings[p1Id] += p1Change
-            ratings[p2Id] += p2Change
-
-            if (p1Id === selectedPlayerId) {
-                if (ratings[p1Id] > maxElo) maxElo = ratings[p1Id]
-                if (ratings[p1Id] < minElo) minElo = ratings[p1Id]
-                playerMatchNum++
-                const opp = users.find(u => u.id === p2Id)
-                eloHistory.push({ matchNum: playerMatchNum, elo: Math.round(ratings[p1Id]), opponent: opp?.name || '?', change: Math.round(p1Change), result: match.score1 > match.score2 ? 'W' : 'L' })
-            }
-            if (p2Id === selectedPlayerId) {
-                if (ratings[p2Id] > maxElo) maxElo = ratings[p2Id]
-                if (ratings[p2Id] < minElo) minElo = ratings[p2Id]
-                playerMatchNum++
-                const opp = users.find(u => u.id === p1Id)
-                eloHistory.push({ matchNum: playerMatchNum, elo: Math.round(ratings[p2Id]), opponent: opp?.name || '?', change: Math.round(p2Change), result: match.score2 > match.score1 ? 'W' : 'L' })
+        const eloHistory = myTimeline.map(t => {
+            const opp = users.find(u => u.id === t.opponentId)
+            if (t.elo > maxElo) maxElo = t.elo
+            if (t.elo < minElo) minElo = t.elo
+            return {
+                matchNum: t.matchNum,
+                elo: Math.round(t.elo),
+                opponent: opp ? opp.name : (t.matchNum === 0 ? 'Start' : '?'),
+                change: Math.round(t.change),
+                result: t.result
             }
         })
 

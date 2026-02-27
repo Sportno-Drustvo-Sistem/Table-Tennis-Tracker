@@ -15,7 +15,10 @@ import {
     generateRoundRobinMatches,
     initGroupStandings,
     seedFromGroups,
-    propagateAdvancements
+    propagateAdvancements,
+    handleSingleElimAdvancement,
+    handleDoubleElimAdvancement,
+    checkTournamentComplete
 } from './tournamentUtils'
 
 const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
@@ -297,189 +300,22 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
         const format = newTournament.format
 
+        let isComplete = false
+
         if (format === 'double_elim') {
-            handleDoubleElimAdvancement(newTournament, roundIdx, matchIndex, winner, loser, debuffsPool, usersMap)
+            isComplete = handleDoubleElimAdvancement(newTournament, roundIdx, matchIndex, winner, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         } else {
-            handleSingleElimAdvancement(newTournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap)
+            isComplete = handleSingleElimAdvancement(newTournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         }
 
         // Run robust propagation (isInitialSetup=false: don't auto-assign byes)
         propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
 
         setActiveTournament(newTournament)
-    }
 
-    const handleSingleElimAdvancement = (tournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap) => {
-        const rounds = tournament.rounds
-        // Find the 3rd place match round and the grand final round
-        const thirdPlaceRoundIdx = rounds.findIndex(r => r.name === '3rd Place Match')
-        const grandFinalRoundIdx = rounds.findIndex(r => r.name === 'Grand Final')
-
-        // Check if this is the semi-finals
-        const isSemiFinal = rounds[roundIdx]?.name === 'Semi-Finals'
-
-        if (match.isThirdPlace) {
-            // 3rd place match completed — don't propagate further
-            // Check if Grand Final is also done
-            checkTournamentComplete(tournament)
-            return
-        }
-
-        if (isSemiFinal && thirdPlaceRoundIdx !== -1) {
-            // Feed loser into 3rd place match
-            const thirdMatch = rounds[thirdPlaceRoundIdx].matches[0]
-            if (!thirdMatch.player1) thirdMatch.player1 = loser
-            else if (!thirdMatch.player2) thirdMatch.player2 = loser
-
-            if (thirdMatch.player1 && thirdMatch.player2 && tournament.config?.mayhemMode) {
-                assignDebuffsToMatch(thirdMatch, debuffsPool, usersMap)
-            }
-        }
-
-        if (roundIdx === grandFinalRoundIdx) {
-            if (rounds[grandFinalRoundIdx]?.matches[0]?.winner) {
-                checkTournamentComplete(tournament)
-            }
-            return
-        }
-
-        // Normal advancement to next round (skip 3rd place match round)
-        let nextRoundIdx = roundIdx + 1
-        if (nextRoundIdx < rounds.length && rounds[nextRoundIdx].name === '3rd Place Match') {
-            // Grand Final is before 3rd place in array, find it
-            nextRoundIdx = grandFinalRoundIdx
-        }
-
-        if (nextRoundIdx !== -1 && nextRoundIdx < rounds.length && !rounds[nextRoundIdx].matches[0]?.isThirdPlace) {
-            const nextMatchIdx = Math.floor(matchIndex / 2)
-            const isP1Slot = matchIndex % 2 === 0
-            const nextMatch = rounds[nextRoundIdx].matches[nextMatchIdx]
-            if (nextMatch) {
-                if (isP1Slot) nextMatch.player1 = winner
-                else nextMatch.player2 = winner
-
-                if (nextMatch.player1 && nextMatch.player2 && tournament.config?.mayhemMode) {
-                    assignDebuffsToMatch(nextMatch, debuffsPool, usersMap)
-                }
-            }
-        }
-
-        // Check if tournament is complete (Grand Final done)
-        if (rounds[grandFinalRoundIdx]?.matches[0]?.winner) {
-            checkTournamentComplete(tournament)
-        }
-    }
-
-    const handleDoubleElimAdvancement = (tournament, roundIdx, matchIndex, winner, loser, debuffsPool, usersMap) => {
-        const rounds = tournament.rounds
-        const currentRound = rounds[roundIdx]
-
-        if (currentRound.bracket === 'grand_final') {
-            tournament.status = 'completed'
-            tournament.winner = winner
-            finishTournament(tournament)
-            return
-        }
-
-        // Calculate WB-relative round index for feedsFrom matching
-        const wbRounds = rounds.filter(r => r.bracket === 'winners')
-        const wbRelativeIdx = wbRounds.indexOf(currentRound)
-        const isWBFinal = currentRound.name === 'WB Final'
-
-        if (currentRound.bracket === 'winners') {
-            if (isWBFinal) {
-                // WB Final: winner → Grand Final, loser → LB Final
-                const gf = rounds.find(r => r.bracket === 'grand_final')
-                if (gf) gf.matches[0].player1 = winner
-
-                const lbFinal = rounds.find(r => r.name === 'LB Final')
-                if (lbFinal) {
-                    const lbMatch = lbFinal.matches[0]
-                    if (!lbMatch.player1) lbMatch.player1 = loser
-                    else lbMatch.player2 = loser
-                }
-            } else {
-                // Normal WB round: advance winner to next WB round
-                const nextWBIdx = roundIdx + 1
-                if (nextWBIdx < rounds.length && rounds[nextWBIdx].bracket === 'winners') {
-                    const nextMatch = rounds[nextWBIdx].matches[Math.floor(matchIndex / 2)]
-                    if (nextMatch) {
-                        if (matchIndex % 2 === 0) nextMatch.player1 = winner
-                        else nextMatch.player2 = winner
-                    }
-                }
-
-                // Send loser to matching LB round (using WB-relative index for feedsFrom)
-                const lbRound = rounds.find(r =>
-                    r.bracket === 'losers' && r.matches.some(m =>
-                        (m.feedsFrom?.type === 'wb_losers' && m.feedsFrom.wbRound === wbRelativeIdx) ||
-                        (m.feedsFrom?.type === 'wb_drop' && m.feedsFrom.wbRound === wbRelativeIdx)
-                    )
-                )
-
-                if (lbRound) {
-                    const isDrop = lbRound.matches[0].feedsFrom?.type === 'wb_drop'
-                    const reverse = lbRound.matches[0].feedsFrom?.reverse
-                    const wbSize = currentRound.matches.length
-
-                    let targetMatchIdx
-                    if (isDrop) {
-                        targetMatchIdx = reverse ? wbSize - 1 - matchIndex : matchIndex
-                    } else {
-                        targetMatchIdx = Math.floor(matchIndex / 2)
-                        if (reverse) targetMatchIdx = (wbSize / 2) - 1 - targetMatchIdx
-                    }
-
-                    const lbMatch = lbRound.matches[targetMatchIdx]
-                    if (lbMatch) {
-                        if (!lbMatch.player1) lbMatch.player1 = loser
-                        else lbMatch.player2 = loser
-                    }
-                }
-            }
-        }
-
-        if (currentRound.bracket === 'losers') {
-            // Advance winner in losers bracket
-            const lbRounds = rounds.filter(r => r.bracket === 'losers')
-            const lbIdx = lbRounds.indexOf(currentRound)
-
-            if (currentRound.name === 'LB Final') {
-                // LB Final winner → Grand Final player2
-                const gf = rounds.find(r => r.bracket === 'grand_final')
-                if (gf) gf.matches[0].player2 = winner
-            } else if (lbIdx < lbRounds.length - 1) {
-                const nextLBRound = lbRounds[lbIdx + 1]
-                const nextMatch = nextLBRound.matches.find(m => !m.player1 || !m.player2)
-                if (nextMatch) {
-                    if (!nextMatch.player1) nextMatch.player1 = winner
-                    else nextMatch.player2 = winner
-                }
-            }
-        }
-
-        // Assign debuffs to newly filled matches
-        rounds.forEach(r => {
-            r.matches.forEach(m => {
-                if (m.player1 && m.player2 && !m.winner && !m.debuffs && tournament.config?.mayhemMode) {
-                    assignDebuffsToMatch(m, debuffsPool, usersMap)
-                }
-            })
-        })
-    }
-
-    const checkTournamentComplete = (tournament) => {
-        const rounds = tournament.rounds
-        const grandFinal = rounds.find(r => r.name === 'Grand Final')
-        const thirdPlace = rounds.find(r => r.name === '3rd Place Match')
-
-        const gfDone = grandFinal?.matches[0]?.winner
-        const tpDone = !thirdPlace || thirdPlace?.matches[0]?.winner
-
-        if (gfDone && tpDone) {
-            tournament.status = 'completed'
-            tournament.winner = grandFinal.matches[0].winner
-            finishTournament(tournament)
+        if (isComplete) {
+            newTournament.winner = newTournament.rounds.find(r => r.name === 'Grand Final' || r.bracket === 'grand_final')?.matches[0]?.winner || winner
+            finishTournament(newTournament)
         }
     }
 
@@ -641,10 +477,12 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         const format = newTournament.format
         const loser = targetMatch.player1 ? targetMatch.player2 : targetMatch.player1
 
+        let isComplete = false
+
         if (format === 'double_elim') {
-            handleDoubleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, lonePlayer, loser, debuffsPool, usersMap)
+            isComplete = handleDoubleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, lonePlayer, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         } else {
-            handleSingleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, targetMatch, lonePlayer, loser, debuffsPool, usersMap)
+            isComplete = handleSingleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, targetMatch, lonePlayer, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         }
 
         // Propagate but don't auto-assign new byes
@@ -652,6 +490,11 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
         setActiveTournament(newTournament)
         showToast(`${lonePlayer.name} advances via BYE`, 'info')
+
+        if (isComplete) {
+            newTournament.winner = newTournament.rounds.find(r => r.name === 'Grand Final' || r.bracket === 'grand_final')?.matches[0]?.winner || lonePlayer
+            finishTournament(newTournament)
+        }
     }
 
     // ─── Render ────────────────────────────────────

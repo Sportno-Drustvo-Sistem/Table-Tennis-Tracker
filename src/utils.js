@@ -19,6 +19,83 @@ export const calculateEloChange = (ratingA, ratingB, scoreA, scoreB, kFactor) =>
     return Math.round(kFactor * multiplier * (actualScoreA - expectedScoreA))
 }
 
+export const buildEloHistory = (users, matches) => {
+    const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const ratings = {}
+    const mpc = {}
+    const playerEloTimelines = {}
+    const matchHistory = []
+
+    users.forEach(u => {
+        ratings[u.id] = 1200
+        mpc[u.id] = 0
+        playerEloTimelines[u.id] = [{ matchNum: 0, elo: 1200, opponentId: null, date: null, result: null, change: 0 }]
+    })
+
+    sortedMatches.forEach(m => {
+        const p1 = m.player1_id
+        const p2 = m.player2_id
+        if (ratings[p1] === undefined || ratings[p2] === undefined) return
+
+        mpc[p1] = (mpc[p1] || 0) + 1
+        mpc[p2] = (mpc[p2] || 0) + 1
+
+        const eloBefore1 = ratings[p1]
+        const eloBefore2 = ratings[p2]
+
+        const c1 = calculateEloChange(eloBefore1, eloBefore2, m.score1, m.score2, getKFactor(mpc[p1]))
+        const c2 = calculateEloChange(eloBefore2, eloBefore1, m.score2, m.score1, getKFactor(mpc[p2]))
+
+        ratings[p1] += c1
+        ratings[p2] += c2
+
+        const p1Won = m.score1 > m.score2;
+        const p2Won = m.score2 > m.score1;
+
+        matchHistory.push({
+            matchId: m.id,
+            p1Id: p1,
+            p2Id: p2,
+            p1EloBefore: eloBefore1,
+            p2EloBefore: eloBefore2,
+            p1EloAfter: ratings[p1],
+            p2EloAfter: ratings[p2],
+            p1Change: c1,
+            p2Change: c2,
+            score1: m.score1,
+            score2: m.score2,
+            date: new Date(m.created_at)
+        })
+
+        playerEloTimelines[p1].push({
+            matchNum: mpc[p1],
+            elo: ratings[p1],
+            change: c1,
+            opponentId: p2,
+            result: p1Won ? 'W' : 'L',
+            date: new Date(m.created_at),
+            matchId: m.id
+        })
+
+        playerEloTimelines[p2].push({
+            matchNum: mpc[p2],
+            elo: ratings[p2],
+            change: c2,
+            opponentId: p1,
+            result: p2Won ? 'W' : 'L',
+            date: new Date(m.created_at),
+            matchId: m.id
+        })
+    })
+
+    return {
+        currentRatings: ratings,
+        matchesPlayedCount: mpc,
+        playerEloTimelines,
+        matchHistory
+    }
+}
+
 export const recalculatePlayerStats = async () => {
     // 1. Fetch all users
     const { data: users, error: usersError } = await supabase
