@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Shuffle, Check, AlertCircle, Scale } from 'lucide-react'
 import { getHeadToHeadStreak, getHandicapRule } from '../../utils'
+import { calculateExpectedScore } from '../../utils'
 
 const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated }) => {
     const [selectedPool, setSelectedPool] = useState([])
@@ -221,6 +222,30 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                     </div>
                                 </div>
                             )}
+
+                            {/* Win Probability */}
+                            <div className="mb-6 px-4">
+                                {(() => {
+                                    const p1Elo = generatedMatch[0].elo_rating || 1200
+                                    const p2Elo = generatedMatch[1].elo_rating || 1200
+                                    const p1Expected = calculateExpectedScore(p1Elo, p2Elo)
+                                    const p1Pct = Math.round(p1Expected * 100)
+                                    const p2Pct = 100 - p1Pct
+                                    return (
+                                        <div>
+                                            <div className="flex justify-between text-xs font-bold mb-1">
+                                                <span className="text-blue-600 dark:text-blue-400">{p1Pct}%</span>
+                                                <span className="text-gray-400 dark:text-gray-500 uppercase text-[10px]">Win Probability</span>
+                                                <span className="text-red-500 dark:text-red-400">{p2Pct}%</span>
+                                            </div>
+                                            <div className="flex h-2 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                                                <div className="bg-blue-500 transition-all" style={{ width: `${p1Pct}%` }} />
+                                                <div className="bg-red-500 transition-all" style={{ width: `${p2Pct}%` }} />
+                                            </div>
+                                        </div>
+                                    )
+                                })()}
+                            </div>
 
                             <div className="flex gap-3 justify-center">
                                 <button

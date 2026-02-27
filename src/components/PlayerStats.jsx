@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Activity, Users, Calendar, TrendingUp, TrendingDown, Target } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
+import Achievements from './Achievements'
 import { calculateEloChange, getKFactor } from '../utils'
 
 const PlayerStats = ({ users, matches, initialPlayerId }) => {
@@ -38,13 +40,13 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         const headToHead = {}
         const timeline = []
 
-        // Build global ELO history to get Max and Min ELO
+        // Build global ELO history to get Max and Min ELO + chart data
         const sortedAllMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
         const ratings = {}
-        const matchesPlayed = {}
+        const matchesPlayedCount = {}
         users.forEach(u => {
             ratings[u.id] = 1200
-            matchesPlayed[u.id] = 0
+            matchesPlayedCount[u.id] = 0
         })
 
         let maxElo = 1200
@@ -54,16 +56,19 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             minElo = Infinity
         }
 
+        const eloHistory = [{ matchNum: 0, elo: 1200, opponent: 'Start' }]
+        let playerMatchNum = 0
+
         sortedAllMatches.forEach(match => {
             const p1Id = match.player1_id
             const p2Id = match.player2_id
             if (ratings[p1Id] === undefined || ratings[p2Id] === undefined) return
 
-            matchesPlayed[p1Id] = (matchesPlayed[p1Id] || 0) + 1
-            matchesPlayed[p2Id] = (matchesPlayed[p2Id] || 0) + 1
+            matchesPlayedCount[p1Id] = (matchesPlayedCount[p1Id] || 0) + 1
+            matchesPlayedCount[p2Id] = (matchesPlayedCount[p2Id] || 0) + 1
 
-            const p1Change = calculateEloChange(ratings[p1Id], ratings[p2Id], match.score1, match.score2, getKFactor(matchesPlayed[p1Id]))
-            const p2Change = calculateEloChange(ratings[p2Id], ratings[p1Id], match.score2, match.score1, getKFactor(matchesPlayed[p2Id]))
+            const p1Change = calculateEloChange(ratings[p1Id], ratings[p2Id], match.score1, match.score2, getKFactor(matchesPlayedCount[p1Id]))
+            const p2Change = calculateEloChange(ratings[p2Id], ratings[p1Id], match.score2, match.score1, getKFactor(matchesPlayedCount[p2Id]))
 
             ratings[p1Id] += p1Change
             ratings[p2Id] += p2Change
@@ -71,10 +76,16 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             if (p1Id === selectedPlayerId) {
                 if (ratings[p1Id] > maxElo) maxElo = ratings[p1Id]
                 if (ratings[p1Id] < minElo) minElo = ratings[p1Id]
+                playerMatchNum++
+                const opp = users.find(u => u.id === p2Id)
+                eloHistory.push({ matchNum: playerMatchNum, elo: Math.round(ratings[p1Id]), opponent: opp?.name || '?', change: Math.round(p1Change), result: match.score1 > match.score2 ? 'W' : 'L' })
             }
             if (p2Id === selectedPlayerId) {
                 if (ratings[p2Id] > maxElo) maxElo = ratings[p2Id]
                 if (ratings[p2Id] < minElo) minElo = ratings[p2Id]
+                playerMatchNum++
+                const opp = users.find(u => u.id === p1Id)
+                eloHistory.push({ matchNum: playerMatchNum, elo: Math.round(ratings[p2Id]), opponent: opp?.name || '?', change: Math.round(p2Change), result: match.score2 > match.score1 ? 'W' : 'L' })
             }
         })
 
@@ -145,7 +156,8 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             streak: currentStreak,
             maxElo: Math.round(maxElo),
             minElo: Math.round(minElo),
-            avgScoreDiff: (wins + losses) > 0 ? ((pointsFor - pointsAgainst) / (wins + losses)).toFixed(1) : 0
+            avgScoreDiff: (wins + losses) > 0 ? ((pointsFor - pointsAgainst) / (wins + losses)).toFixed(1) : 0,
+            eloHistory
         }
     }, [selectedPlayerId, matches, startDate, endDate, users])
 
@@ -229,7 +241,34 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 </div>
             </div>
 
+            {/* ELO History Chart */}
+            {stats?.eloHistory?.length > 1 && (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
+                        <Activity className="mr-2 text-blue-500" size={20} /> ELO History
+                    </h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <LineChart data={stats.eloHistory} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                            <XAxis dataKey="matchNum" tick={{ fontSize: 11 }} label={{ value: 'Game #', position: 'insideBottom', offset: -2, fontSize: 11 }} />
+                            <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                            <ReferenceLine y={1200} stroke="#9ca3af" strokeDasharray="3 3" />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: 'rgba(30,30,30,0.9)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                                formatter={(value, name, props) => {
+                                    const d = props.payload
+                                    return [`${value} (${d.change > 0 ? '+' : ''}${d.change})`, `vs ${d.opponent} (${d.result})`]
+                                }}
+                                labelFormatter={(label) => `Game #${label}`}
+                            />
+                            <Line type="monotone" dataKey="elo" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 5, fill: '#3b82f6' }} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
             <TrophyCase playerId={selectedPlayerId} />
+
+            <Achievements playerId={selectedPlayerId} users={users} matches={matches} />
 
             <div className="grid md:grid-cols-2 gap-6">
 
