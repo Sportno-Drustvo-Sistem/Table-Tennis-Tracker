@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import UserCard from '../UserCard'
 
-const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected }) => {
+const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiveMatchSelected }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
 
     if (!isOpen) return null
@@ -20,13 +20,8 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected }) => 
 
         setSelectedPlayers(newSelected)
 
-        // If 2 players selected, trigger callback after a short delay
-        if (newSelected.length === 2) {
-            setTimeout(() => {
-                onPlayersSelected(newSelected[0], newSelected[1])
-                setSelectedPlayers([]) // Reset for next time
-            }, 300)
-        }
+        // If 2 players selected, don't trigger callback automatically anymore
+        // Instead they will choose Live Match or Record Match from the banner
     }
 
     const handleClose = () => {
@@ -60,15 +55,42 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected }) => 
                             <span className="text-blue-800 dark:text-blue-200 font-medium">
                                 Selected: {selectedPlayers.map(p => p.name).join(' vs ')}
                             </span>
-                            <div className="flex -space-x-2">
-                                {selectedPlayers.map(p => (
-                                    <img
-                                        key={p.id}
-                                        src={p.avatar_url || 'https://via.placeholder.com/150'}
-                                        className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover"
-                                        alt={p.name}
-                                    />
-                                ))}
+                            <div className="flex items-center gap-4">
+                                <div className="flex -space-x-2">
+                                    {selectedPlayers.map(p => (
+                                        <img
+                                            key={p.id}
+                                            src={p.avatar_url || 'https://via.placeholder.com/150'}
+                                            className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover"
+                                            alt={p.name}
+                                        />
+                                    ))}
+                                </div>
+                                {selectedPlayers.length === 2 && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                onPlayersSelected(selectedPlayers[0], selectedPlayers[1])
+                                                setSelectedPlayers([])
+                                            }}
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded shadow-sm transition-colors"
+                                        >
+                                            Record Score
+                                        </button>
+                                        {onLiveMatchSelected && (
+                                            <button
+                                                onClick={() => {
+                                                    onLiveMatchSelected(selectedPlayers[0], selectedPlayers[1])
+                                                    setSelectedPlayers([])
+                                                }}
+                                                className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-sm font-bold rounded shadow-sm flex items-center gap-1 transition-all"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                                Live Match
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -83,7 +105,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected }) => 
                             <p className="text-gray-500 dark:text-gray-400">Add some players first!</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                             {users.map(user => (
                                 <UserCard
                                     key={user.id}
@@ -92,6 +114,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected }) => 
                                     isSelected={selectedPlayers.some(p => p.id === user.id)}
                                     onClick={() => handlePlayerClick(user)}
                                     onEdit={() => { }} // Disable edit in this modal
+                                    compact={true}
                                 />
                             ))}
                         </div>

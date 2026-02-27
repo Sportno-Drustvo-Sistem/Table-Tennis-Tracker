@@ -1,26 +1,26 @@
 import React from 'react'
 import { Check, Trophy, Pencil } from 'lucide-react'
 
-const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin }) => {
+const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, compact }) => {
     return (
         <div
             onClick={onClick}
             className={`
-        relative group flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md transition-all cursor-pointer
-        hover:shadow-lg border-2
+        relative group flex flex-col items-center bg-white dark:bg-gray-800 rounded-xl shadow-md transition-all cursor-pointer hover:shadow-lg border-2
+        ${compact ? 'p-3' : 'p-6'}
         ${isSelected ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900' : 'border-transparent dark:border-gray-700'}
         ${selectionMode ? 'hover:border-blue-300 dark:hover:border-blue-700' : ''}
       `}
         >
-            <div className="relative w-24 h-24 mb-4">
+            <div className={`relative ${compact ? 'w-16 h-16 mb-2' : 'w-24 h-24 mb-4'}`}>
                 <img
                     src={user.avatar_url || 'https://via.placeholder.com/150'}
                     alt={user.name}
                     className="w-full h-full rounded-full object-cover border-4 border-gray-100 dark:border-gray-700"
                 />
                 {isSelected && (
-                    <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-1">
-                        <Check size={16} />
+                    <div className="absolute -top-1 -right-1 bg-blue-500 text-white rounded-full p-1 z-10 shadow-sm">
+                        <Check size={compact ? 12 : 16} />
                     </div>
                 )}
                 {!selectionMode && isAdmin && (
@@ -35,10 +35,10 @@ const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin })
                     </button>
                 )}
             </div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white">{user.name}</h3>
-            <div className="flex items-center mt-2 text-yellow-500 font-semibold">
-                <Trophy size={16} className="mr-1" />
-                <span>{user.total_wins} Wins</span>
+            <h3 className={`${compact ? 'text-sm' : 'text-xl'} font-bold text-gray-800 dark:text-white text-center w-full truncate px-1`}>{user.name}</h3>
+            <div className={`flex items-center mt-1 text-yellow-500 font-semibold ${compact ? 'text-xs' : ''}`}>
+                <Trophy size={compact ? 12 : 16} className="mr-1" />
+                <span>{user.total_wins} {compact ? '' : 'Wins'}</span>
             </div>
         </div>
     )

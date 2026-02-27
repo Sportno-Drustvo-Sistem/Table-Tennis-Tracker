@@ -82,6 +82,7 @@ function App() {
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
   const [isLiveMatchOpen, setIsLiveMatchOpen] = useState(false)
   const [liveMatchPlayers, setLiveMatchPlayers] = useState([null, null])
+  const [isLiveMatchFromGenerator, setIsLiveMatchFromGenerator] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [editingMatch, setEditingMatch] = useState(null)
 
@@ -226,8 +227,16 @@ function App() {
   }
 
   const handleMatchGenerated = (player1, player2) => {
+    setIsLiveMatchFromGenerator(true)
     setLiveMatchPlayers([player1, player2])
     setIsGeneratorOpen(false)
+    setIsLiveMatchOpen(true)
+  }
+
+  const handleLiveMatchFromSelection = (player1, player2) => {
+    setIsLiveMatchFromGenerator(false)
+    setLiveMatchPlayers([player1, player2])
+    setIsPlayerSelectionOpen(false)
     setIsLiveMatchOpen(true)
   }
 
@@ -241,7 +250,10 @@ function App() {
     setIsLiveMatchOpen(false)
     setLiveMatchPlayers([null, null])
     fetchData()
-    setIsGeneratorOpen(true)
+    if (isLiveMatchFromGenerator) {
+      setIsLiveMatchFromGenerator(false)
+      setIsGeneratorOpen(true)
+    }
   }
 
   // Padel handlers
@@ -561,6 +573,7 @@ function App() {
           onClose={() => setIsPlayerSelectionOpen(false)}
           users={users}
           onPlayersSelected={handlePlayersSelected}
+          onLiveMatchSelected={handleLiveMatchFromSelection}
         />
 
         <MatchGeneratorModal
