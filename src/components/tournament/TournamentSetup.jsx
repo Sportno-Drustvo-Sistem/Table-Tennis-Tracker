@@ -11,7 +11,9 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
     const [useGroupStage, setUseGroupStage] = useState(false)
     const [mayhemMode, setMayhemMode] = useState(false)
     const [pastTournaments, setPastTournaments] = useState([])
-    const { showConfirm, showToast } = useToast()
+    const [activeTournaments, setActiveTournaments] = useState([])
+    const [deleteModal, setDeleteModal] = useState(null) // { id, name }
+    const { showToast } = useToast()
 
     // Available players (filtered slightly to avoid partial/broken users if any)
     const availableUsers = users.filter(u => u && u.name)
@@ -20,7 +22,20 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
         if (isAdmin) {
             fetchPastTournaments()
         }
+        fetchActiveTournaments()
     }, [isAdmin])
+
+    const fetchActiveTournaments = async () => {
+        const { data, error } = await supabase
+            .from('tournaments')
+            .select('*')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+
+        if (!error && data) {
+            setActiveTournaments(data)
+        }
+    }
 
     const fetchPastTournaments = async () => {
         const { data, error } = await supabase
@@ -35,20 +50,45 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
         }
     }
 
-    const handleDeleteTournament = (id, name) => {
-        showConfirm(`Are you sure you want to delete the tournament "${name}"? This action cannot be undone.`, async () => {
-            const { error } = await supabase
+    const handleDeleteTournament = async (deleteMatches) => {
+        if (!deleteModal) return
+        const { id, name: tName } = deleteModal
+
+        try {
+            if (deleteMatches) {
+                // Delete all matches associated with this tournament
+                const { error: matchErr } = await supabase
+                    .from('matches')
+                    .delete()
+                    .eq('tournament_id', id)
+                if (matchErr) throw matchErr
+            } else {
+                // Dissociate matches: set tournament_id to null
+                const { error: unlinkErr } = await supabase
+                    .from('matches')
+                    .update({ tournament_id: null })
+                    .eq('tournament_id', id)
+                if (unlinkErr) throw unlinkErr
+            }
+
+            // Delete tournament results (cascade should handle this, but be explicit)
+            await supabase.from('tournament_results').delete().eq('tournament_id', id)
+
+            // Delete the tournament itself
+            const { error: delErr } = await supabase
                 .from('tournaments')
                 .delete()
                 .eq('id', id)
+            if (delErr) throw delErr
 
-            if (error) {
-                showToast(`Failed to delete tournament: ${error.message}`, 'error')
-            } else {
-                showToast(`Tournament "${name}" deleted.`, 'success')
-                fetchPastTournaments()
-            }
-        })
+            showToast(`Tournament "${tName}" deleted.`, 'success')
+            fetchPastTournaments()
+            fetchActiveTournaments()
+        } catch (err) {
+            showToast(`Failed to delete tournament: ${err.message}`, 'error')
+        } finally {
+            setDeleteModal(null)
+        }
     }
 
     const handleTogglePlayer = (id) => {
@@ -80,10 +120,34 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
                 <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-full mb-4">
                     <Trophy size={48} className="text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-white">No Active Tournaments</h3>
-                <p className="text-gray-500 dark:text-gray-400 max-w-md text-center">
-                    There are no tournaments currently available to view. Ask an admin to start one!
-                </p>
+                {activeTournaments.length > 0 ? (
+                    <>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Active Tournaments</h3>
+                        <div className="w-full max-w-md space-y-3 px-4">
+                            {activeTournaments.map(t => (
+                                <div key={t.id} className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10">
+                                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                        {t.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        {new Date(t.created_at).toLocaleDateString()} • {t.format === 'double_elim' ? 'Double Elim' : 'Single Elim'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                            Ask an admin to manage tournaments.
+                        </p>
+                    </>
+                ) : (
+                    <>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">No Active Tournaments</h3>
+                        <p className="text-gray-500 dark:text-gray-400 max-w-md text-center">
+                            There are no tournaments currently available to view. Ask an admin to start one!
+                        </p>
+                    </>
+                )}
             </div>
         )
     }
@@ -261,7 +325,7 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => handleDeleteTournament(t.id, t.name)}
+                                    onClick={() => setDeleteModal({ id: t.id, name: t.name })}
                                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                     title="Delete Tournament"
                                 >
@@ -269,6 +333,59 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
                                 </button>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Tournament Modal */}
+            {deleteModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center mb-4 text-red-500">
+                            <Trash2 size={24} className="mr-3" />
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Delete Tournament</h3>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-2">
+                            You are about to delete <strong className="text-gray-900 dark:text-white">"{deleteModal.name}"</strong>.
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                            Choose how to handle matches associated with this tournament:
+                        </p>
+
+                        <div className="space-y-3 mb-6">
+                            <button
+                                onClick={() => handleDeleteTournament(true)}
+                                className="w-full p-4 rounded-xl border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:border-red-400 dark:hover:border-red-600 transition-all text-left group"
+                            >
+                                <div className="font-bold text-red-700 dark:text-red-400 mb-1 flex items-center">
+                                    <Trash2 size={16} className="mr-2" />
+                                    Delete Everything
+                                </div>
+                                <p className="text-xs text-red-600/70 dark:text-red-400/60">
+                                    Removes the tournament AND all its matches permanently. Match history will be lost.
+                                </p>
+                            </button>
+
+                            <button
+                                onClick={() => handleDeleteTournament(false)}
+                                className="w-full p-4 rounded-xl border-2 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 hover:border-yellow-400 dark:hover:border-yellow-600 transition-all text-left group"
+                            >
+                                <div className="font-bold text-yellow-700 dark:text-yellow-400 mb-1 flex items-center">
+                                    <Shield size={16} className="mr-2" />
+                                    Keep Matches
+                                </div>
+                                <p className="text-xs text-yellow-600/70 dark:text-yellow-400/60">
+                                    Removes the tournament and trophy results, but keeps match records intact (unlinked from tournament).
+                                </p>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setDeleteModal(null)}
+                            className="w-full py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Cancel
+                        </button>
                     </div>
                 </div>
             )}
