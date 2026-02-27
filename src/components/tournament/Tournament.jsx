@@ -565,9 +565,23 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             return
         }
 
-        showConfirm("Are you sure you want to cancel this tournament? Active tournament data will be cleared and no results will be saved.", () => {
+        showConfirm("Are you sure you want to cancel this tournament? The tournament and all its matches will be permanently deleted.", async () => {
+            const tournamentId = activeTournament.id
+            try {
+                // Delete all matches associated with this tournament
+                await supabase.from('matches').delete().eq('tournament_id', tournamentId)
+                // Delete tournament results
+                await supabase.from('tournament_results').delete().eq('tournament_id', tournamentId)
+                // Delete the tournament itself
+                await supabase.from('tournaments').delete().eq('id', tournamentId)
+                showToast('Tournament cancelled and deleted.', 'success')
+            } catch (err) {
+                console.error('Error deleting cancelled tournament:', err)
+                showToast('Tournament cancelled locally, but failed to delete from database.', 'error')
+            }
             setActiveTournament(null)
             localStorage.removeItem(STORAGE_KEY)
+            if (fetchData) fetchData()
         })
     }
 
