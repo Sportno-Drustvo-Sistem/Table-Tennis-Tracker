@@ -417,38 +417,36 @@ function App() {
               )}
             </div>
 
-            <div className="flex gap-2 shrink-0">
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center px-3 md:px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md"
-              >
-                <Plus size={20} className="md:mr-2" />
-                <span className="hidden md:inline">Add Player</span>
-              </button>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center px-3 md:px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md shrink-0"
+            >
+              <Plus size={20} className="md:mr-2" />
+              <span className="hidden md:inline">Add Player</span>
+            </button>
 
-              {activeTab === 'matches' && (
-                <>
-                  {isPingPong && (
-                    <button
-                      onClick={() => setIsGeneratorOpen(true)}
-                      aria-label="Live Match"
-                      title="Live Match"
-                      className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md mr-2"
-                    >
-                      <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
-                    </button>
-                  )}
+            {activeTab === 'matches' && (
+              <div className="flex gap-2 shrink-0">
+                {isPingPong && (
                   <button
-                    onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
-                    aria-label="Record Match"
-                    title="Record Match"
-                    className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
+                    onClick={() => setIsGeneratorOpen(true)}
+                    aria-label="Live Match"
+                    title="Live Match"
+                    className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md"
                   >
-                    <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">Record Match</span>
+                    <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
                   </button>
-                </>
-              )}
-            </div>
+                )}
+                <button
+                  onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
+                  aria-label="Record Match"
+                  title="Record Match"
+                  className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
+                >
+                  <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">Record Match</span>
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
