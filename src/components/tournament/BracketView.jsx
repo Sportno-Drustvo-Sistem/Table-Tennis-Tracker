@@ -200,10 +200,23 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManua
     const bracketRounds = rounds.filter(r => r.name !== '3rd Place Match')
     const thirdPlaceRound = rounds.find(r => r.name === '3rd Place Match')
 
+    // Hide rounds where ALL matches are byes (e.g. entirely-bye round)
+    const visibleRounds = bracketRounds.filter(round =>
+        !round.matches.every(m => m.isBye)
+    )
+    // In mixed rounds (some byes, some real), hide the bye-only matches for cleaner display
+    const cleanedRounds = visibleRounds.map(round => {
+        const realMatches = round.matches.filter(m => !m.isBye)
+        if (realMatches.length > 0 && realMatches.length < round.matches.length) {
+            return { ...round, matches: realMatches }
+        }
+        return round
+    })
+
     return (
         <div className="overflow-x-auto pb-12 pt-4 hide-scrollbar">
             <div className="min-w-max flex gap-12 px-8">
-                {bracketRounds.map((round, rIndex) => {
+                {cleanedRounds.map((round, rIndex) => {
                     const actualIdx = rounds.indexOf(round)
                     return (
                         <RoundColumn key={rIndex} round={round} rIndex={actualIdx}
