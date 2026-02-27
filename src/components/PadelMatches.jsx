@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient'
 import { recalculatePadelStats } from '../padelUtils'
 import { calculateEloChange, getKFactor } from '../utils'
 import { useToast } from '../contexts/ToastContext'
+import { TennisIcon } from './Icons'
 
 const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted, onGenerateMatch, isAdmin }) => {
     const { showToast } = useToast()
@@ -155,14 +156,6 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
                 </h2>
                 <div className="flex gap-3">
                     <button
-                        onClick={onGenerateMatch}
-                        className="flex items-center text-sm font-bold text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors bg-green-50 dark:bg-green-900/30 px-3 py-2 rounded-lg"
-                        title="Random Match Generator"
-                    >
-                        <RefreshCw size={16} className="mr-2" />
-                        Generate Match
-                    </button>
-                    <button
                         onClick={handleRecalculate}
                         disabled={recalculating}
                         className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
@@ -177,7 +170,7 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {matches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-                        <div className="text-6xl mb-4">🎾</div>
+                        <div className="mb-4 flex justify-center text-green-500"><TennisIcon size={64} /></div>
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white">No padel matches recorded yet</h3>
                         <p className="text-gray-500 dark:text-gray-400 mb-6">Click "New Match" to get started!</p>
                     </div>

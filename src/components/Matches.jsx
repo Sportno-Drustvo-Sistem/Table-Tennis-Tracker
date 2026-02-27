@@ -3,6 +3,7 @@ import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Squar
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, calculateEloChange, getKFactor } from '../utils'
+import { PingPongIcon } from './Icons'
 
 const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch, isAdmin }) => {
     const [loading, setLoading] = useState(false)
@@ -177,15 +178,6 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                         </button>
                     )}
                     <button
-                        onClick={onGenerateMatch}
-                        className="flex items-center text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg"
-                        title="Random Match Generator"
-                    >
-                        <RefreshCw size={16} className="mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">Generate Match</span>
-                        <span className="sm:hidden">Gen</span>
-                    </button>
-                    <button
                         onClick={handleRecalculate}
                         disabled={recalculating}
                         className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
@@ -233,7 +225,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {matches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-                        <div className="text-6xl mb-4">🏓</div>
+                        <div className="mb-4 flex justify-center text-blue-500"><PingPongIcon size={64} /></div>
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white">No matches recorded yet</h3>
                         <p className="text-gray-500 dark:text-gray-400 mb-6">Click "New Match" to get started!</p>
                     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords, Settings } from 'lucide-react'
+import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords, Settings, Ghost, Zap } from 'lucide-react'
+import { PingPongIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { recalculatePlayerStats } from './utils'
 import UserCard from './components/UserCard'
@@ -270,7 +271,7 @@ function App() {
   }
 
   const isPingPong = activeSport === 'pingpong'
-  const sportEmoji = isPingPong ? '🏓' : '🎾'
+  const sportEmoji = isPingPong ? <PingPongIcon size={24} /> : <TennisIcon size={24} />
   const sportName = isPingPong ? 'Ping Pong' : 'Padel'
   const sportSubtitle = isPingPong ? 'Track your garage glory.' : 'Track your doubles domination.'
 
@@ -286,8 +287,8 @@ function App() {
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-2 md:ml-1 w-full">{sportSubtitle}</p>
             {migrating && (
-              <div className="mt-2 text-sm font-bold text-amber-600 dark:text-amber-400 animate-pulse">
-                ⚙️ Updating historical stats...
+              <div className="mt-2 text-sm font-bold text-amber-600 dark:text-amber-400 animate-pulse flex items-center justify-center md:justify-start">
+                <Settings size={16} className="mr-1 animate-spin" /> Updating historical stats...
               </div>
             )}
           </div>
@@ -302,7 +303,7 @@ function App() {
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
               >
-                🏓 <span className="ml-1">Ping Pong</span>
+                <PingPongIcon size={18} /> <span className="ml-2">Ping Pong</span>
               </button>
               <button
                 onClick={() => setActiveSport('padel')}
@@ -311,7 +312,7 @@ function App() {
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
               >
-                🎾 <span className="ml-1">Padel</span>
+                <TennisIcon size={18} /> <span className="ml-2">Padel</span>
               </button>
             </div>
 
@@ -334,6 +335,8 @@ function App() {
             <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
               <button
                 onClick={() => setActiveTab('grid')}
+                aria-label="Players Tab"
+                title="Players"
                 className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid'
                   ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -343,6 +346,8 @@ function App() {
               </button>
               <button
                 onClick={() => setActiveTab('leaderboard')}
+                aria-label="Leaderboard Tab"
+                title="Leaderboard"
                 className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard'
                   ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -352,6 +357,8 @@ function App() {
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
+                aria-label="Stats Tab"
+                title="Stats"
                 className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats'
                   ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -361,6 +368,8 @@ function App() {
               </button>
               <button
                 onClick={() => setActiveTab('matches')}
+                aria-label="Matches Tab"
+                title="Matches"
                 className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches'
                   ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -371,6 +380,8 @@ function App() {
               {isPingPong && (
                 <button
                   onClick={() => setActiveTab('tournament')}
+                  aria-label="Tournament Tab"
+                  title="Tournament"
                   className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'tournament'
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -382,6 +393,8 @@ function App() {
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('settings')}
+                  aria-label="Settings Tab"
+                  title="Settings"
                   className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'settings'
                     ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -406,13 +419,17 @@ function App() {
                   {isPingPong && (
                     <button
                       onClick={() => setIsGeneratorOpen(true)}
-                      className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md mr-2"
+                      aria-label="Live Match"
+                      title="Live Match"
+                      className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md mr-2"
                     >
-                      <Trophy size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
+                      <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
                     </button>
                   )}
                   <button
                     onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
+                    aria-label="Record Match"
+                    title="Record Match"
                     className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
                   >
                     <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">Record Match</span>
@@ -431,7 +448,7 @@ function App() {
                 <div className="text-center py-20 text-gray-400 dark:text-gray-500">Loading players...</div>
               ) : users.length === 0 ? (
                 <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                  <div className="text-6xl mb-4">👻</div>
+                  <div className="mb-4 flex justify-center text-gray-400 dark:text-gray-500"><Ghost size={64} /></div>
                   <h3 className="text-xl font-bold text-gray-800 dark:text-white">No players found</h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-6">Add some colleagues to get started!</p>
                   <button
