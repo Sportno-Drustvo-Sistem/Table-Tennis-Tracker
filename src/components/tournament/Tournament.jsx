@@ -4,7 +4,7 @@ import TournamentSetup from './TournamentSetup'
 import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
 import LiveMatchModal from '../modals/LiveMatchModal'
-import { Trophy, RefreshCw, X, AlertTriangle, Swords } from 'lucide-react'
+import { Trophy, RefreshCw, X, AlertTriangle, Swords, Users } from 'lucide-react'
 import { getActiveDebuffs, getRandomDebuff } from '../../utils'
 import { useToast } from '../../contexts/ToastContext' // Added import for useToast
 import {
@@ -303,8 +303,8 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
             handleSingleElimAdvancement(newTournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap)
         }
 
-        // Run robust propagation to catch any byes or complex DE advancements
-        propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
+        // Run robust propagation (isInitialSetup=false: don't auto-assign byes)
+        propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
 
         setActiveTournament(newTournament)
     }
@@ -585,6 +585,55 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         })
     }
 
+    // ─── Manual Bye Assignment ─────────────────────
+
+    const handleManualBye = async (matchId) => {
+        const newTournament = { ...activeTournament }
+        let targetMatch = null, targetRoundIdx = -1, targetMatchIdx = -1
+
+        newTournament.rounds.forEach((r, rIdx) => {
+            r.matches.forEach((m, mIdx) => {
+                if (m.id === matchId) {
+                    targetMatch = m
+                    targetRoundIdx = rIdx
+                    targetMatchIdx = mIdx
+                }
+            })
+        })
+
+        if (!targetMatch) return
+
+        // Determine the lone player
+        const lonePlayer = targetMatch.player1 || targetMatch.player2
+        if (!lonePlayer) return
+        if (targetMatch.winner) return // Already decided
+
+        targetMatch.winner = lonePlayer
+        targetMatch.isBye = true
+
+        let debuffsPool = cachedDebuffs
+        if (!debuffsPool || debuffsPool.length === 0) {
+            debuffsPool = await getActiveDebuffs()
+            setCachedDebuffs(debuffsPool)
+        }
+        const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
+
+        const format = newTournament.format
+        const loser = targetMatch.player1 ? targetMatch.player2 : targetMatch.player1
+
+        if (format === 'double_elim') {
+            handleDoubleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, lonePlayer, loser, debuffsPool, usersMap)
+        } else {
+            handleSingleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, targetMatch, lonePlayer, loser, debuffsPool, usersMap)
+        }
+
+        // Propagate but don't auto-assign new byes
+        propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
+
+        setActiveTournament(newTournament)
+        showToast(`${lonePlayer.name} advances via BYE`, 'info')
+    }
+
     // ─── Render ────────────────────────────────────
 
     if (!activeTournament) {
@@ -607,7 +656,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
     }
 
     const formatLabel = activeTournament.format === 'double_elim' ? 'Double Elimination' : 'Single Elimination'
-    const phaseLabel = activeTournament.phase === 'swiss' ? ' • Swiss Stage' : ''
+    const phaseLabel = activeTournament.phase === 'groups' ? ' • Group Stage' : activeTournament.phase === 'swiss' ? ' • Swiss Stage' : ''
 
     return (
         <div className="flex flex-col h-full min-h-[600px]">
@@ -758,6 +807,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                                     readOnly={!isAdmin || activeTournament.status === 'completed'}
                                     champion={activeTournament.winner}
                                     format={activeTournament.format}
+                                    onManualBye={handleManualBye}
                                 />
                             )
                         } catch (err) {

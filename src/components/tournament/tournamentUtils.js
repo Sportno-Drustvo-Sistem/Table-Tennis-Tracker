@@ -101,7 +101,7 @@ export const generateSingleEliminationBracket = (participants, mayhemMode, debuf
     }
 
     // Auto-advance byes through rounds
-    propagateAdvancements(allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
+    propagateAdvancements(allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, true)
 
     return allRounds
 }
@@ -127,7 +127,9 @@ function generateSeededOrder(size) {
 }
 
 // Unified propagation logic for byes and advancements
-export const propagateAdvancements = (allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch) => {
+// isInitialSetup: when true, auto-assign byes for single-player matches (used during bracket generation)
+//                 when false, only propagate existing winners (used after match results)
+export const propagateAdvancements = (allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, isInitialSetup = false) => {
     let changed = true
     let limit = 50 // Increased safety limit for DE brackets
 
@@ -141,7 +143,8 @@ export const propagateAdvancements = (allRounds, mayhemMode, debuffsPool, usersM
 
             round.matches.forEach((match, mIdx) => {
                 // 1. Determine winner if it's a bye or has only one valid player
-                if (!match.winner) {
+                //    Only auto-assign byes during initial setup (seeding), not mid-tournament
+                if (!match.winner && isInitialSetup) {
                     // One player is real, the other is null or missing
                     if (match.player1 && !match.player2) {
                         match.winner = match.player1
@@ -419,7 +422,7 @@ export const generateDoubleEliminationBracket = (participants, mayhemMode, debuf
     const allRounds = [...winnersRounds, ...losersRounds, grandFinal]
 
     // Auto-advance byes in all brackets
-    propagateAdvancements(allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch)
+    propagateAdvancements(allRounds, mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, true)
 
     return allRounds
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { Trophy, RefreshCw, Swords } from 'lucide-react'
+import { Trophy, RefreshCw, Swords, UserX } from 'lucide-react'
 
-const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, totalRounds }) => {
+const MatchNode = ({ match, onMatchClick, onManualBye, readOnly, roundIndex, matchIndex, totalRounds }) => {
     const p1 = match.player1
     const p2 = match.player2
     const winner = match.winner
@@ -10,6 +10,7 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
     const isClickable = !readOnly
     const isCompleted = !!winner
     const isWaiting = !p1 || !p2
+    const hasSinglePlayer = (p1 && !p2) || (!p1 && p2)
 
     return (
         <div
@@ -19,7 +20,7 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
                 ${isCompleted ? 'border-green-200 dark:border-green-900/50 bg-green-50/30 dark:bg-green-900/10' : 'border-gray-200 dark:border-gray-700'}
                 ${isThirdPlace ? 'border-orange-300 dark:border-orange-700 ring-2 ring-orange-100 dark:ring-orange-900/20' : ''}
                 ${match.isBye ? 'opacity-50' : ''}
-                ${isWaiting ? 'opacity-70' : ''}
+                ${isWaiting && !hasSinglePlayer ? 'opacity-70' : ''}
                 ${!isCompleted && isClickable ? 'hover:border-blue-400 dark:hover:border-blue-500' : ''}
             `}
         >
@@ -72,6 +73,19 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
                             </button>
                         </div>
                     )}
+                    {/* Manual Bye button: shown when only one player is present and match is not decided */}
+                    {!isCompleted && isClickable && hasSinglePlayer && !match.isBye && onManualBye && (
+                        <div className="flex bg-white dark:bg-gray-800 px-2 z-10">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onManualBye(match.id) }}
+                                className="p-1 px-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md hover:bg-orange-100 transition-colors border border-orange-200 dark:border-orange-800 flex items-center gap-1 text-xs font-bold"
+                                title="Assign Bye — advance the lone player"
+                            >
+                                <UserX size={12} />
+                                BYE
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Player 2 Slot */}
@@ -108,7 +122,7 @@ const MatchNode = ({ match, onMatchClick, readOnly, roundIndex, matchIndex, tota
 }
 
 
-const RoundColumn = ({ round, rIndex, onMatchClick, readOnly, totalRounds }) => (
+const RoundColumn = ({ round, rIndex, onMatchClick, onManualBye, readOnly, totalRounds }) => (
     <div className="flex flex-col justify-around gap-8">
         <h3 className="text-center text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">
             {round.name}
@@ -119,6 +133,7 @@ const RoundColumn = ({ round, rIndex, onMatchClick, readOnly, totalRounds }) => 
                     key={match.id}
                     match={match}
                     onMatchClick={onMatchClick}
+                    onManualBye={onManualBye}
                     readOnly={readOnly}
                     roundIndex={rIndex}
                     matchIndex={mIndex}
@@ -129,7 +144,7 @@ const RoundColumn = ({ round, rIndex, onMatchClick, readOnly, totalRounds }) => 
     </div>
 )
 
-const BracketView = ({ rounds, onMatchClick, readOnly, champion, format }) => {
+const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManualBye }) => {
     const [activeTab, setActiveTab] = useState('winners')
 
     if (format === 'double_elim') {
@@ -160,17 +175,17 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format }) => {
                     <div className="min-w-max flex gap-12 px-8">
                         {activeTab === 'winners' && winnersRounds.map((round, rIndex) => (
                             <RoundColumn key={rIndex} round={round} rIndex={getActualIndex(round)}
-                                onMatchClick={onMatchClick} readOnly={readOnly} totalRounds={rounds.length} />
+                                onMatchClick={onMatchClick} onManualBye={onManualBye} readOnly={readOnly} totalRounds={rounds.length} />
                         ))}
                         {activeTab === 'losers' && losersRounds.map((round, rIndex) => (
                             <RoundColumn key={rIndex} round={round} rIndex={getActualIndex(round)}
-                                onMatchClick={onMatchClick} readOnly={readOnly} totalRounds={rounds.length} />
+                                onMatchClick={onMatchClick} onManualBye={onManualBye} readOnly={readOnly} totalRounds={rounds.length} />
                         ))}
                         {activeTab === 'finals' && (
                             <>
                                 {grandFinal.map((round, rIndex) => (
                                     <RoundColumn key={rIndex} round={round} rIndex={getActualIndex(round)}
-                                        onMatchClick={onMatchClick} readOnly={readOnly} totalRounds={rounds.length} />
+                                        onMatchClick={onMatchClick} onManualBye={onManualBye} readOnly={readOnly} totalRounds={rounds.length} />
                                 ))}
                                 {champion && <ChampionDisplay champion={champion} />}
                             </>
@@ -192,7 +207,7 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format }) => {
                     const actualIdx = rounds.indexOf(round)
                     return (
                         <RoundColumn key={rIndex} round={round} rIndex={actualIdx}
-                            onMatchClick={onMatchClick} readOnly={readOnly} totalRounds={rounds.length} />
+                            onMatchClick={onMatchClick} onManualBye={onManualBye} readOnly={readOnly} totalRounds={rounds.length} />
                     )
                 })}
 
@@ -207,7 +222,7 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format }) => {
                             </h3>
                             {thirdPlaceRound.matches.map((match, mIndex) => (
                                 <MatchNode key={match.id} match={match}
-                                    onMatchClick={onMatchClick} readOnly={readOnly}
+                                    onMatchClick={onMatchClick} onManualBye={onManualBye} readOnly={readOnly}
                                     roundIndex={rounds.indexOf(thirdPlaceRound)}
                                     matchIndex={mIndex} totalRounds={rounds.length} />
                             ))}
@@ -233,3 +248,4 @@ const ChampionDisplay = ({ champion }) => (
 )
 
 export default BracketView
+
