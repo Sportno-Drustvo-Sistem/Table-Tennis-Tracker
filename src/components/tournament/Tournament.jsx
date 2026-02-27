@@ -642,7 +642,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
     // Find selected match info for Modal
     let modalPlayer1 = null, modalPlayer2 = null, modalDebuffs = null
-    if (selectedMatchId?.type === 'swiss') {
+    if (selectedMatchId?.type === 'swiss' || selectedMatchId?.type === 'group') {
         modalPlayer1 = selectedMatchId.player1
         modalPlayer2 = selectedMatchId.player2
     } else if (selectedMatchId?.type === 'bracket') {
