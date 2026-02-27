@@ -16,6 +16,7 @@ import LiveMatchModal from './components/modals/LiveMatchModal'
 import LoginModal from './components/modals/LoginModal'
 import AdminButton from './components/AdminButton'
 import DebuffSettings from './components/DebuffSettings'
+import DiscordSettings from './components/DiscordSettings'
 
 // Padel imports
 import PadelLeaderboard from './components/PadelLeaderboard'
@@ -509,7 +510,10 @@ function App() {
           )}
 
           {activeTab === 'settings' && isAdmin && (
-            <DebuffSettings isAdmin={isAdmin} />
+            <div className="space-y-6">
+              <DebuffSettings isAdmin={isAdmin} />
+              <DiscordSettings />
+            </div>
           )}
         </main>
 
