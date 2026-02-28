@@ -47,7 +47,15 @@ const speak = (text) => {
     try {
         window.speechSynthesis.cancel()
         const utterance = new SpeechSynthesisUtterance(text)
-        utterance.rate = 1.1
+        
+        const voices = window.speechSynthesis.getVoices()
+        const englishVoice = voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en'))
+        if (englishVoice) {
+            utterance.voice = englishVoice
+        }
+        utterance.lang = 'en-US'
+        
+        utterance.rate = 1.0
         utterance.pitch = 1.0
         utterance.volume = 0.9
         window.speechSynthesis.speak(utterance)
@@ -219,13 +227,13 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 const serverName = nextServer === 1 ? player1.name : player2.name
 
                 if (isDeuce && newS1 === newS2) {
-                    setTimeout(() => speak(`Deuce. ${serverName} to serve.`), 100)
+                    setTimeout(() => speak(`Deuce... ${serverName} serves.`), 100)
                 } else if (mp1 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, ${player1.name}. ${player1.name}, ${newS1}. ${player2.name}, ${newS2}. ${serverName} to serve.`), 100)
+                    setTimeout(() => speak(`Match point, ${player1.name}... ${player1.name} ${newS1}... ${player2.name} ${newS2}... ${serverName} serves.`), 100)
                 } else if (mp2 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, ${player2.name}. ${player1.name}, ${newS1}. ${player2.name}, ${newS2}. ${serverName} to serve.`), 100)
+                    setTimeout(() => speak(`Match point, ${player2.name}... ${player1.name} ${newS1}... ${player2.name} ${newS2}... ${serverName} serves.`), 100)
                 } else {
-                    setTimeout(() => speak(`${player1.name}, ${newS1}. ${player2.name}, ${newS2}. ${serverName} to serve.`), 100)
+                    setTimeout(() => speak(`${player1.name} ${newS1}... ${player2.name} ${newS2}... ${serverName} serves.`), 100)
                 }
             }
         }
