@@ -81,24 +81,35 @@ const speak = async (text) => {
         // Force finding English voices
         const englishVoices = voices.filter(v => v.lang.startsWith('en'))
         
-        // Prefer UK English, Female voices, or Zira (common Windows female voice)
-        // More aggressive search for mobile female voices (Siri, Google Female, etc)
+        // 1. Prioritize High-Quality / Cloud / Natural voices if available
         let selectedVoice = englishVoices.find(v => 
-            v.name.includes('Zira') || 
-            v.name.toLowerCase().includes('female') ||
-            (v.name.includes('Google') && v.lang === 'en-GB') ||
-            v.name.includes('Siri') ||
-            v.name.includes('Samantha') || // iOS common female
-            v.name.includes('Karen') || // iOS common female
-            v.name.includes('Moira') || // iOS common female
-            v.name.includes('Tessa')
+            v.name.toLowerCase().includes('natural') || 
+            v.name.toLowerCase().includes('premium') ||
+            (v.name.includes('Google') && !v.name.includes('US English')) || // Google's non-default often sound better
+            v.name.includes('Online (Natural)')
         )
-        // If specific female not found, fallback to UK (usually female by default on many devices)
+
+        // 2. If no premium voice, fallback to aggressive mobile female/UK search
+        if (!selectedVoice) {
+            selectedVoice = englishVoices.find(v => 
+                v.name.includes('Zira') || 
+                v.name.toLowerCase().includes('female') ||
+                (v.name.includes('Google') && v.lang === 'en-GB') ||
+                v.name.includes('Siri') ||
+                v.name.includes('Samantha') || 
+                v.name.includes('Karen') || 
+                v.name.includes('Moira') || 
+                v.name.includes('Tessa') ||
+                v.name.includes('Daniel') // Good UK male fallback
+            )
+        }
+
+        // 3. Fallback to any UK/AU voice (usually better than default US)
         if (!selectedVoice) {
             selectedVoice = englishVoices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.lang === 'en-IE')
         }
         
-        // Any English voice as a fallback
+        // 4. Any English voice as a last resort
         if (!selectedVoice && englishVoices.length > 0) {
             selectedVoice = englishVoices[0]
         }
@@ -108,9 +119,13 @@ const speak = async (text) => {
         }
 
         utterance.lang = 'en-US' // Explicitly set it here as an extra guarantee
-        utterance.rate = 0.85
-        utterance.pitch = 1.0
-        utterance.volume = 0.9
+        utterance.rate = 0.85 // Slower rate helps naturalness
+        
+        // Add a tiny bit of random pitch variation to avoid monotony
+        // Base pitch slightly lower (0.95) sounds less robotic than 1.0
+        const randomPitchVariance = (Math.random() * 0.1) - 0.05 
+        utterance.pitch = 0.95 + randomPitchVariance 
+        utterance.volume = 1.0
         
         window.speechSynthesis.speak(utterance)
     } catch (e) { /* silent fail */ }
@@ -280,14 +295,15 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 }
                 const serverName = nextServer === 1 ? 'Blue' : 'Red'
 
+                // Using commas and ellipses forces the speech engine to pause naturally
                 if (isDeuce && newS1 === newS2) {
-                    setTimeout(() => speak(`Deuce... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Deuce... ... ${serverName} serves.`), 100)
                 } else if (mp1 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, Blue... Blue ${newS1}... Red ${newS2}... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Match point, Blue... ... Blue, ${newS1}... Red, ${newS2}... ... ${serverName} serves.`), 100)
                 } else if (mp2 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, Red... Blue ${newS1}... Red ${newS2}... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Match point, Red... ... Blue, ${newS1}... Red, ${newS2}... ... ${serverName} serves.`), 100)
                 } else {
-                    setTimeout(() => speak(`Blue ${newS1}... Red ${newS2}... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Blue, ${newS1}... Red, ${newS2}... ... ${serverName} serves.`), 100)
                 }
             }
         }
