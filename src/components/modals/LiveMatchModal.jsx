@@ -82,12 +82,21 @@ const speak = async (text) => {
         const englishVoices = voices.filter(v => v.lang.startsWith('en'))
         
         // Prefer UK English, Female voices, or Zira (common Windows female voice)
+        // More aggressive search for mobile female voices (Siri, Google Female, etc)
         let selectedVoice = englishVoices.find(v => 
             v.name.includes('Zira') || 
-            v.lang === 'en-GB' || 
-            v.name.includes('UK') || 
-            v.name.includes('Female')
+            v.name.toLowerCase().includes('female') ||
+            (v.name.includes('Google') && v.lang === 'en-GB') ||
+            v.name.includes('Siri') ||
+            v.name.includes('Samantha') || // iOS common female
+            v.name.includes('Karen') || // iOS common female
+            v.name.includes('Moira') || // iOS common female
+            v.name.includes('Tessa')
         )
+        // If specific female not found, fallback to UK (usually female by default on many devices)
+        if (!selectedVoice) {
+            selectedVoice = englishVoices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.lang === 'en-IE')
+        }
         
         // Any English voice as a fallback
         if (!selectedVoice && englishVoices.length > 0) {
@@ -234,15 +243,15 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 setShowWinAnimation(true)
                 if (soundEnabled) {
                     playWinSound()
-                    const winnerName = mw === 1 ? player1.name : player2.name
+                    const winnerName = mw === 1 ? 'Blue' : 'Red'
                     setTimeout(() => speak(`${winnerName} wins!`), 300)
                 }
             } else {
                 // Game within set done, start next game
                 setGameWinner(w)
                 if (soundEnabled) {
-                    const gameWinnerName = w === 1 ? player1.name : player2.name
-                    setTimeout(() => speak(`Game to ${gameWinnerName}. ${newGamesWon1} - ${newGamesWon2}.`), 200)
+                    const gameWinnerName = w === 1 ? 'Blue' : 'Red'
+                    setTimeout(() => speak(`Game to ${gameWinnerName}... ${newGamesWon1} - ${newGamesWon2}.`), 200)
                 }
                 // Auto-reset after a brief pause
                 setTimeout(() => {
@@ -269,16 +278,16 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     const periods = Math.floor(totalPts / 2)
                     nextServer = (periods % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
                 }
-                const serverName = nextServer === 1 ? player1.name : player2.name
+                const serverName = nextServer === 1 ? 'Blue' : 'Red'
 
                 if (isDeuce && newS1 === newS2) {
                     setTimeout(() => speak(`Deuce... ${serverName} serves.`), 100)
                 } else if (mp1 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, ${player1.name}... ${player1.name} ${newS1}... ${player2.name} ${newS2}... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Match point, Blue... Blue ${newS1}... Red ${newS2}... ${serverName} serves.`), 100)
                 } else if (mp2 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, ${player2.name}... ${player1.name} ${newS1}... ${player2.name} ${newS2}... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Match point, Red... Blue ${newS1}... Red ${newS2}... ${serverName} serves.`), 100)
                 } else {
-                    setTimeout(() => speak(`${player1.name} ${newS1}... ${player2.name} ${newS2}... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Blue ${newS1}... Red ${newS2}... ${serverName} serves.`), 100)
                 }
             }
         }
@@ -542,9 +551,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 </div>
                             )}
                         </div>
-                        <span className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                        <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {player1.name}
-                        </span>
+                        </div>
                         <div className={`text-6xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {score1}
                         </div>
@@ -595,9 +604,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
                             />
                         </div>
-                        <span className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                        <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {player2.name}
-                        </span>
+                        </div>
                         <div className={`text-6xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {score2}
                         </div>
