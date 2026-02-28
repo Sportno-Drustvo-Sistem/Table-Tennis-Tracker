@@ -43,68 +43,46 @@ const playWinSound = () => {
     } catch (e) { /* silent fail */ }
 }
 
-// Cache for loaded voices
-let cachedVoices = []
+// The preferred online voice
+const ONLINE_VOICE = "UK English Female"
 
-const initVoices = () => {
-    return new Promise((resolve) => {
-        let voices = window.speechSynthesis.getVoices()
-        if (voices.length) {
-            cachedVoices = voices
-            resolve(voices)
-            return
+const speak = (text) => {
+    try {
+        // If responsiveVoice loaded successfully from CDN, use it
+        if (window.responsiveVoice && window.responsiveVoice.isPlaying) {
+             window.responsiveVoice.cancel()
         }
         
-        // Fallback timeout in case onvoiceschanged never fires
-        const timeoutId = setTimeout(() => {
-            voices = window.speechSynthesis.getVoices()
-            cachedVoices = voices
-            resolve(voices)
-            console.log("SpeechSynthesis voices (Timeout):", voices.map(v => `${v.name} (${v.lang})`))
-        }, 500)
-
-        // Some browsers take a moment to load voices. Wait for the event.
-        window.speechSynthesis.onvoiceschanged = () => {
-            clearTimeout(timeoutId)
-            voices = window.speechSynthesis.getVoices()
-            cachedVoices = voices
-            resolve(voices)
-            console.log("SpeechSynthesis voices (Loaded):", voices.map(v => `${v.name} (${v.lang})`))
+        if (window.responsiveVoice) {
+             window.responsiveVoice.speak(text, ONLINE_VOICE, {
+                 rate: 0.9,
+                 pitch: 1.0, 
+                 volume: 1.0
+             })
+             return
         }
-    })
-}
 
-// Prefetch so the first play isn't delayed
-initVoices()
-
-const speak = async (text) => {
-    try {
+        // --- Fallback to native SpeechSynthesis if offline/blocked ---
         window.speechSynthesis.cancel()
         const utterance = new SpeechSynthesisUtterance(text)
         
-        // Wait for voices
-        let voices = cachedVoices
-        if (!voices.length) {
-            voices = await initVoices()
-        }
-        
-        // Force finding English voices
+        const voices = window.speechSynthesis.getVoices()
         const englishVoices = voices.filter(v => v.lang.startsWith('en'))
         
         // 1. Prioritize High-Quality / Cloud / Natural voices if available
         let selectedVoice = englishVoices.find(v => 
             v.name.toLowerCase().includes('natural') || 
             v.name.toLowerCase().includes('premium') ||
-            (v.name.includes('Google') && !v.name.includes('US English')) || // Google's non-default often sound better
+            (v.name.includes('Google') && !v.name.includes('US English')) ||
             v.name.includes('Online (Natural)')
         )
 
-        // 2. If no premium voice, fallback to aggressive mobile female/UK or Windows desktop search
+        // 2. If no premium voice, fallback to aggressive mobile female/UK search
         if (!selectedVoice) {
             selectedVoice = englishVoices.find(v => 
-                v.name.includes('Zira') ||  // Windows US Female
-                v.name.includes('Hazel') || // Windows UK Female
-                v.name.includes('Susan') || // Windows UK Female
+                v.name.includes('Zira') || 
+                v.name.includes('Hazel') || 
+                v.name.includes('Susan') || 
                 v.name.toLowerCase().includes('female') ||
                 (v.name.includes('Google') && v.lang === 'en-GB') ||
                 v.name.includes('Siri') ||
@@ -112,11 +90,11 @@ const speak = async (text) => {
                 v.name.includes('Karen') || 
                 v.name.includes('Moira') || 
                 v.name.includes('Tessa') ||
-                v.name.includes('Daniel') // Good UK male fallback
+                v.name.includes('Daniel')
             )
         }
 
-        // 3. Fallback to any UK/AU voice (usually better than default US)
+        // 3. Fallback to any UK/AU voice
         if (!selectedVoice) {
             selectedVoice = englishVoices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.lang === 'en-IE')
         }
@@ -128,20 +106,15 @@ const speak = async (text) => {
         
         if (selectedVoice) {
             utterance.voice = selectedVoice
-            console.log("Selected Voice:", selectedVoice.name)
         }
 
-        utterance.lang = 'en-US' // Explicitly set it here as an extra guarantee
-        utterance.rate = 0.85 // Slower rate helps naturalness
-        
-        // Add a tiny bit of random pitch variation to avoid monotony
-        // Base pitch slightly lower (0.95) sounds less robotic than 1.0
-        const randomPitchVariance = (Math.random() * 0.1) - 0.05 
-        utterance.pitch = 0.95 + randomPitchVariance 
+        utterance.lang = 'en-US'
+        utterance.rate = 0.85
+        utterance.pitch = 0.95
         utterance.volume = 1.0
         
         window.speechSynthesis.speak(utterance)
-    } catch (e) { /* silent fail */ }
+    } catch (e) { console.error("Speech Error:", e) }
 }
 
 const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches }) => {
