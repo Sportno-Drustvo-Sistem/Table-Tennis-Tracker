@@ -55,11 +55,21 @@ const initVoices = () => {
             return
         }
         
-        // Some browsers take a moment to load voices. Wait for the event.
-        window.speechSynthesis.onvoiceschanged = () => {
+        // Fallback timeout in case onvoiceschanged never fires
+        const timeoutId = setTimeout(() => {
             voices = window.speechSynthesis.getVoices()
             cachedVoices = voices
             resolve(voices)
+            console.log("SpeechSynthesis voices (Timeout):", voices.map(v => `${v.name} (${v.lang})`))
+        }, 500)
+
+        // Some browsers take a moment to load voices. Wait for the event.
+        window.speechSynthesis.onvoiceschanged = () => {
+            clearTimeout(timeoutId)
+            voices = window.speechSynthesis.getVoices()
+            cachedVoices = voices
+            resolve(voices)
+            console.log("SpeechSynthesis voices (Loaded):", voices.map(v => `${v.name} (${v.lang})`))
         }
     })
 }
@@ -89,10 +99,12 @@ const speak = async (text) => {
             v.name.includes('Online (Natural)')
         )
 
-        // 2. If no premium voice, fallback to aggressive mobile female/UK search
+        // 2. If no premium voice, fallback to aggressive mobile female/UK or Windows desktop search
         if (!selectedVoice) {
             selectedVoice = englishVoices.find(v => 
-                v.name.includes('Zira') || 
+                v.name.includes('Zira') ||  // Windows US Female
+                v.name.includes('Hazel') || // Windows UK Female
+                v.name.includes('Susan') || // Windows UK Female
                 v.name.toLowerCase().includes('female') ||
                 (v.name.includes('Google') && v.lang === 'en-GB') ||
                 v.name.includes('Siri') ||
@@ -116,6 +128,7 @@ const speak = async (text) => {
         
         if (selectedVoice) {
             utterance.voice = selectedVoice
+            console.log("Selected Voice:", selectedVoice.name)
         }
 
         utterance.lang = 'en-US' // Explicitly set it here as an extra guarantee
