@@ -49,18 +49,20 @@ const ONLINE_VOICE = "UK English Female"
 const speak = (text) => {
     try {
         // If responsiveVoice loaded successfully from CDN, use it
-        if (window.responsiveVoice && window.responsiveVoice.isPlaying) {
-             window.responsiveVoice.cancel()
+        if (typeof responsiveVoice !== 'undefined') {
+            if (responsiveVoice.isPlaying()) {
+                responsiveVoice.cancel()
+            }
+            console.log("Using ResponsiveVoice CDN: UK English Female")
+            responsiveVoice.speak(text, "UK English Female", {
+                rate: 0.9,
+                pitch: 1.0, 
+                volume: 1.0
+            })
+            return
         }
         
-        if (window.responsiveVoice) {
-             window.responsiveVoice.speak(text, ONLINE_VOICE, {
-                 rate: 0.9,
-                 pitch: 1.0, 
-                 volume: 1.0
-             })
-             return
-        }
+        console.warn("ResponsiveVoice not found, falling back to robotic native speech.")
 
         // --- Fallback to native SpeechSynthesis if offline/blocked ---
         window.speechSynthesis.cancel()
