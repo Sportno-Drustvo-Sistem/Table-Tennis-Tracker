@@ -43,79 +43,35 @@ const playWinSound = () => {
     } catch (e) { /* silent fail */ }
 }
 
-// The preferred online voice
-const ONLINE_VOICE = "UK English Female"
+// Wait for any currently playing audio to finish before playing the next
+let currentAudio = null;
 
 const speak = (text) => {
     try {
-        // If responsiveVoice loaded successfully from CDN, use it
-        if (typeof responsiveVoice !== 'undefined') {
-            if (responsiveVoice.isPlaying()) {
-                responsiveVoice.cancel()
-            }
-            console.log("Using ResponsiveVoice CDN: UK English Female")
-            responsiveVoice.speak(text, "UK English Female", {
-                rate: 0.9,
-                pitch: 1.0, 
-                volume: 1.0
-            })
-            return
-        }
-        
-        console.warn("ResponsiveVoice not found, falling back to robotic native speech.")
-
-        // --- Fallback to native SpeechSynthesis if offline/blocked ---
-        window.speechSynthesis.cancel()
-        const utterance = new SpeechSynthesisUtterance(text)
-        
-        const voices = window.speechSynthesis.getVoices()
-        const englishVoices = voices.filter(v => v.lang.startsWith('en'))
-        
-        // 1. Prioritize High-Quality / Cloud / Natural voices if available
-        let selectedVoice = englishVoices.find(v => 
-            v.name.toLowerCase().includes('natural') || 
-            v.name.toLowerCase().includes('premium') ||
-            (v.name.includes('Google') && !v.name.includes('US English')) ||
-            v.name.includes('Online (Natural)')
-        )
-
-        // 2. If no premium voice, fallback to aggressive mobile female/UK search
-        if (!selectedVoice) {
-            selectedVoice = englishVoices.find(v => 
-                v.name.includes('Zira') || 
-                v.name.includes('Hazel') || 
-                v.name.includes('Susan') || 
-                v.name.toLowerCase().includes('female') ||
-                (v.name.includes('Google') && v.lang === 'en-GB') ||
-                v.name.includes('Siri') ||
-                v.name.includes('Samantha') || 
-                v.name.includes('Karen') || 
-                v.name.includes('Moira') || 
-                v.name.includes('Tessa') ||
-                v.name.includes('Daniel')
-            )
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
         }
 
-        // 3. Fallback to any UK/AU voice
-        if (!selectedVoice) {
-            selectedVoice = englishVoices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.lang === 'en-IE')
-        }
+        // We use the Google Translate unofficial TTS API for a guaranteed high-quality 
+        // female English voice, regardless of browser or OS installed voices.
+        // It's incredibly reliable and bypasses the issues with window.speechSynthesis
+        // tl=en-GB sets the language to UK English (Female)
+        const textEncoded = encodeURIComponent(text);
+        const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${textEncoded}&tl=en-GB&client=gtx`;
         
-        // 4. Any English voice as a last resort
-        if (!selectedVoice && englishVoices.length > 0) {
-            selectedVoice = englishVoices[0]
-        }
-        
-        if (selectedVoice) {
-            utterance.voice = selectedVoice
-        }
+        currentAudio = new Audio(url);
+        currentAudio.playbackRate = 0.95; // Slightly slower for better cadence
+        currentAudio.play().catch(e => {
+            console.error("Audio playback blocked or failed:", e);
+            // Fallback to basic window.speechSynthesis if the audio element is blocked
+            window.speechSynthesis.cancel()
+            const utterance = new SpeechSynthesisUtterance(text)
+            utterance.lang = 'en-GB'
+            utterance.rate = 0.85
+            window.speechSynthesis.speak(utterance)
+        });
 
-        utterance.lang = 'en-US'
-        utterance.rate = 0.85
-        utterance.pitch = 0.95
-        utterance.volume = 1.0
-        
-        window.speechSynthesis.speak(utterance)
     } catch (e) { console.error("Speech Error:", e) }
 }
 
