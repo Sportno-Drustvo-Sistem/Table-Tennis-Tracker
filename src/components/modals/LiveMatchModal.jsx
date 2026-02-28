@@ -43,12 +43,42 @@ const playWinSound = () => {
     } catch (e) { /* silent fail */ }
 }
 
-const speak = (text) => {
+// Cache for loaded voices
+let cachedVoices = []
+
+const initVoices = () => {
+    return new Promise((resolve) => {
+        let voices = window.speechSynthesis.getVoices()
+        if (voices.length) {
+            cachedVoices = voices
+            resolve(voices)
+            return
+        }
+        
+        // Some browsers take a moment to load voices. Wait for the event.
+        window.speechSynthesis.onvoiceschanged = () => {
+            voices = window.speechSynthesis.getVoices()
+            cachedVoices = voices
+            resolve(voices)
+        }
+    })
+}
+
+// Prefetch so the first play isn't delayed
+initVoices()
+
+const speak = async (text) => {
     try {
         window.speechSynthesis.cancel()
         const utterance = new SpeechSynthesisUtterance(text)
         
-        const voices = window.speechSynthesis.getVoices()
+        // Wait for voices
+        let voices = cachedVoices
+        if (!voices.length) {
+            voices = await initVoices()
+        }
+        
+        // Force finding English voices
         const englishVoices = voices.filter(v => v.lang.startsWith('en'))
         
         // Prefer UK English, Female voices, or Zira (common Windows female voice)
@@ -59,22 +89,20 @@ const speak = (text) => {
             v.name.includes('Female')
         )
         
-        if (!selectedVoice && englishVoices.length > 1) {
-            selectedVoice = englishVoices[1] // Pick a different default if possible
-        } else if (!selectedVoice) {
+        // Any English voice as a fallback
+        if (!selectedVoice && englishVoices.length > 0) {
             selectedVoice = englishVoices[0]
         }
         
         if (selectedVoice) {
             utterance.voice = selectedVoice
         }
-        
-        utterance.lang = selectedVoice ? selectedVoice.lang : 'en-US'
-        
-        // Slower rate
+
+        utterance.lang = 'en-US' // Explicitly set it here as an extra guarantee
         utterance.rate = 0.85
         utterance.pitch = 1.0
         utterance.volume = 0.9
+        
         window.speechSynthesis.speak(utterance)
     } catch (e) { /* silent fail */ }
 }
