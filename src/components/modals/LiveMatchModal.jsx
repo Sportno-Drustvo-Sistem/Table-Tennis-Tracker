@@ -49,13 +49,30 @@ const speak = (text) => {
         const utterance = new SpeechSynthesisUtterance(text)
         
         const voices = window.speechSynthesis.getVoices()
-        const englishVoice = voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en'))
-        if (englishVoice) {
-            utterance.voice = englishVoice
-        }
-        utterance.lang = 'en-US'
+        const englishVoices = voices.filter(v => v.lang.startsWith('en'))
         
-        utterance.rate = 1.0
+        // Prefer UK English, Female voices, or Zira (common Windows female voice)
+        let selectedVoice = englishVoices.find(v => 
+            v.name.includes('Zira') || 
+            v.lang === 'en-GB' || 
+            v.name.includes('UK') || 
+            v.name.includes('Female')
+        )
+        
+        if (!selectedVoice && englishVoices.length > 1) {
+            selectedVoice = englishVoices[1] // Pick a different default if possible
+        } else if (!selectedVoice) {
+            selectedVoice = englishVoices[0]
+        }
+        
+        if (selectedVoice) {
+            utterance.voice = selectedVoice
+        }
+        
+        utterance.lang = selectedVoice ? selectedVoice.lang : 'en-US'
+        
+        // Slower rate
+        utterance.rate = 0.85
         utterance.pitch = 1.0
         utterance.volume = 0.9
         window.speechSynthesis.speak(utterance)
