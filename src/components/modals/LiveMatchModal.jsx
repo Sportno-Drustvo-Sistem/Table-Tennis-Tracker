@@ -43,35 +43,94 @@ const playWinSound = () => {
     } catch (e) { /* silent fail */ }
 }
 
-// Wait for any currently playing audio to finish before playing the next
-let currentAudio = null;
+let cachedVoices = []
 
-const speak = (text) => {
+const initVoices = () => {
+    return new Promise((resolve) => {
+        let voices = window.speechSynthesis.getVoices()
+        if (voices.length) {
+            cachedVoices = voices
+            resolve(voices)
+            return
+        }
+        
+        const timeoutId = setTimeout(() => {
+            voices = window.speechSynthesis.getVoices()
+            cachedVoices = voices
+            resolve(voices)
+        }, 500)
+
+        window.speechSynthesis.onvoiceschanged = () => {
+            clearTimeout(timeoutId)
+            voices = window.speechSynthesis.getVoices()
+            cachedVoices = voices
+            resolve(voices)
+        }
+    })
+}
+
+// Prefetch so the first play isn't delayed
+initVoices()
+
+const speak = async (text) => {
     try {
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
+        window.speechSynthesis.cancel()
+        const utterance = new SpeechSynthesisUtterance(text)
+        
+        let voices = cachedVoices
+        if (!voices.length) {
+            voices = await initVoices()
+        }
+        
+        const englishVoices = voices.filter(v => v.lang.startsWith('en'))
+        
+        // 1. Prioritize High-Quality / Cloud / Natural voices if available
+        let selectedVoice = englishVoices.find(v => 
+            v.name.toLowerCase().includes('natural') || 
+            v.name.toLowerCase().includes('premium') ||
+            (v.name.includes('Google') && !v.name.includes('US English')) || 
+            v.name.includes('Online (Natural)')
+        )
+
+        // 2. If no premium voice, fallback to aggressive mobile female/UK search
+        if (!selectedVoice) {
+            selectedVoice = englishVoices.find(v => 
+                v.name.includes('Zira') ||  
+                v.name.includes('Hazel') || 
+                v.name.includes('Susan') || 
+                v.name.toLowerCase().includes('female') ||
+                (v.name.includes('Google') && v.lang === 'en-GB') ||
+                v.name.includes('Siri') ||
+                v.name.includes('Samantha') || 
+                v.name.includes('Karen') || 
+                v.name.includes('Moira') || 
+                v.name.includes('Tessa') ||
+                v.name.includes('Daniel') 
+            )
         }
 
-        // We use the Google Translate unofficial TTS API for a guaranteed high-quality 
-        // female English voice, regardless of browser or OS installed voices.
-        // It's incredibly reliable and bypasses the issues with window.speechSynthesis
-        // tl=en-GB sets the language to UK English (Female)
-        const textEncoded = encodeURIComponent(text);
-        const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${textEncoded}&tl=en-GB&client=gtx`;
+        // 3. Fallback to any UK/AU voice 
+        if (!selectedVoice) {
+            selectedVoice = englishVoices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.lang === 'en-IE')
+        }
         
-        currentAudio = new Audio(url);
-        currentAudio.playbackRate = 0.95; // Slightly slower for better cadence
-        currentAudio.play().catch(e => {
-            console.error("Audio playback blocked or failed:", e);
-            // Fallback to basic window.speechSynthesis if the audio element is blocked
-            window.speechSynthesis.cancel()
-            const utterance = new SpeechSynthesisUtterance(text)
-            utterance.lang = 'en-GB'
-            utterance.rate = 0.85
-            window.speechSynthesis.speak(utterance)
-        });
+        // 4. Any English voice as a last resort
+        if (!selectedVoice && englishVoices.length > 0) {
+            selectedVoice = englishVoices[0]
+        }
+        
+        if (selectedVoice) {
+            utterance.voice = selectedVoice
+        }
 
+        utterance.lang = 'en-US' 
+        utterance.rate = 0.85 
+        
+        const randomPitchVariance = (Math.random() * 0.1) - 0.05 
+        utterance.pitch = 0.95 + randomPitchVariance 
+        utterance.volume = 1.0
+        
+        window.speechSynthesis.speak(utterance)
     } catch (e) { console.error("Speech Error:", e) }
 }
 
