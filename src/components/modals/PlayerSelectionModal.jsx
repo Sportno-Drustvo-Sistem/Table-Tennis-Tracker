@@ -83,9 +83,11 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                                     onLiveMatchSelected(selectedPlayers[0], selectedPlayers[1])
                                                     setSelectedPlayers([])
                                                 }}
-                                                className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-sm font-bold rounded shadow-sm flex items-center gap-1 transition-all"
+                                                className="group px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-sm font-bold rounded shadow-sm flex items-center gap-1 transition-all"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-300 transform -rotate-12 group-hover:animate-pulse transition-all">
+                                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                                </svg>
                                                 Live Match
                                             </button>
                                         )}
@@ -99,10 +101,19 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                 {/* Player Grid */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {users.length === 0 ? (
-                        <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-                            <div className="text-6xl mb-4">👻</div>
+                        <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
+                            <div className="mb-6 relative">
+                                <svg className="w-24 h-24 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <div className="absolute -bottom-2 -right-2 bg-blue-100 dark:bg-blue-900/50 rounded-full p-2">
+                                    <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </div>
+                            </div>
                             <h3 className="text-xl font-bold text-gray-800 dark:text-white">No players found</h3>
-                            <p className="text-gray-500 dark:text-gray-400">Add some players first!</p>
+                            <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm text-center">It looks like the roster is empty. Head back and add some players to get the action started!</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
