@@ -124,7 +124,7 @@ const speak = async (text) => {
         }
 
         utterance.lang = 'en-US' 
-        utterance.rate = 0.85 
+        utterance.rate = 0.92 
         
         const randomPitchVariance = (Math.random() * 0.1) - 0.05 
         utterance.pitch = 0.95 + randomPitchVariance 
