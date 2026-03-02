@@ -85,8 +85,8 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                                 }}
                                                 className="group px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-sm font-bold rounded shadow-sm flex items-center gap-1 transition-all"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-300 group-hover:animate-pulse transition-all">
-                                                    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 36 36" className="transform -rotate-12 group-hover:scale-110 transition-transform">
+                                                    <path fill="#ffac33" d="M32.938 15.651A1 1 0 0 0 32 15H19.925L26.89 1.458A1 1 0 0 0 26 0a1 1 0 0 0-.653.243L18 6.588L3.347 19.243A1 1 0 0 0 4 21h12.075L9.11 34.542A1 1 0 0 0 10 36a1 1 0 0 0 .653-.243L18 29.412l14.653-12.655a1 1 0 0 0 .285-1.106" />
                                                 </svg>
                                                 Live Match
                                             </button>
@@ -102,8 +102,14 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                 <div className="flex-1 overflow-y-auto p-6">
                     {users.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
-                            <div className="mb-6 text-gray-300 dark:text-gray-600 flex justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 11a7 7 0 0 1 14 0v7a1.78 1.78 0 0 1-3.1 1.4a1.65 1.65 0 0 0-2.6 0a1.65 1.65 0 0 1-2.6 0a1.65 1.65 0 0 0-2.6 0A1.78 1.78 0 0 1 5 18zm5-1h.01M14 10h.01" /><path d="M10 14a3.5 3.5 0 0 0 4 0" /></svg>
+                            <div className="mb-6 flex justify-center drop-shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 36 36">
+                                    <path fill="#e1e8ed" d="M36 11a2 2 0 0 0-4 0s-.011 3.285-3 3.894V12c0-6.075-4.925-11-11-11S7 5.925 7 12v3.237C1.778 16.806 0 23.231 0 27a2 2 0 0 0 4 0s.002-3.54 3.336-3.958C7.838 27.883 8.954 33 11 33h1c4 0 3 2 7 2s3-2 6-2s2.395 2 6 2a3 3 0 0 0 3-3c0-.675-2.274-4.994-3.755-9.268C35.981 21.348 36 14.58 36 11" />
+                                    <circle cx="13" cy="12" r="2" fill="#292f33" />
+                                    <circle cx="23" cy="12" r="4" fill="#292f33" />
+                                    <circle cx="23" cy="13" r="2" fill="#9aaab4" />
+                                    <path fill="#292f33" d="M22.192 19.491c2.65 1.987 3.591 5.211 2.1 7.199s-4.849 1.988-7.5 0s-3.591-5.211-2.1-7.199c1.492-1.989 4.849-1.988 7.5 0" />
+                                </svg>
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 dark:text-white">No players found</h3>
                             <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm text-center">It looks like the roster is empty. Head back and add some players to get the action started!</p>
