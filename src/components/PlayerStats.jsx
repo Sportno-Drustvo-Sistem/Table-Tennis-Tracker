@@ -19,14 +19,13 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
 
     // Determine #1 ranked player for Champion title
     const championId = useMemo(() => {
-        const ranked = users.filter(u => (u.matches_played || 0) >= 10)
-        if (ranked.length === 0) return null
-        const top = ranked.reduce((best, u) => (u.elo_rating > best.elo_rating ? u : best), ranked[0])
+        if (users.length === 0) return null
+        const top = users.reduce((best, u) => (u.elo_rating > best.elo_rating ? u : best), users[0])
         return top.id
     }, [users])
 
     const playerRank = useMemo(() => {
-        if (!selectedPlayer || (selectedPlayer.matches_played || 0) < 10) return null
+        if (!selectedPlayer) return null
         return getEloRank(selectedPlayer.elo_rating, selectedPlayer.id === championId)
     }, [selectedPlayer, championId])
 
@@ -189,17 +188,12 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-xl border border-yellow-100 dark:border-yellow-800">
                     <div className="text-yellow-800 dark:text-yellow-400 text-sm font-bold uppercase">ELO Rating</div>
                     <div className="text-4xl font-extrabold text-yellow-600 dark:text-yellow-400">
-                        {(selectedPlayer.matches_played || 0) >= 10
-                            ? <>
-                                {selectedPlayer.elo_rating}
-                                {playerRank && (
-                                    <div className="text-xs font-bold mt-1 px-2 py-0.5 rounded-full inline-block" style={{ color: playerRank.color, backgroundColor: `${playerRank.color}18` }}>
-                                        {playerRank.label}
-                                    </div>
-                                )}
-                            </>
-                            : <span className="text-lg">Placement ({selectedPlayer.matches_played || 0}/10)</span>
-                        }
+                        {selectedPlayer.elo_rating}
+                        {playerRank && (
+                            <div className="text-xs font-bold mt-1 px-2 py-0.5 rounded-full inline-block" style={{ color: playerRank.color, backgroundColor: `${playerRank.color}18` }}>
+                                {playerRank.label}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-800">

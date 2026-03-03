@@ -103,21 +103,15 @@ const Achievements = ({ playerId, users, matches }) => {
 
         // --- Summit: was ever #1 ---
         const ratingsCheck = {}
-        const mpcCheck = {}
-        users.forEach(u => { ratingsCheck[u.id] = 1200; mpcCheck[u.id] = 0 })
+        users.forEach(u => { ratingsCheck[u.id] = 1200 })
 
         for (const m of eloData.matchHistory) {
             ratingsCheck[m.p1Id] = m.p1EloAfter
             ratingsCheck[m.p2Id] = m.p2EloAfter
-            mpcCheck[m.p1Id] = (mpcCheck[m.p1Id] || 0) + 1
-            mpcCheck[m.p2Id] = (mpcCheck[m.p2Id] || 0) + 1
 
             if (m.p1Id === playerId || m.p2Id === playerId) {
-                const rankedPlayers = users.filter(u => mpcCheck[u.id] >= 10)
-                if (rankedPlayers.length > 0 && mpcCheck[playerId] >= 10) {
-                    const isTop = rankedPlayers.every(u => ratingsCheck[playerId] >= ratingsCheck[u.id])
-                    if (isTop) badges.add('summit')
-                }
+                const isTop = users.every(u => ratingsCheck[playerId] >= ratingsCheck[u.id])
+                if (isTop) badges.add('summit')
             }
         }
 
