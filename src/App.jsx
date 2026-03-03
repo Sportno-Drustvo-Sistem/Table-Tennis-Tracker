@@ -68,7 +68,9 @@ function App() {
   }
 
   // Navigation State
-  const [activeTab, setActiveTab] = useState('grid') // 'grid', 'leaderboard', 'stats', 'matches', 'tournament'
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('activeTab') || 'grid'
+  }) // 'grid', 'leaderboard', 'stats', 'matches', 'tournament'
   const [statsPlayerId, setStatsPlayerId] = useState(null)
 
   // Modal States — Ping Pong
@@ -95,6 +97,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('activeSport', activeSport)
   }, [activeSport])
+
+  // Persist active tab
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab)
+  }, [activeTab])
 
   // Apply Dark Mode
   useEffect(() => {
