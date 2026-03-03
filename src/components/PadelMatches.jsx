@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react'
 import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X } from 'lucide-react'
-import { Math } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { recalculatePadelStats } from '../padelUtils'
 import { calculateEloChange, getKFactor } from '../utils'
