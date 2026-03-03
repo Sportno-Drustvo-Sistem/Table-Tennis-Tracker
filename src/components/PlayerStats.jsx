@@ -171,9 +171,9 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                     />
                     <div>
                         <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
-                        <div className="flex items-center gap-3 mt-1">
+                        <div className="flex flex-wrap items-center gap-3 mt-2">
                             <div className="text-blue-600 dark:text-blue-400 font-semibold">{stats?.total || 0} Games Played</div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
                                 <span className="text-xl font-extrabold" style={{ color: playerRank?.color }}>{selectedPlayer.elo_rating}</span>
                                 {playerRank && (
                                     <span
@@ -208,17 +208,6 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-xl border border-yellow-100 dark:border-yellow-800">
-                    <div className="text-yellow-800 dark:text-yellow-400 text-sm font-bold uppercase">ELO Rating</div>
-                    <div className="text-4xl font-extrabold text-yellow-600 dark:text-yellow-400">
-                        {selectedPlayer.elo_rating}
-                        {playerRank && (
-                            <div className="text-xs font-bold mt-1 px-2 py-0.5 rounded-full inline-block" style={{ color: playerRank.color, backgroundColor: `${playerRank.color}18` }}>
-                                {playerRank.label}
-                            </div>
-                        )}
-                    </div>
-                </div>
                 <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-800">
                     <div className="text-green-800 dark:text-green-400 text-sm font-bold uppercase">Wins</div>
                     <div className="text-4xl font-extrabold text-green-600 dark:text-green-400">{stats?.wins}</div>
