@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Shield } from 'lucide-react'
+import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair } from 'lucide-react'
 import { buildEloHistory } from '../utils'
 
 const BADGE_DEFS = [
@@ -60,10 +60,10 @@ const BADGE_DEFS = [
         bg: 'bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800',
     },
     {
-        id: 'iron_will',
-        label: 'Iron Will',
-        desc: 'Won after trailing 1-10',
-        icon: Shield,
+        id: 'clutch_master',
+        label: 'Clutch Master',
+        desc: '60%+ win rate in deuce games',
+        icon: Crosshair,
         color: 'text-indigo-500',
         bg: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
     },
@@ -153,16 +153,19 @@ const Achievements = ({ playerId, users, matches }) => {
         })
         if (opponents.size >= 10) badges.add('variety')
 
-        // --- Iron Will: won after being down 1-10 --- (needs point-by-point but we can check score)
-        // We approximate: if player won and opponent scored 10+, it was close. Real iron will = won 12-10 or similar.
-        // Actually the badge says "won after being down 1-10" which we can't verify from final scores.
-        // Approximate: won with at least 10 points scored by opponent
+        // --- Clutch Master: 60%+ win rate in deuce games (both scored 10+), min 5 deuce matches ---
+        let deuceWins = 0
+        let deuceTotal = 0
         playerMatches.forEach(m => {
             const isP1 = m.player1_id === playerId
             const myScore = isP1 ? m.score1 : m.score2
             const oppScore = isP1 ? m.score2 : m.score1
-            if (myScore > oppScore && oppScore >= 10) badges.add('iron_will')
+            if (myScore >= 10 && oppScore >= 10) {
+                deuceTotal++
+                if (myScore > oppScore) deuceWins++
+            }
         })
+        if (deuceTotal >= 5 && (deuceWins / deuceTotal) >= 0.6) badges.add('clutch_master')
 
         return Array.from(badges)
     }, [playerId, users, matches])

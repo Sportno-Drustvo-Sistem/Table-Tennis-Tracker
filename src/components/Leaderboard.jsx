@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { ArrowUp, ArrowDown, Trophy } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
+import { getEloRank } from '../utils'
 
 const Leaderboard = ({ users, matches }) => {
     const [startDate, setStartDate] = useState('')
@@ -123,6 +124,14 @@ const Leaderboard = ({ users, matches }) => {
         return sorted
     }, [stats, sortConfig])
 
+    // Determine #1 ranked player (Champion)
+    const championId = useMemo(() => {
+        const ranked = sortedStats.filter(p => (p.matches_played || 0) >= 10)
+        if (ranked.length === 0) return null
+        const top = ranked.reduce((best, p) => (p.elo_rating > best.elo_rating ? p : best), ranked[0])
+        return top.id
+    }, [sortedStats])
+
     const requestSort = (key) => {
         let direction = 'desc'
         if (sortConfig.key === key && sortConfig.direction === 'desc') {
@@ -208,9 +217,19 @@ const Leaderboard = ({ users, matches }) => {
                                             <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-bold text-blue-600 dark:text-blue-400">
+                                    <td className="px-6 py-4 text-right">
                                         {(player.matches_played || 0) >= 10
-                                            ? player.elo_rating
+                                            ? (() => {
+                                                const rank = getEloRank(player.elo_rating, player.id === championId)
+                                                return (
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="font-bold text-blue-600 dark:text-blue-400">{player.elo_rating}</span>
+                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5" style={{ color: rank.color, backgroundColor: `${rank.color}18` }}>
+                                                            {rank.label}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            })()
                                             : <span className="text-xs text-gray-400 font-normal">Placement ({player.matches_played || 0}/10)</span>
                                         }
                                     </td>
