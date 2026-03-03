@@ -124,7 +124,7 @@ const speak = async (text) => {
         }
 
         utterance.lang = 'en-US'
-        utterance.rate = 0.92
+        utterance.rate = 0.90
 
         const randomPitchVariance = (Math.random() * 0.1) - 0.05
         utterance.pitch = 0.95 + randomPitchVariance
@@ -308,11 +308,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 if (isDeuce && newS1 === newS2) {
                     setTimeout(() => speak(`Deuce... ... ${serverName} serves.`), 100)
                 } else if (mp1 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, Blue... ... Blue, ${newS1}... Red, ${newS2}... ... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Blue match point... Red.. ${newS2}... ... ${serverName} serves.`), 100)
                 } else if (mp2 && !matchWinner) {
-                    setTimeout(() => speak(`Match point, Red... ... Blue, ${newS1}... Red, ${newS2}... ... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`Red match point... Blue.. ${newS1}... ... ${serverName} serves.`), 100)
                 } else {
-                    setTimeout(() => speak(`Blue, ${newS1}... Red, ${newS2}... ... ${serverName} serves.`), 100)
+                    setTimeout(() => speak(`${newS1}... ${newS2}... ... ${serverName} serves.`), 100)
                 }
             }
         }
