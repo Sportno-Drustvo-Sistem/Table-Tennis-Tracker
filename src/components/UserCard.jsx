@@ -1,7 +1,10 @@
-import React from 'react'
-import { Check, Trophy, Pencil } from 'lucide-react'
+import React, { memo } from 'react'
+import { Check, Pencil } from 'lucide-react'
+import { getEloRank, getAvatarFallback } from '../utils'
 
-const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, compact }) => {
+const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, compact }) => {
+    const rank = getEloRank(user.elo_rating || 1200)
+
     return (
         <div
             onClick={onClick}
@@ -14,7 +17,7 @@ const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, c
         >
             <div className={`relative ${compact ? 'w-16 h-16 mb-2' : 'w-24 h-24 mb-4'}`}>
                 <img
-                    src={user.avatar_url || 'https://via.placeholder.com/150'}
+                    src={user.avatar_url || getAvatarFallback(user.name)}
                     alt={user.name}
                     className="w-full h-full rounded-full object-cover border-4 border-gray-100 dark:border-gray-700"
                 />
@@ -30,18 +33,44 @@ const UserCard = ({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, c
                             onEdit(user)
                         }}
                         className="absolute bottom-0 right-0 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900 dark:hover:text-blue-200"
+                        aria-label={`Edit ${user.name}`}
                     >
                         <Pencil size={14} />
                     </button>
                 )}
             </div>
             <h3 className={`${compact ? 'text-sm' : 'text-xl'} font-bold text-gray-800 dark:text-white text-center w-full truncate px-1`}>{user.name}</h3>
-            <div className={`flex items-center mt-1 text-yellow-500 font-semibold ${compact ? 'text-xs' : ''}`}>
-                <Trophy size={compact ? 12 : 16} className="mr-1" />
-                <span>{user.total_wins} {compact ? '' : 'Wins'}</span>
-            </div>
+
+            {!compact && (
+                <>
+                    {/* ELO + Rank badge */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-lg font-extrabold text-blue-600 dark:text-blue-400">
+                            {user.elo_rating || 1200}
+                        </span>
+                        <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ color: rank.color, backgroundColor: `${rank.color}22` }}
+                        >
+                            {rank.label}
+                        </span>
+                    </div>
+                    {/* Win count */}
+                    <div className="flex items-center mt-1 text-gray-500 dark:text-gray-400 text-xs font-medium">
+                        {user.total_wins} {user.total_wins === 1 ? 'Win' : 'Wins'} · {user.matches_played || 0} Games
+                    </div>
+                </>
+            )}
+
+            {compact && (
+                <div className="flex items-center mt-1 text-yellow-500 font-semibold text-xs">
+                    <span>{user.total_wins}</span>
+                </div>
+            )}
         </div>
     )
-}
+})
+
+UserCard.displayName = 'UserCard'
 
 export default UserCard

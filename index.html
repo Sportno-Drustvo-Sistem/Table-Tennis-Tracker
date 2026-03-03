@@ -12,6 +12,14 @@
     <script src="https://code.responsivevoice.org/responsivevoice.js?key=YOUR_UNIQUE_KEY_HERE"></script>
   </head>
   <body>
+    <script>
+      // Apply dark mode before React renders to prevent flash
+      try {
+        if (localStorage.getItem('theme') === 'dark') {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

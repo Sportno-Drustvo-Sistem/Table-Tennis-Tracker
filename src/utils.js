@@ -1,8 +1,24 @@
 import { supabase } from './supabaseClient'
 
-export const getKFactor = (matchesPlayed) => {
-    // Standard K-Factor for everyone to prevent wild swings
-    return 32
+// Standard K-Factor — kept flat at 32 to prevent wild ELO swings.
+// matchesPlayed reserved for a future dynamic K implementation.
+export const getKFactor = (_matchesPlayed) => 32
+
+/**
+ * Generates a fallback avatar SVG data-URI from the user's name.
+ * Replaces the deprecated via.placeholder.com service.
+ */
+export const getAvatarFallback = (name = '?') => {
+    const initials = name
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    // Deterministic hue from name characters
+    const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${hue},50%,55%)"/><text x="50" y="50" dominant-baseline="central" text-anchor="middle" font-size="42" font-family="sans-serif" fill="white">${initials}</text></svg>`
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
 export const calculateExpectedScore = (ratingA, ratingB) => {

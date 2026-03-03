@@ -49,10 +49,7 @@ function App() {
   })
 
   // Dark Mode State
-  const [darkMode, setDarkMode] = useState(() => {
-    if (localStorage.getItem('theme') === 'dark') return true
-    return false
-  })
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
 
   // Admin State
   const [isAdmin, setIsAdmin] = useState(() => {
@@ -113,37 +110,27 @@ function App() {
   const fetchData = useCallback(async () => {
     setLoading(true)
 
-    // 1. Fetch Users (shared)
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .order('total_wins', { ascending: false })
+    // Fetch all data in parallel for ~3x faster load
+    const [
+      { data: userData, error: userError },
+      { data: matchData, error: matchError },
+      { data: padelMatchData, error: padelMatchError },
+      { data: padelStatsData, error: padelStatsError },
+    ] = await Promise.all([
+      supabase.from('users').select('*').order('total_wins', { ascending: false }),
+      supabase.from('matches').select('*').order('created_at', { ascending: false }),
+      supabase.from('padel_matches').select('*').order('created_at', { ascending: false }),
+      supabase.from('padel_stats').select('*'),
+    ])
 
     if (userError) console.error('Error fetching users:', userError)
     else setUsers(userData || [])
 
-    // 2. Fetch Ping Pong Matches
-    const { data: matchData, error: matchError } = await supabase
-      .from('matches')
-      .select('*')
-      .order('created_at', { ascending: false })
-
     if (matchError) console.error('Error fetching matches:', matchError)
     else setMatches(matchData || [])
 
-    // 3. Fetch Padel Matches
-    const { data: padelMatchData, error: padelMatchError } = await supabase
-      .from('padel_matches')
-      .select('*')
-      .order('created_at', { ascending: false })
-
     if (padelMatchError) console.error('Error fetching padel matches:', padelMatchError)
     else setPadelMatches(padelMatchData || [])
-
-    // 4. Fetch Padel Stats
-    const { data: padelStatsData, error: padelStatsError } = await supabase
-      .from('padel_stats')
-      .select('*')
 
     if (padelStatsError) console.error('Error fetching padel stats:', padelStatsError)
     else setPadelStats(padelStatsData || [])

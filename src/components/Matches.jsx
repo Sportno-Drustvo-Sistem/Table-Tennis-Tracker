@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks } from 'lucide-react'
+import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search, Skull } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
 import { supabase } from '../supabaseClient'
-import { recalculatePlayerStats, calculateEloChange, getKFactor } from '../utils'
+import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../utils'
 import { PingPongIcon } from './Icons'
 
 const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch, isAdmin }) => {
@@ -12,6 +12,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
     const [selectedIds, setSelectedIds] = useState(new Set())
     const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
     const [isBulkMode, setIsBulkMode] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
     const { showToast } = useToast()
 
     const toggleSelect = (id) => {
@@ -51,51 +52,19 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
         }
     }
 
-    // Compute ELO ratings and changes for every match
+    // Use shared buildEloHistory to avoid duplicating the ELO simulation logic
     const matchEloData = useMemo(() => {
         if (!matches || !users || matches.length === 0 || users.length === 0) return {}
-
-        // Initialize player ratings
-        const ratings = {}
-        const matchesPlayed = {}
-        users.forEach(u => {
-            ratings[u.id] = 1200
-            matchesPlayed[u.id] = 0
-        })
-
-        // Process matches in chronological order (oldest first)
-        const sortedMatches = [...matches].sort(
-            (a, b) => new Date(a.created_at) - new Date(b.created_at)
-        )
-
-        const eloMap = {} // matchId -> { p1Elo, p1Change, p2Elo, p2Change }
-
-        sortedMatches.forEach(match => {
-            const p1Id = match.player1_id
-            const p2Id = match.player2_id
-
-            if (ratings[p1Id] === undefined || ratings[p2Id] === undefined) return
-
-            matchesPlayed[p1Id] = (matchesPlayed[p1Id] || 0) + 1
-            matchesPlayed[p2Id] = (matchesPlayed[p2Id] || 0) + 1
-
-            const k1 = getKFactor(matchesPlayed[p1Id])
-            const k2 = getKFactor(matchesPlayed[p2Id])
-
-            const p1Change = calculateEloChange(ratings[p1Id], ratings[p2Id], match.score1, match.score2, k1)
-            const p2Change = calculateEloChange(ratings[p2Id], ratings[p1Id], match.score2, match.score1, k2)
-
-            ratings[p1Id] += p1Change
-            ratings[p2Id] += p2Change
-
-            eloMap[match.id] = {
-                p1Elo: ratings[p1Id],
-                p1Change,
-                p2Elo: ratings[p2Id],
-                p2Change,
+        const { matchHistory } = buildEloHistory(users, matches)
+        const eloMap = {}
+        matchHistory.forEach(m => {
+            eloMap[m.matchId] = {
+                p1Elo: m.p1EloAfter,
+                p1Change: m.p1Change,
+                p2Elo: m.p2EloAfter,
+                p2Change: m.p2Change,
             }
         })
-
         return eloMap
     }, [matches, users])
 
@@ -138,8 +107,20 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
     }
 
     const getPlayerInfo = (playerId) => {
-        return users.find(u => u.id === playerId) || { name: 'Unknown', avatar_url: 'https://via.placeholder.com/30' }
+        const user = users.find(u => u.id === playerId)
+        return user || { name: 'Unknown', avatar_url: null }
     }
+
+    // Filter matches by search query (player name)
+    const filteredMatches = useMemo(() => {
+        if (!searchQuery.trim()) return matches
+        const q = searchQuery.toLowerCase()
+        return matches.filter(m => {
+            const p1 = users.find(u => u.id === m.player1_id)
+            const p2 = users.find(u => u.id === m.player2_id)
+            return (p1?.name?.toLowerCase().includes(q)) || (p2?.name?.toLowerCase().includes(q))
+        })
+    }, [matches, users, searchQuery])
 
     const EloChangeDisplay = ({ elo, change }) => {
         const isPositive = change > 0
@@ -161,10 +142,21 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end">
+            <div className="flex justify-between items-end gap-3 flex-wrap">
                 <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
                     <Calendar className="mr-2 text-blue-500" /> Matches
                 </h2>
+                {/* Search bar */}
+                <div className="relative flex-1 min-w-[180px] max-w-xs">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <input
+                        type="text"
+                        placeholder="Search by player…"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-gray-700 dark:text-gray-200"
+                    />
+                </div>
                 <div className="flex flex-wrap gap-2 sm:gap-3">
                     {isAdmin && (
                         <button
@@ -223,11 +215,21 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
             )}
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {matches.length === 0 ? (
+                {filteredMatches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-                        <div className="mb-4 flex justify-center text-blue-500"><PingPongIcon size={64} /></div>
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">No matches recorded yet</h3>
-                        <p className="text-gray-500 dark:text-gray-400 mb-6">Click "New Match" to get started!</p>
+                        {matches.length === 0 ? (
+                            <>
+                                <div className="mb-4 flex justify-center text-blue-500"><PingPongIcon size={64} /></div>
+                                <h3 className="text-xl font-bold text-gray-800 dark:text-white">No matches recorded yet</h3>
+                                <p className="text-gray-500 dark:text-gray-400 mb-6">Click &quot;New Match&quot; to get started!</p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="mb-4 flex justify-center text-gray-400"><Search size={48} /></div>
+                                <h3 className="text-xl font-bold text-gray-800 dark:text-white">No matches found</h3>
+                                <p className="text-gray-500 dark:text-gray-400">Try a different player name.</p>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -237,7 +239,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                     {isAdmin && isBulkMode && (
                                         <th className="px-2 sm:px-3 py-3 sm:py-4 w-8 sm:w-10">
                                             <button onClick={toggleSelectAll} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                                {selectedIds.size === matches.length && matches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : selectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                                                {selectedIds.size === filteredMatches.length && filteredMatches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : selectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
                                             </button>
                                         </th>
                                     )}
@@ -249,7 +251,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {matches.map(match => {
+                                {filteredMatches.map(match => {
                                     const player1 = getPlayerInfo(match.player1_id)
                                     const player2 = getPlayerInfo(match.player2_id)
                                     const matchDate = new Date(match.created_at)
@@ -275,7 +277,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                             <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />
                                                         )}
                                                     </div>
-                                                    <img src={player1.avatar_url} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
+                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
                                             <td className="px-1 sm:px-6 py-3 sm:py-4">
@@ -296,7 +298,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                                                         }`}
                                                                     title={`${rule.targetPlayerName ? rule.targetPlayerName + ': ' : ''}${rule.title}: ${rule.description}`}
                                                                 >
-                                                                    {rule.type === 'mayhem' ? <Scale size={12} className="mr-1" /> : <Scale size={12} className="mr-1" />}
+                                                                    {rule.type === 'mayhem' ? <Skull size={12} className="mr-1" /> : <Scale size={12} className="mr-1" />}
                                                                     <span>{rule.title}</span>
                                                                 </div>
                                                             ))}
@@ -306,7 +308,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                             </td>
                                             <td className="px-2 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex items-center space-x-2 sm:space-x-3">
-                                                    <img src={player2.avatar_url} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
+                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
                                                     <div className="flex flex-col items-start">
                                                         <span className={`font-bold truncate max-w-[70px] sm:max-w-[none] ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                                             {player2.name}

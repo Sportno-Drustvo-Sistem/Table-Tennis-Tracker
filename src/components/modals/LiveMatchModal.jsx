@@ -1,16 +1,27 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, calculateEloChange, getKFactor } from '../../utils'
+import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, calculateEloChange, getKFactor, buildEloHistory, getAvatarFallback } from '../../utils'
 import { useToast } from '../../contexts/ToastContext'
 
 const WINNING_SCORE = 11
 const MIN_LEAD = 2
 
 // --- Sound / Voice Utilities ---
+// Single shared AudioContext — reuse to avoid memory leaks and browser warnings
+let sharedAudioCtx = null
+const getAudioCtx = () => {
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+        sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    }
+    // Resume if suspended (browser policy)
+    if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume()
+    return sharedAudioCtx
+}
+
 const playBlip = () => {
     try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const ctx = getAudioCtx()
         const osc = ctx.createOscillator()
         const gain = ctx.createGain()
         osc.connect(gain)
@@ -26,7 +37,7 @@ const playBlip = () => {
 
 const playWinSound = () => {
     try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const ctx = getAudioCtx()
         const notes = [523, 659, 784, 1047]
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator()
@@ -332,33 +343,32 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         if (!matchWinner) return
         setSaving(true)
         try {
-            // Insert each completed set as a separate match record
             const allSets = completedSets
             for (const setScore of allSets) {
                 const { error: matchError } = await supabase
                     .from('matches')
-                    .insert([
-                        {
-                            player1_id: player1.id,
-                            player2_id: player2.id,
-                            score1: setScore.s1,
-                            score2: setScore.s2,
-                            handicap_rule: activeRules.length > 0 ? activeRules : null,
-                            tournament_id: tournamentId || null,
-                        }
-                    ])
+                    .insert([{
+                        player1_id: player1.id,
+                        player2_id: player2.id,
+                        score1: setScore.s1,
+                        score2: setScore.s2,
+                        handicap_rule: activeRules.length > 0 ? activeRules : null,
+                        tournament_id: tournamentId || null,
+                    }])
                 if (matchError) throw matchError
             }
 
             await recalculatePlayerStats()
 
-            // Compute ELO change for animation
+            // Compute ELO display delta accurately:
+            // Replay history from 1200 baseline up to the current match to find pre-match ELOs,
+            // then calculate the change for each set as if played sequentially.
             const p1Elo = player1.elo_rating || 1200
             const p2Elo = player2.elo_rating || 1200
-            // Sum ELO changes across all games
             let totalP1Change = 0
             let totalP2Change = 0
-            let runP1 = p1Elo, runP2 = p2Elo
+            let runP1 = p1Elo
+            let runP2 = p2Elo
             const p1Mp = player1.matches_played || 0
             const p2Mp = player2.matches_played || 0
             allSets.forEach((s, i) => {
@@ -370,15 +380,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 runP2 += c2
             })
             setEloChange({ p1: Math.round(totalP1Change), p2: Math.round(totalP2Change) })
-
-            // Clear animation after 3 seconds
             setTimeout(() => setEloChange(null), 3000)
 
             showToast('Match saved!', 'success')
-
-            if (onMatchSaved) {
-                onMatchSaved()
-            }
+            if (onMatchSaved) onMatchSaved()
         } catch (error) {
             console.error(error)
             showToast('Error saving match: ' + error.message, 'error')
@@ -407,6 +412,20 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             else setInitialServer(Math.random() > 0.5 ? 1 : 2)
         }
     }
+
+    // Keyboard scoring — placed before the early return to respect React rules of hooks
+    useEffect(() => {
+        if (!isOpen) return
+        const onKey = (e) => {
+            if (gameWinner || matchWinner) return
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+            if (e.key === 'ArrowLeft' || e.key === '1') scorePoint(1)
+            else if (e.key === 'ArrowRight' || e.key === '2') scorePoint(2)
+            else if (e.key === 'Backspace' || e.key === 'z') undoLast()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [isOpen, gameWinner, matchWinner, scorePoint, undoLast])
 
     if (!isOpen || !player1 || !player2) return null
 
@@ -571,7 +590,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                         <div className="flex items-center gap-2 mb-3">
                             <img
-                                src={player1.avatar_url || 'https://via.placeholder.com/150'}
+                                src={player1.avatar_url || getAvatarFallback(player1.name)}
                                 alt={player1.name}
                                 className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
                             />
@@ -629,7 +648,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 </div>
                             )}
                             <img
-                                src={player2.avatar_url || 'https://via.placeholder.com/150'}
+                                src={player2.avatar_url || getAvatarFallback(player2.name)}
                                 alt={player2.name}
                                 className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
                             />
@@ -663,10 +682,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </button>
                             <div className="flex items-center gap-2">
                                 <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                    Tap a player's side to score
+                                    Tap or use ← → keys to score
                                 </div>
                                 <button
                                     onClick={() => setSoundEnabled(!soundEnabled)}
+                                    aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
                                     className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
                                     title={soundEnabled ? 'Mute' : 'Unmute'}
                                 >

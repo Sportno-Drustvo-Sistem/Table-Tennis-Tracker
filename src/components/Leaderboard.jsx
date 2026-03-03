@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { ArrowUp, ArrowDown, Trophy } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
-import { getEloRank } from '../utils'
+import { getEloRank, getAvatarFallback } from '../utils'
 
 const Leaderboard = ({ users, matches }) => {
     const [startDate, setStartDate] = useState('')
@@ -104,9 +104,10 @@ const Leaderboard = ({ users, matches }) => {
     const sortedStats = useMemo(() => {
         const sorted = [...stats]
         sorted.sort((a, b) => {
-            // Special handling for ELO sorting: Ranked players first
+            // When sorting by ELO, players with 0 games always go to the bottom
             if (sortConfig.key === 'elo_rating') {
-                // Sort by ELO descending by default
+                if (a.totalGames === 0 && b.totalGames > 0) return 1
+                if (b.totalGames === 0 && a.totalGames > 0) return -1
             }
 
             if (a[sortConfig.key] < b[sortConfig.key]) {
@@ -208,7 +209,7 @@ const Leaderboard = ({ users, matches }) => {
                                     <td className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500">#{index + 1}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center">
-                                            <img src={player.avatar_url || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>
                                         </div>
                                     </td>

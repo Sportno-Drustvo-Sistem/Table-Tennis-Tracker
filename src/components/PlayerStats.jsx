@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
-import { calculateEloChange, getKFactor, buildEloHistory, getEloRank } from '../utils'
+import { calculateEloChange, getKFactor, buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
 
 const PlayerStats = ({ users, matches, initialPlayerId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
@@ -23,6 +23,9 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         const top = users.reduce((best, u) => (u.elo_rating > best.elo_rating ? u : best), users[0])
         return top.id
     }, [users])
+
+    // Compute ELO history once — only changes when users or matches change, not on date filter
+    const eloData = useMemo(() => buildEloHistory(users, matches), [users, matches])
 
     const playerRank = useMemo(() => {
         if (!selectedPlayer) return null
@@ -52,8 +55,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         const headToHead = {}
         const timeline = []
 
-        // Build global ELO history to get Max and Min ELO + chart data
-        const eloData = buildEloHistory(users, matches)
+        // Build global ELO history — now pre-computed above, no extra cost
         const myTimeline = eloData.playerEloTimelines[selectedPlayerId] || []
 
         let maxElo = 1200
@@ -146,7 +148,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             avgScoreDiff: (wins + losses) > 0 ? ((pointsFor - pointsAgainst) / (wins + losses)).toFixed(1) : 0,
             eloHistory
         }
-    }, [selectedPlayerId, matches, startDate, endDate, users])
+    }, [selectedPlayerId, matches, startDate, endDate, users, eloData])
 
     if (!selectedPlayer) return <div>Select a player</div>
 
@@ -155,7 +157,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-blue-500 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center space-x-4">
                     <img
-                        src={selectedPlayer.avatar_url || 'https://via.placeholder.com/150'}
+                        src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
                         className="w-20 h-20 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
@@ -275,7 +277,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                                 return (
                                     <div key={oppId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={opponent.avatar_url || 'https://via.placeholder.com/30'} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{opponent.name}</span>
                                         </div>
                                         <div className="text-right">
@@ -311,7 +313,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                                     </div>
                                     <div className="flex items-center justify-end w-32 truncate">
                                         <span className="text-gray-600 dark:text-gray-300 mr-2 truncate">{opponent?.name}</span>
-                                        <img src={opponent?.avatar_url} className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
+                                        <img src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
                                     </div>
                                 </div>
                             )
