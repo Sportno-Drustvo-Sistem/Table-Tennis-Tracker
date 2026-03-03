@@ -727,6 +727,9 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     player2={modalPlayer2}
                     onMatchSaved={selectedMatchId.type === 'group' ? handleGroupMatchSaved : handleMatchSaved}
                     matches={globalMatches}
+                    tournamentId={activeTournament.id}
+                    debuffs={modalDebuffs}
+                    isAdmin={isAdmin}
                 />
             )}
 

@@ -53,7 +53,7 @@ const initVoices = () => {
             resolve(voices)
             return
         }
-        
+
         const timeoutId = setTimeout(() => {
             voices = window.speechSynthesis.getVoices()
             cachedVoices = voices
@@ -76,36 +76,36 @@ const speak = async (text) => {
     try {
         window.speechSynthesis.cancel()
         const utterance = new SpeechSynthesisUtterance(text)
-        
+
         let voices = cachedVoices
         if (!voices.length) {
             voices = await initVoices()
         }
-        
+
         const englishVoices = voices.filter(v => v.lang.startsWith('en'))
-        
+
         // 1. Prioritize High-Quality / Cloud / Natural voices if available
-        let selectedVoice = englishVoices.find(v => 
-            v.name.toLowerCase().includes('natural') || 
+        let selectedVoice = englishVoices.find(v =>
+            v.name.toLowerCase().includes('natural') ||
             v.name.toLowerCase().includes('premium') ||
-            (v.name.includes('Google') && !v.name.includes('US English')) || 
+            (v.name.includes('Google') && !v.name.includes('US English')) ||
             v.name.includes('Online (Natural)')
         )
 
         // 2. If no premium voice, fallback to aggressive mobile female/UK search
         if (!selectedVoice) {
-            selectedVoice = englishVoices.find(v => 
-                v.name.includes('Zira') ||  
-                v.name.includes('Hazel') || 
-                v.name.includes('Susan') || 
+            selectedVoice = englishVoices.find(v =>
+                v.name.includes('Zira') ||
+                v.name.includes('Hazel') ||
+                v.name.includes('Susan') ||
                 v.name.toLowerCase().includes('female') ||
                 (v.name.includes('Google') && v.lang === 'en-GB') ||
                 v.name.includes('Siri') ||
-                v.name.includes('Samantha') || 
-                v.name.includes('Karen') || 
-                v.name.includes('Moira') || 
+                v.name.includes('Samantha') ||
+                v.name.includes('Karen') ||
+                v.name.includes('Moira') ||
                 v.name.includes('Tessa') ||
-                v.name.includes('Daniel') 
+                v.name.includes('Daniel')
             )
         }
 
@@ -113,28 +113,28 @@ const speak = async (text) => {
         if (!selectedVoice) {
             selectedVoice = englishVoices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.lang === 'en-IE')
         }
-        
+
         // 4. Any English voice as a last resort
         if (!selectedVoice && englishVoices.length > 0) {
             selectedVoice = englishVoices[0]
         }
-        
+
         if (selectedVoice) {
             utterance.voice = selectedVoice
         }
 
-        utterance.lang = 'en-US' 
-        utterance.rate = 0.92 
-        
-        const randomPitchVariance = (Math.random() * 0.1) - 0.05 
-        utterance.pitch = 0.95 + randomPitchVariance 
+        utterance.lang = 'en-US'
+        utterance.rate = 0.92
+
+        const randomPitchVariance = (Math.random() * 0.1) - 0.05
+        utterance.pitch = 0.95 + randomPitchVariance
         utterance.volume = 1.0
-        
+
         window.speechSynthesis.speak(utterance)
     } catch (e) { console.error("Speech Error:", e) }
 }
 
-const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches }) => {
+const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
@@ -217,8 +217,14 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         const rules = []
         if (streakRule) rules.push({ ...streakRule, type: 'streak' })
+
+        if (debuffs) {
+            if (debuffs[player1.id]) rules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
+            if (debuffs[player2.id]) rules.push({ ...debuffs[player2.id], targetPlayerId: player2.id, targetPlayerName: player2.name, type: 'mayhem' })
+        }
+
         return rules
-    }, [isOpen, player1, player2, matches, allDebuffs])
+    }, [isOpen, player1, player2, matches, allDebuffs, debuffs])
 
     // How many games needed to win the match
     const gamesNeeded = Math.ceil(bestOf / 2)
@@ -338,6 +344,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             score1: setScore.s1,
                             score2: setScore.s2,
                             handicap_rule: activeRules.length > 0 ? activeRules : null,
+                            tournament_id: tournamentId || null,
                         }
                     ])
                 if (matchError) throw matchError
@@ -368,6 +375,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setTimeout(() => setEloChange(null), 3000)
 
             showToast('Match saved!', 'success')
+
+            if (onMatchSaved) {
+                onMatchSaved()
+            }
         } catch (error) {
             console.error(error)
             showToast('Error saving match: ' + error.message, 'error')
@@ -459,8 +470,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                     key={n}
                                     onClick={() => setBestOf(n)}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${bestOf === n
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                        ? 'bg-blue-500 text-white'
+                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                                         }`}
                                 >
                                     {n === 1 ? 'Single' : `Best of ${n}`}
