@@ -113,23 +113,23 @@ export const buildEloHistory = (users, matches) => {
 }
 
 export const getEloRank = (elo, isChampion = false) => {
-    if (isChampion) return { label: 'Champion', color: '#FF6B35', bg: 'bg-orange-100 dark:bg-orange-900/30' }
-    if (elo >= 2300) return { label: 'Master', color: '#EF4444', bg: 'bg-red-100 dark:bg-red-900/30' }
-    if (elo >= 2200) return { label: 'Diamond I', color: '#8B5CF6', bg: 'bg-purple-100 dark:bg-purple-900/30' }
-    if (elo >= 2100) return { label: 'Diamond II', color: '#8B5CF6', bg: 'bg-purple-100 dark:bg-purple-900/30' }
-    if (elo >= 2000) return { label: 'Diamond III', color: '#8B5CF6', bg: 'bg-purple-100 dark:bg-purple-900/30' }
-    if (elo >= 1900) return { label: 'Platinum I', color: '#06B6D4', bg: 'bg-cyan-100 dark:bg-cyan-900/30' }
-    if (elo >= 1800) return { label: 'Platinum II', color: '#06B6D4', bg: 'bg-cyan-100 dark:bg-cyan-900/30' }
-    if (elo >= 1700) return { label: 'Platinum III', color: '#06B6D4', bg: 'bg-cyan-100 dark:bg-cyan-900/30' }
-    if (elo >= 1600) return { label: 'Gold I', color: '#F59E0B', bg: 'bg-yellow-100 dark:bg-yellow-900/30' }
-    if (elo >= 1500) return { label: 'Gold II', color: '#F59E0B', bg: 'bg-yellow-100 dark:bg-yellow-900/30' }
-    if (elo >= 1400) return { label: 'Gold III', color: '#F59E0B', bg: 'bg-yellow-100 dark:bg-yellow-900/30' }
-    if (elo >= 1300) return { label: 'Silver I', color: '#9CA3AF', bg: 'bg-gray-200 dark:bg-gray-600/30' }
-    if (elo >= 1200) return { label: 'Silver II', color: '#9CA3AF', bg: 'bg-gray-200 dark:bg-gray-600/30' }
-    if (elo >= 1100) return { label: 'Silver III', color: '#9CA3AF', bg: 'bg-gray-200 dark:bg-gray-600/30' }
-    if (elo >= 1000) return { label: 'Bronze I', color: '#cd7f32', bg: 'bg-amber-100 dark:bg-amber-900/30' }
-    if (elo >= 900) return { label: 'Bronze II', color: '#cd7f32', bg: 'bg-amber-100 dark:bg-amber-900/30' }
-    return { label: 'Bronze III', color: '#cd7f32', bg: 'bg-amber-100 dark:bg-amber-900/30' }
+    if (isChampion) return { label: 'Champion', color: '#FF6B35', bg: 'bg-orange-100 dark:bg-orange-900/30', tier: 'Champion', division: 0 }
+    if (elo >= 2300) return { label: 'Master', color: '#EF4444', bg: 'bg-red-100 dark:bg-red-900/30', tier: 'Master', division: 0 }
+    if (elo >= 2200) return { label: 'Diamond I', color: '#8B5CF6', bg: 'bg-purple-100 dark:bg-purple-900/30', tier: 'Diamond', division: 1 }
+    if (elo >= 2100) return { label: 'Diamond II', color: '#8B5CF6', bg: 'bg-purple-100 dark:bg-purple-900/30', tier: 'Diamond', division: 2 }
+    if (elo >= 2000) return { label: 'Diamond III', color: '#8B5CF6', bg: 'bg-purple-100 dark:bg-purple-900/30', tier: 'Diamond', division: 3 }
+    if (elo >= 1900) return { label: 'Platinum I', color: '#06B6D4', bg: 'bg-cyan-100 dark:bg-cyan-900/30', tier: 'Platinum', division: 1 }
+    if (elo >= 1800) return { label: 'Platinum II', color: '#06B6D4', bg: 'bg-cyan-100 dark:bg-cyan-900/30', tier: 'Platinum', division: 2 }
+    if (elo >= 1700) return { label: 'Platinum III', color: '#06B6D4', bg: 'bg-cyan-100 dark:bg-cyan-900/30', tier: 'Platinum', division: 3 }
+    if (elo >= 1600) return { label: 'Gold I', color: '#F59E0B', bg: 'bg-yellow-100 dark:bg-yellow-900/30', tier: 'Gold', division: 1 }
+    if (elo >= 1500) return { label: 'Gold II', color: '#F59E0B', bg: 'bg-yellow-100 dark:bg-yellow-900/30', tier: 'Gold', division: 2 }
+    if (elo >= 1400) return { label: 'Gold III', color: '#F59E0B', bg: 'bg-yellow-100 dark:bg-yellow-900/30', tier: 'Gold', division: 3 }
+    if (elo >= 1300) return { label: 'Silver I', color: '#9CA3AF', bg: 'bg-gray-200 dark:bg-gray-600/30', tier: 'Silver', division: 1 }
+    if (elo >= 1200) return { label: 'Silver II', color: '#9CA3AF', bg: 'bg-gray-200 dark:bg-gray-600/30', tier: 'Silver', division: 2 }
+    if (elo >= 1100) return { label: 'Silver III', color: '#9CA3AF', bg: 'bg-gray-200 dark:bg-gray-600/30', tier: 'Silver', division: 3 }
+    if (elo >= 1000) return { label: 'Bronze I', color: '#cd7f32', bg: 'bg-amber-100 dark:bg-amber-900/30', tier: 'Bronze', division: 1 }
+    if (elo >= 900) return { label: 'Bronze II', color: '#cd7f32', bg: 'bg-amber-100 dark:bg-amber-900/30', tier: 'Bronze', division: 2 }
+    return { label: 'Bronze III', color: '#cd7f32', bg: 'bg-amber-100 dark:bg-amber-900/30', tier: 'Bronze', division: 3 }
 }
 
 export const recalculatePlayerStats = async () => {

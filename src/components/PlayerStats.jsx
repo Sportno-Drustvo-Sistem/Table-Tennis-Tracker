@@ -154,7 +154,15 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-blue-500 flex items-center justify-between flex-wrap gap-4">
+            <div
+                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md flex items-center justify-between flex-wrap gap-4"
+                style={{
+                    borderWidth: playerRank?.division <= 1 ? '3px' : '2px',
+                    borderStyle: playerRank?.division === 3 ? 'dashed' : 'solid',
+                    borderColor: playerRank?.color || '#3b82f6',
+                    boxShadow: (playerRank?.division <= 1) ? `0 0 12px ${playerRank?.color}40, 0 1px 3px rgba(0,0,0,0.1)` : undefined,
+                }}
+            >
                 <div className="flex items-center space-x-4">
                     <img
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
@@ -163,7 +171,20 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                     />
                     <div>
                         <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
-                        <div className="text-blue-600 dark:text-blue-400 font-semibold">{stats?.total || 0} Games Played</div>
+                        <div className="flex items-center gap-3 mt-1">
+                            <div className="text-blue-600 dark:text-blue-400 font-semibold">{stats?.total || 0} Games Played</div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl font-extrabold" style={{ color: playerRank?.color }}>{selectedPlayer.elo_rating}</span>
+                                {playerRank && (
+                                    <span
+                                        className="text-xs font-bold px-2 py-0.5 rounded-full"
+                                        style={{ color: playerRank.color, backgroundColor: `${playerRank.color}18` }}
+                                    >
+                                        {playerRank.label}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
