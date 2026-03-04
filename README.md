@@ -59,7 +59,7 @@ A modern, high-performance web application for tracking sports leagues, tourname
 
 ### Prerequisites
 
-- Node.js 20+
+* Node.js 20+
 * Supabase Account
 
 ### Option 1: Local Development
@@ -99,7 +99,7 @@ The app will be available at `http://localhost:8080`.
 
 ## 📂 Project Structure
 
-- `/src/components`: React UI components grouped by feature (Modals, Tournament, etc.).
+* `/src/components`: React UI components grouped by feature (Modals, Tournament, etc.).
 * `/src/utils.js`: Core logic for ELO, Ranks, and Match calculations.
 * `/src/discordUtils.js`: Logic for Discord Webhook formatting and delivery.
 * `/supabase`: Database migrations and configuration.
