@@ -1,7 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { Users, Calendar } from 'lucide-react'
+import { Activity, Users, Calendar } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import DateRangePicker from './DateRangePicker'
-import { getMatchWinner } from '../padelUtils'
+import TrophyCase from './TrophyCase'
+import PadelAchievements from './PadelAchievements'
+import { getMatchWinner, buildPadelEloHistory } from '../padelUtils'
 import { getEloRank, getAvatarFallback } from '../utils'
 
 const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
@@ -19,6 +22,8 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
     const playerPadelStats = useMemo(() => {
         return (padelStats || []).find(s => s.user_id === selectedPlayerId)
     }, [padelStats, selectedPlayerId])
+
+    const eloData = useMemo(() => buildPadelEloHistory(users, matches), [users, matches])
 
     const stats = useMemo(() => {
         if (!selectedPlayerId) return null
@@ -49,6 +54,33 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
 
         const partnerStats = {} // Track performance with each partner
         const timeline = []
+
+        let maxElo = 1200
+        let minElo = 1200
+        if (selectedPlayer) {
+            maxElo = -Infinity
+            minElo = Infinity
+        }
+
+        const myTimeline = eloData.playerEloTimelines[selectedPlayerId] || []
+        const eloHistory = myTimeline.map(t => {
+            const opps = t.opponentId ? t.opponentId.split(',').map(id => {
+                const u = users.find(user => user.id === id)
+                return u ? u.name : '?'
+            }).join(' & ') : '?'
+
+            if (t.elo > maxElo) maxElo = t.elo
+            if (t.elo < minElo) minElo = t.elo
+            return {
+                matchNum: t.matchNum,
+                elo: Math.round(t.elo),
+                opponent: t.matchNum === 0 ? 'Start' : opps,
+                change: Math.round(t.change),
+                result: t.result
+            }
+        })
+        if (maxElo === -Infinity) maxElo = 1200
+        if (minElo === Infinity) minElo = 1200
 
         relevantMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
@@ -155,9 +187,10 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
             partnerStats,
             timeline,
             streak: streakType ? `${currentStreak}${streakType}` : '-',
-            streakType
+            streakType,
+            eloHistory
         }
-    }, [selectedPlayerId, matches, startDate, endDate])
+    }, [selectedPlayerId, matches, startDate, endDate, users, eloData])
 
     if (!selectedPlayer) return <div>Select a player</div>
 
@@ -237,6 +270,35 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                     <div className="text-xs font-bold text-purple-600/80 dark:text-purple-400/80 mt-1">{stats?.totalGamesWon - stats?.totalGamesLost > 0 ? '+' : ''}{stats?.totalGamesWon - stats?.totalGamesLost} Diff</div>
                 </div>
             </div>
+
+            {/* ELO History Chart */}
+            {stats?.eloHistory?.length > 1 && (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
+                        <Activity className="mr-2 text-blue-500" size={20} /> ELO History
+                    </h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <LineChart data={stats.eloHistory} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                            <XAxis dataKey="matchNum" tick={{ fontSize: 11 }} label={{ value: 'Game #', position: 'insideBottom', offset: -2, fontSize: 11 }} />
+                            <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                            <ReferenceLine y={1200} stroke="#9ca3af" strokeDasharray="3 3" />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: 'rgba(30,30,30,0.9)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                                formatter={(value, name, props) => {
+                                    const d = props.payload
+                                    return [`${value} (${d.change > 0 ? '+' : ''}${d.change})`, `vs ${d.opponent} (${d.result})`]
+                                }}
+                                labelFormatter={(label) => `Game #${label}`}
+                            />
+                            <Line type="monotone" dataKey="elo" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 5, fill: '#3b82f6' }} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
+            <TrophyCase playerId={selectedPlayerId} />
+
+            <PadelAchievements playerId={selectedPlayerId} users={users} matches={matches} />
 
             <div className="grid md:grid-cols-2 gap-6">
                 {/* Partner Performance */}

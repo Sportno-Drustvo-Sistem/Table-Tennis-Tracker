@@ -142,6 +142,94 @@ export const recalculatePadelStats = async () => {
     }
 }
 
+export const buildPadelEloHistory = (users, padelMatches) => {
+    const sortedMatches = [...padelMatches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const ratings = {}
+    const mpc = {}
+    const playerEloTimelines = {}
+    const matchHistory = []
+
+    users.forEach(u => {
+        ratings[u.id] = 1200
+        mpc[u.id] = 0
+        playerEloTimelines[u.id] = [{ matchNum: 0, elo: 1200, opponentId: null, date: null, result: null, change: 0 }]
+    })
+
+    sortedMatches.forEach(m => {
+        const t1p1 = m.team1_player1_id
+        const t1p2 = m.team1_player2_id
+        const t2p1 = m.team2_player1_id
+        const t2p2 = m.team2_player2_id
+
+        if (!ratings[t1p1] || !ratings[t1p2] || !ratings[t2p1] || !ratings[t2p2]) return
+
+            ;[t1p1, t1p2, t2p1, t2p2].forEach(pid => {
+                mpc[pid] = (mpc[pid] || 0) + 1
+            })
+
+        const t1EloBefore = (ratings[t1p1] + ratings[t1p2]) / 2
+        const t2EloBefore = (ratings[t2p1] + ratings[t2p2]) / 2
+
+        const c1_t1p1 = calculateEloChange(t1EloBefore, t2EloBefore, m.score1, m.score2, getKFactor(mpc[t1p1]))
+        const c1_t1p2 = calculateEloChange(t1EloBefore, t2EloBefore, m.score1, m.score2, getKFactor(mpc[t1p2]))
+
+        const c2_t2p1 = calculateEloChange(t2EloBefore, t1EloBefore, m.score2, m.score1, getKFactor(mpc[t2p1]))
+        const c2_t2p2 = calculateEloChange(t2EloBefore, t1EloBefore, m.score2, m.score1, getKFactor(mpc[t2p2]))
+
+        ratings[t1p1] += c1_t1p1
+        ratings[t1p2] += c1_t1p2
+        ratings[t2p1] += c2_t2p1
+        ratings[t2p2] += c2_t2p2
+
+        const winner = getMatchWinner(m)
+
+        matchHistory.push({
+            matchId: m.id,
+            t1Ids: [t1p1, t1p2],
+            t2Ids: [t2p1, t2p2],
+            t1EloBefore,
+            t2EloBefore,
+            date: new Date(m.created_at),
+            winner
+        })
+
+        const t1Won = winner === 1
+        const t2Won = winner === 2
+
+            ;[t1p1, t1p2].forEach(pid => {
+                playerEloTimelines[pid].push({
+                    matchNum: mpc[pid],
+                    elo: ratings[pid],
+                    change: pid === t1p1 ? c1_t1p1 : c1_t1p2,
+                    opponentId: `${t2p1},${t2p2}`,
+                    result: t1Won ? 'W' : (winner === 0 ? 'T' : 'L'),
+                    date: new Date(m.created_at),
+                    matchId: m.id
+                })
+            })
+
+            ;[t2p1, t2p2].forEach(pid => {
+                playerEloTimelines[pid].push({
+                    matchNum: mpc[pid],
+                    elo: ratings[pid],
+                    change: pid === t2p1 ? c2_t2p1 : c2_t2p2,
+                    opponentId: `${t1p1},${t1p2}`,
+                    result: t2Won ? 'W' : (winner === 0 ? 'T' : 'L'),
+                    date: new Date(m.created_at),
+                    matchId: m.id
+                })
+            })
+    })
+
+    return {
+        currentRatings: ratings,
+        matchesPlayedCount: mpc,
+        playerEloTimelines,
+        matchHistory
+    }
+}
+
+
 /**
  * Get head-to-head streak between two teams in padel.
  * A "team" is identified by a Set of two player IDs (order doesn't matter).
