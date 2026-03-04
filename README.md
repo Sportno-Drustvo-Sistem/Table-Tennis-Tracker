@@ -2,8 +2,6 @@
 
 A modern, high-performance web application for tracking sports leagues, tournaments, and player statistics. Designed for local clubs, office leagues, or competitive circles to professionalize their matches.
 
-![App Screenshot](https://raw.githubusercontent.com/lucide-react/lucide/main/icons/trophy.png)
-
 ## 🌟 Key Features
 
 ### 🎙️ Live Umpire & Voice (New!)
