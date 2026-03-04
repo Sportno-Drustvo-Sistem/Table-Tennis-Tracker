@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords, Settings, Ghost, Zap } from 'lucide-react'
 import { PingPongIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
@@ -27,6 +27,7 @@ import PadelPlayerSelectionModal from './components/modals/PadelPlayerSelectionM
 import PadelMatchModal from './components/modals/PadelMatchModal'
 import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
 import PadelMatchGeneratorModal from './components/modals/PadelMatchGeneratorModal'
+import PadelLiveMatchModal from './components/modals/PadelLiveMatchModal'
 import Tournament from './components/tournament/Tournament'
 import { useToast } from './contexts/ToastContext'
 
@@ -92,6 +93,9 @@ function App() {
   const [padelTeams, setPadelTeams] = useState({ team1: null, team2: null })
   const [isPadelMatchFromGenerator, setIsPadelMatchFromGenerator] = useState(false)
   const [editingPadelMatch, setEditingPadelMatch] = useState(null)
+  const [isPadelLiveMatchOpen, setIsPadelLiveMatchOpen] = useState(false)
+  const [padelLiveMatchTeams, setPadelLiveMatchTeams] = useState({ team1: null, team2: null })
+  const [isPadelLiveFromGenerator, setIsPadelLiveFromGenerator] = useState(false)
 
   // Persist sport selection
   useEffect(() => {
@@ -276,10 +280,35 @@ function App() {
     }
   }
 
+  // Padel Live Match: teams from generator go to live match
+  const handlePadelLiveMatchGenerated = (team1, team2) => {
+    setIsPadelLiveFromGenerator(true)
+    setPadelLiveMatchTeams({ team1, team2 })
+    setIsPadelGeneratorOpen(false)
+    setIsPadelLiveMatchOpen(true)
+  }
+
+  const handlePadelLiveMatchSaved = () => {
+    setIsPadelLiveMatchOpen(false)
+    setPadelLiveMatchTeams({ team1: null, team2: null })
+    fetchData()
+    if (isPadelLiveFromGenerator) {
+      setIsPadelLiveFromGenerator(false)
+      setIsPadelGeneratorOpen(true)
+    }
+  }
+
   const isPingPong = activeSport === 'pingpong'
   const sportEmoji = isPingPong ? <PingPongIcon size={24} /> : <TennisIcon size={24} />
   const sportName = isPingPong ? 'Ping Pong' : 'Padel'
   const sportSubtitle = isPingPong ? 'Track your garage glory.' : 'Track your doubles domination.'
+
+  // Build a padel stats lookup map for UserCards
+  const padelStatsMap = useMemo(() => {
+    const map = {}
+      ; (padelStats || []).forEach(s => { map[s.user_id] = s })
+    return map
+  }, [padelStats])
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors duration-200`}>
@@ -431,6 +460,16 @@ function App() {
                     <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
                   </button>
                 )}
+                {!isPingPong && (
+                  <button
+                    onClick={() => setIsPadelGeneratorOpen(true)}
+                    aria-label="Live Match"
+                    title="Live Match"
+                    className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md"
+                  >
+                    <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
+                  </button>
+                )}
                 <button
                   onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
                   aria-label="Record Match"
@@ -474,6 +513,8 @@ function App() {
                       onClick={() => handleUserClick(user)}
                       onEdit={setEditingUser}
                       isAdmin={isAdmin}
+                      sport={activeSport}
+                      padelStats={padelStatsMap[user.id]}
                     />
                   ))}
                 </div>
@@ -626,7 +667,7 @@ function App() {
           users={users}
           matches={padelMatches}
           padelStats={padelStats}
-          onMatchGenerated={handlePadelMatchGenerated}
+          onMatchGenerated={handlePadelLiveMatchGenerated}
         />
 
         <PadelEditMatchModal
@@ -648,6 +689,20 @@ function App() {
             team2={padelTeams.team2}
             users={users}
             onMatchSaved={handlePadelMatchSaved}
+          />
+        )}
+
+        {padelLiveMatchTeams.team1 && padelLiveMatchTeams.team2 && (
+          <PadelLiveMatchModal
+            isOpen={isPadelLiveMatchOpen}
+            onClose={() => {
+              setIsPadelLiveMatchOpen(false)
+              setPadelLiveMatchTeams({ team1: null, team2: null })
+            }}
+            team1={padelLiveMatchTeams.team1}
+            team2={padelLiveMatchTeams.team2}
+            onMatchSaved={handlePadelLiveMatchSaved}
+            padelStats={padelStats}
           />
         )}
       </div>

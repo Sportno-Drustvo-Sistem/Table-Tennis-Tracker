@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Users, Calendar } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
 import { getMatchWinner } from '../padelUtils'
+import { getEloRank, getAvatarFallback } from '../utils'
 
 const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
@@ -165,13 +166,20 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-green-500 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center space-x-4">
                     <img
-                        src={selectedPlayer.avatar_url || 'https://via.placeholder.com/150'}
+                        src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
                         className="w-20 h-20 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
                     <div>
                         <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
-                        <div className="text-green-600 dark:text-green-400 font-semibold">{stats?.matchesPlayed || 0} Padel Matches Played</div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-green-600 dark:text-green-400 font-semibold">{stats?.matchesPlayed || 0} Padel Matches Played</span>
+                            {(() => {
+                                const rank = getEloRank(playerPadelStats?.elo_rating || 1200); return (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: rank.color, backgroundColor: `${rank.color}22` }}>{rank.label}</span>
+                                )
+                            })()}
+                        </div>
                     </div>
                 </div>
 
@@ -198,10 +206,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                 <div className="col-span-2 bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-xl border border-yellow-100 dark:border-yellow-800 flex flex-col justify-center items-center text-center">
                     <div className="text-yellow-800 dark:text-yellow-400 text-sm font-bold uppercase tracking-wider">ELO Rating</div>
                     <div className="text-5xl font-extrabold text-yellow-600 dark:text-yellow-400 mt-2">
-                        {(playerPadelStats?.matches_played || 0) >= 10
-                            ? playerPadelStats?.elo_rating || 1200
-                            : <span className="text-2xl">Placement</span>
-                        }
+                        {playerPadelStats?.elo_rating || 1200}
                     </div>
                 </div>
 

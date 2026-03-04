@@ -92,7 +92,7 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats,
                             <div>
                                 <div className="font-bold text-gray-900 dark:text-white">{player.name}</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    ELO: {(ps?.matches_played || 0) >= 10 ? (ps?.elo_rating || 1200) : `Placement (${ps?.matches_played || 0}/10)`}
+                                    ELO: {ps?.elo_rating || 1200}
                                 </div>
                             </div>
                         </div>
@@ -145,10 +145,10 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats,
                                         <div
                                             key={user.id}
                                             className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${isExcluded
-                                                    ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 opacity-50'
-                                                    : isSelected
-                                                        ? 'bg-green-50 dark:bg-green-900/30 border-green-400 dark:border-green-600 ring-2 ring-green-400'
-                                                        : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-green-300'
+                                                ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 opacity-50'
+                                                : isSelected
+                                                    ? 'bg-green-50 dark:bg-green-900/30 border-green-400 dark:border-green-600 ring-2 ring-green-400'
+                                                    : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-green-300'
                                                 }`}
                                             onClick={() => !isExcluded && toggleSelect(user)}
                                         >
@@ -161,7 +161,7 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats,
                                                 <div>
                                                     <div className="font-bold text-gray-900 dark:text-white text-sm">{user.name}</div>
                                                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                        Padel ELO: {(ps?.matches_played || 0) >= 10 ? (ps?.elo_rating || 1200) : `P(${ps?.matches_played || 0}/10)`}
+                                                        Padel ELO: {ps?.elo_rating || 1200}
                                                     </div>
                                                 </div>
                                             </div>

@@ -127,8 +127,7 @@ export const recalculatePadelStats = async () => {
             user_id: s.user_id,
             elo_rating: s.elo_rating,
             matches_played: s.matches_played,
-            total_wins: s.total_wins,
-            is_ranked: s.matches_played >= 10
+            total_wins: s.total_wins
         }))
 
     if (upserts.length > 0) {

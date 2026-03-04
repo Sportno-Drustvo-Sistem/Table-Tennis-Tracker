@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { ArrowUp, ArrowDown, Trophy } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
+import { getEloRank, getAvatarFallback } from '../utils'
 
 const PadelLeaderboard = ({ users, matches, padelStats }) => {
     const [startDate, setStartDate] = useState('')
@@ -122,12 +123,6 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
     const sortedStats = useMemo(() => {
         const sorted = [...stats]
         sorted.sort((a, b) => {
-            if (sortConfig.key === 'elo_rating') {
-                const aRanked = (a.matches_played || 0) >= 10
-                const bRanked = (b.matches_played || 0) >= 10
-                if (aRanked && !bRanked) return -1
-                if (!aRanked && bRanked) return 1
-            }
             if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1
             if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1
             return 0
@@ -196,15 +191,19 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                                     <td className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500">#{index + 1}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center">
-                                            <img src={player.avatar_url || 'https://via.placeholder.com/40'} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-bold text-green-600 dark:text-green-400">
-                                        {(player.matches_played || 0) >= 10
-                                            ? player.elo_rating
-                                            : <span className="text-xs text-gray-400 font-normal">Placement ({player.matches_played || 0}/10)</span>
-                                        }
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end items-center gap-1.5">
+                                            <span className="font-bold text-green-600 dark:text-green-400">{player.elo_rating}</span>
+                                            {(() => {
+                                                const rank = getEloRank(player.elo_rating); return (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: rank.color, backgroundColor: `${rank.color}22` }}>{rank.label}</span>
+                                                )
+                                            })()}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-right font-medium text-green-600 dark:text-green-400">{player.wins}</td>
                                     <td className="px-6 py-4 text-right font-medium text-red-500 dark:text-red-400">{player.losses}</td>
