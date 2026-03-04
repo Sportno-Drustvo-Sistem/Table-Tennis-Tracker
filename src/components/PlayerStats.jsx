@@ -97,7 +97,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 wins++
                 if (match.handicap_rule) {
                     const rules = Array.isArray(match.handicap_rule) ? match.handicap_rule : [match.handicap_rule]
-                    if (rules.some(r => r.type === 'streak' && r.targetPlayerId === selectedPlayerId)) {
+                    if (rules.some(r => r.targetPlayerId === selectedPlayerId)) {
                         debuffWins++
                     }
                 }
@@ -333,7 +333,11 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                                     </div>
                                     <div className="flex items-center flex-1 justify-center px-2">
                                         <span className={`font-bold mr-2 ${item.result === 'W' ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{item.result}</span>
-                                        <span className="font-mono font-bold text-gray-900 dark:text-white">{item.score}</span>
+                                        <div className="flex items-center justify-center font-mono font-bold text-gray-900 dark:text-white">
+                                            <span className={item.myScore > item.opponentScore ? 'text-green-600 dark:text-green-400' : ''}>{item.myScore}</span>
+                                            <span className="text-gray-400 mx-1">-</span>
+                                            <span className={item.opponentScore > item.myScore ? 'text-green-600 dark:text-green-400' : ''}>{item.opponentScore}</span>
+                                        </div>
                                     </div>
                                     <div className="flex items-center justify-end w-32 truncate">
                                         <span className="text-gray-600 dark:text-gray-300 mr-2 truncate">{opponent?.name}</span>

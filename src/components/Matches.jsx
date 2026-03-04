@@ -283,9 +283,9 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch,
                                             <td className="px-1 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col items-center">
                                                     <div className="flex items-center justify-center space-x-1 sm:space-x-2 font-mono font-bold text-lg sm:text-xl text-gray-900 dark:text-white whitespace-nowrap">
-                                                        <span>{match.score1}</span>
+                                                        <span className={match.score1 > match.score2 ? 'text-green-600 dark:text-green-400' : ''}>{match.score1}</span>
                                                         <span className="text-gray-400">-</span>
-                                                        <span>{match.score2}</span>
+                                                        <span className={match.score2 > match.score1 ? 'text-green-600 dark:text-green-400' : ''}>{match.score2}</span>
                                                     </div>
                                                     {match.handicap_rule && (
                                                         <div className="mt-1 flex flex-col gap-1 items-center">

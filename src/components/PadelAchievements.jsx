@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair } from 'lucide-react'
 import { buildPadelEloHistory, getMatchWinner } from '../padelUtils'
+import { getActiveDebuffs } from '../utils'
 
 const LEVEL_COLORS = {
     1: { name: 'Bronze', bg: 'bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600', text: 'text-amber-700 dark:text-amber-500' },
@@ -110,6 +111,57 @@ const BADGE_DEFS = [
 ]
 
 const PadelAchievements = ({ playerId, users, matches }) => {
+    const [debuffs, setDebuffs] = React.useState([])
+    React.useEffect(() => {
+        getActiveDebuffs().then(setDebuffs)
+    }, [])
+
+    const allBadgeDefs = useMemo(() => {
+        const wonDebuffTitles = new Set()
+        if (matches && playerId) {
+            matches.forEach(m => {
+                const isTeam1 = m.team1_player1_id === playerId || m.team1_player2_id === playerId
+                const isTeam2 = m.team2_player1_id === playerId || m.team2_player2_id === playerId
+                if (isTeam1 || isTeam2) {
+                    const winner = getMatchWinner(m)
+                    const won = (isTeam1 && winner === 1) || (isTeam2 && winner === 2)
+                    if (won && m.handicap_rule) {
+                        const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
+                        rules.forEach(r => {
+                            if (r.targetPlayerId === playerId && r.title) {
+                                wonDebuffTitles.add(r.title)
+                            }
+                        })
+                    }
+                }
+            })
+        }
+
+        debuffs.forEach(d => {
+            if (d.title) wonDebuffTitles.add(d.title)
+        })
+
+        const dynamicBadges = Array.from(wonDebuffTitles).map(title => {
+            const cleanId = 'debuff_' + title.toLowerCase().replace(/[^a-z0-9]/g, '_')
+            return {
+                id: cleanId,
+                label: `${title} Master`,
+                icon: Shield,
+                isDebuffBadge: true,
+                debuffTitle: title,
+                levels: [
+                    { req: 1, desc: `Won 1 padel match with ${title}` },
+                    { req: 3, desc: `Won 3 padel matches with ${title}` },
+                    { req: 5, desc: `Won 5 padel matches with ${title}` },
+                    { req: 10, desc: `Won 10 padel matches with ${title}` },
+                    { req: 20, desc: `Won 20 padel matches with ${title}` }
+                ]
+            }
+        })
+
+        return [...BADGE_DEFS, ...dynamicBadges]
+    }, [debuffs, matches, playerId])
+
     const { badges: earned, metrics } = useMemo(() => {
         if (!playerId || !matches?.length) return { badges: {}, metrics: null }
 
@@ -124,7 +176,8 @@ const PadelAchievements = ({ playerId, users, matches }) => {
         const badges = {}
 
         const getLevel = (id, metric, ascending = true) => {
-            const def = BADGE_DEFS.find(b => b.id === id)
+            const def = allBadgeDefs.find(b => b.id === id)
+            if (!def) return -1
             let highest = -1
             for (let i = 0; i < def.levels.length; i++) {
                 if (ascending ? metric >= def.levels[i].req : metric <= def.levels[i].req) {
@@ -271,11 +324,33 @@ const PadelAchievements = ({ playerId, users, matches }) => {
             if (cmLvl >= 0) badges['clutch_master'] = cmLvl
         }
 
+        // --- Specific Debuff Winners ---
+        const specificDebuffWins = {}
+        playerMatches.forEach(m => {
+            const isTeam1 = m.team1_player1_id === playerId || m.team1_player2_id === playerId
+            const winner = getMatchWinner(m)
+            const won = (isTeam1 && winner === 1) || (!isTeam1 && winner === 2)
+            if (won && m.handicap_rule) {
+                const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
+                rules.forEach(r => {
+                    if (r.targetPlayerId === playerId && r.title) {
+                        specificDebuffWins[r.title] = (specificDebuffWins[r.title] || 0) + 1
+                    }
+                })
+            }
+        })
+
+        allBadgeDefs.filter(b => b.isDebuffBadge).forEach(badge => {
+            const count = specificDebuffWins[badge.debuffTitle] || 0
+            const lvl = getLevel(badge.id, count)
+            if (lvl >= 0) badges[badge.id] = lvl
+        })
+
         return {
             badges,
-            metrics: { clutchTotal, clutchWins, cmWr }
+            metrics: { clutchTotal, clutchWins, cmWr, specificDebuffWins }
         }
-    }, [playerId, users, matches])
+    }, [playerId, users, matches, allBadgeDefs])
 
     if (Object.keys(earned).length === 0 && !matches?.length) return null
 
@@ -286,7 +361,7 @@ const PadelAchievements = ({ playerId, users, matches }) => {
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {BADGE_DEFS.map(badge => {
+                {allBadgeDefs.map(badge => {
                     const earnedLevelIndex = earned[badge.id]
                     const isEarned = earnedLevelIndex !== undefined
                     const levelDef = isEarned ? badge.levels[earnedLevelIndex] : badge.levels[0]
@@ -313,6 +388,11 @@ const PadelAchievements = ({ playerId, users, matches }) => {
                             {badge.id === 'clutch_master' && metrics && (
                                 <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 mt-0.5">
                                     {(metrics.cmWr * 100).toFixed(1)}% ({metrics.clutchWins}/{metrics.clutchTotal})
+                                </span>
+                            )}
+                            {badge.isDebuffBadge && metrics && (
+                                <span className="text-[10px] font-semibold text-fuchsia-500 dark:text-fuchsia-400 mt-0.5">
+                                    {metrics.specificDebuffWins[badge.debuffTitle] || 0} Wins
                                 </span>
                             )}
                         </div>

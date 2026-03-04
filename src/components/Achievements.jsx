@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
-import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair } from 'lucide-react'
-import { buildEloHistory } from '../utils'
+import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair, Shield } from 'lucide-react'
+import { buildEloHistory, getActiveDebuffs } from '../utils'
 
 const LEVEL_COLORS = {
     1: { name: 'Bronze', bg: 'bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600', text: 'text-amber-700 dark:text-amber-500' },
@@ -107,9 +107,61 @@ const BADGE_DEFS = [
             { req: 0.9, desc: '90%+ win rate in deuce games (min 5)' }
         ]
     },
+
 ]
 
 const Achievements = ({ playerId, users, matches }) => {
+    const [debuffs, setDebuffs] = React.useState([])
+    React.useEffect(() => {
+        getActiveDebuffs().then(setDebuffs)
+    }, [])
+
+    const allBadgeDefs = useMemo(() => {
+        const wonDebuffTitles = new Set()
+        if (matches && playerId) {
+            matches.forEach(m => {
+                const isP1 = m.player1_id === playerId
+                const isP2 = m.player2_id === playerId
+                if (isP1 || isP2) {
+                    const myScore = isP1 ? m.score1 : m.score2
+                    const oppScore = isP1 ? m.score2 : m.score1
+                    if (myScore > oppScore && m.handicap_rule) {
+                        const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
+                        rules.forEach(r => {
+                            if (r.targetPlayerId === playerId && r.title) {
+                                wonDebuffTitles.add(r.title)
+                            }
+                        })
+                    }
+                }
+            })
+        }
+
+        debuffs.forEach(d => {
+            if (d.title) wonDebuffTitles.add(d.title)
+        })
+
+        const dynamicBadges = Array.from(wonDebuffTitles).map(title => {
+            const cleanId = 'debuff_' + title.toLowerCase().replace(/[^a-z0-9]/g, '_')
+            return {
+                id: cleanId,
+                label: `${title} Master`,
+                icon: Shield,
+                isDebuffBadge: true,
+                debuffTitle: title,
+                levels: [
+                    { req: 1, desc: `Won 1 match with ${title}` },
+                    { req: 3, desc: `Won 3 matches with ${title}` },
+                    { req: 5, desc: `Won 5 matches with ${title}` },
+                    { req: 10, desc: `Won 10 matches with ${title}` },
+                    { req: 20, desc: `Won 20 matches with ${title}` }
+                ]
+            }
+        })
+
+        return [...BADGE_DEFS, ...dynamicBadges]
+    }, [debuffs, matches, playerId])
+
     const { badges: earned, metrics } = useMemo(() => {
         if (!playerId || !matches?.length) return { badges: {}, metrics: null }
 
@@ -124,7 +176,8 @@ const Achievements = ({ playerId, users, matches }) => {
         // ascending indicates if higher metric is better (streak, ELO gained) 
         // string 'summit' needs reversed logic (lower rank is better)
         const getLevel = (id, metric, ascending = true) => {
-            const def = BADGE_DEFS.find(b => b.id === id)
+            const def = allBadgeDefs.find(b => b.id === id)
+            if (!def) return -1
             let highest = -1
             for (let i = 0; i < def.levels.length; i++) {
                 if (ascending ? metric >= def.levels[i].req : metric <= def.levels[i].req) {
@@ -224,6 +277,29 @@ const Achievements = ({ playerId, users, matches }) => {
         const sbLvl = getLevel('variety', opponents.size)
         if (sbLvl >= 0) badges['variety'] = sbLvl
 
+        // --- Specific Debuff Winners ---
+        const specificDebuffWins = {}
+        playerMatches.forEach(m => {
+            const isP1 = m.player1_id === playerId
+            const myScore = isP1 ? m.score1 : m.score2
+            const oppScore = isP1 ? m.score2 : m.score1
+            if (myScore > oppScore && m.handicap_rule) {
+                const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
+                rules.forEach(r => {
+                    // Need to capture mayhem type targeting the player or any rule targeting the player
+                    if (r.targetPlayerId === playerId && r.title) {
+                        specificDebuffWins[r.title] = (specificDebuffWins[r.title] || 0) + 1
+                    }
+                })
+            }
+        })
+
+        allBadgeDefs.filter(b => b.isDebuffBadge).forEach(badge => {
+            const count = specificDebuffWins[badge.debuffTitle] || 0
+            const lvl = getLevel(badge.id, count)
+            if (lvl >= 0) badges[badge.id] = lvl
+        })
+
         // --- Clutch Master: deuce win rate (min 5) ---
         let deuceWins = 0
         let deuceTotal = 0
@@ -244,9 +320,9 @@ const Achievements = ({ playerId, users, matches }) => {
 
         return {
             badges,
-            metrics: { deuceTotal, deuceWins, deuceWr }
+            metrics: { deuceTotal, deuceWins, deuceWr, specificDebuffWins }
         }
-    }, [playerId, users, matches])
+    }, [playerId, users, matches, allBadgeDefs])
 
     if (Object.keys(earned).length === 0 && !matches?.length) return null
 
@@ -257,7 +333,7 @@ const Achievements = ({ playerId, users, matches }) => {
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {BADGE_DEFS.map(badge => {
+                {allBadgeDefs.map(badge => {
                     const earnedLevelIndex = earned[badge.id]
                     const isEarned = earnedLevelIndex !== undefined
                     const levelDef = isEarned ? badge.levels[earnedLevelIndex] : badge.levels[0]
@@ -284,6 +360,11 @@ const Achievements = ({ playerId, users, matches }) => {
                             {badge.id === 'clutch_master' && metrics && (
                                 <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 mt-0.5">
                                     {(metrics.deuceWr * 100).toFixed(1)}% ({metrics.deuceWins}/{metrics.deuceTotal})
+                                </span>
+                            )}
+                            {badge.isDebuffBadge && metrics && (
+                                <span className="text-[10px] font-semibold text-fuchsia-500 dark:text-fuchsia-400 mt-0.5">
+                                    {metrics.specificDebuffWins[badge.debuffTitle] || 0} Wins
                                 </span>
                             )}
                         </div>
