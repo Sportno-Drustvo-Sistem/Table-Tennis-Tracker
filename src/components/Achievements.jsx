@@ -110,13 +110,13 @@ const BADGE_DEFS = [
 ]
 
 const Achievements = ({ playerId, users, matches }) => {
-    const earned = useMemo(() => {
-        if (!playerId || !matches?.length) return []
+    const { badges: earned, metrics } = useMemo(() => {
+        if (!playerId || !matches?.length) return { badges: {}, metrics: null }
 
         const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
         const playerMatches = sortedMatches.filter(m => m.player1_id === playerId || m.player2_id === playerId)
 
-        if (playerMatches.length === 0) return []
+        if (playerMatches.length === 0) return { badges: {}, metrics: null }
 
         const badges = {} // { badge_id: level_index }
 
@@ -236,13 +236,16 @@ const Achievements = ({ playerId, users, matches }) => {
                 if (myScore > oppScore) deuceWins++
             }
         })
+        const deuceWr = deuceTotal > 0 ? deuceWins / deuceTotal : 0
         if (deuceTotal >= 5) {
-            const wr = deuceWins / deuceTotal
-            const cmLvl = getLevel('clutch_master', wr)
+            const cmLvl = getLevel('clutch_master', deuceWr)
             if (cmLvl >= 0) badges['clutch_master'] = cmLvl
         }
 
-        return badges
+        return {
+            badges,
+            metrics: { deuceTotal, deuceWins, deuceWr }
+        }
     }, [playerId, users, matches])
 
     if (Object.keys(earned).length === 0 && !matches?.length) return null
@@ -278,6 +281,11 @@ const Achievements = ({ playerId, users, matches }) => {
                                 )}
                             </span>
                             <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{levelDef.desc}</span>
+                            {badge.id === 'clutch_master' && metrics && (
+                                <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 mt-0.5">
+                                    {(metrics.deuceWr * 100).toFixed(1)}% ({metrics.deuceWins}/{metrics.deuceTotal})
+                                </span>
+                            )}
                         </div>
                     )
                 })}

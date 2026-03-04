@@ -50,6 +50,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         // 2. Calculate stats
         let wins = 0
         let losses = 0
+        let debuffWins = 0
         let pointsFor = 0
         let pointsAgainst = 0
         const headToHead = {}
@@ -92,8 +93,17 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             const isWin = myScore > opponentScore
 
             // Totals
-            if (isWin) wins++
-            else losses++
+            if (isWin) {
+                wins++
+                if (match.handicap_rule) {
+                    const rules = Array.isArray(match.handicap_rule) ? match.handicap_rule : [match.handicap_rule]
+                    if (rules.some(r => r.type === 'streak' && r.targetPlayerId === selectedPlayerId)) {
+                        debuffWins++
+                    }
+                }
+            } else {
+                losses++
+            }
             pointsFor += myScore
             pointsAgainst += opponentScore
 
@@ -137,6 +147,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             losses,
             total: wins + losses,
             winRate: (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0,
+            debuffWins,
             pointsDiff: pointsFor - pointsAgainst,
             avgPoints: (wins + losses) > 0 ? (pointsFor / (wins + losses)).toFixed(1) : 0,
             headToHead,
@@ -238,6 +249,10 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 <div className="bg-rose-50 dark:bg-rose-900/10 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
                     <div className="text-rose-800 dark:text-rose-400 text-sm font-bold uppercase flex items-center gap-1"><TrendingDown size={14} /> Min ELO</div>
                     <div className="text-4xl font-extrabold text-rose-600 dark:text-rose-400">{stats?.minElo}</div>
+                </div>
+                <div className="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-4 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
+                    <div className="text-fuchsia-800 dark:text-fuchsia-400 text-[11px] sm:text-sm font-bold uppercase flex items-center gap-1">Debuff Wins</div>
+                    <div className="text-4xl font-extrabold text-fuchsia-600 dark:text-fuchsia-400">{stats?.debuffWins}</div>
                 </div>
             </div>
 
