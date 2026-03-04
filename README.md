@@ -101,12 +101,3 @@ The app will be available at `http://localhost:8080`.
 * `/src/utils.js`: Core logic for ELO, Ranks, and Match calculations.
 * `/src/discordUtils.js`: Logic for Discord Webhook formatting and delivery.
 * `/supabase`: Database migrations and configuration.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please ensure you follow the clean code principles (SOLID, DRY) and document new features in the code comments.
-
----
-*Created with ❤️ for the competitive spirit.*
