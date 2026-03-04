@@ -219,15 +219,16 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         const { streak, winnerId } = matches ? getHeadToHeadStreak(player1.id, player2.id, matches) : { streak: 0, winnerId: null }
         let streakRule = null
+        let winnerName = null
 
         if (streak >= 8 && winnerId) {
-            const winnerName = winnerId === player1.id ? player1.name : player2.name
+            winnerName = winnerId === player1.id ? player1.name : player2.name
             const loserName = winnerId === player1.id ? player2.name : player1.name
             streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
         }
 
         const rules = []
-        if (streakRule) rules.push({ ...streakRule, type: 'streak' })
+        if (streakRule) rules.push({ ...streakRule, type: 'streak', targetPlayerId: winnerId, targetPlayerName: winnerName })
 
         if (debuffs) {
             if (debuffs[player1.id]) rules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
@@ -374,10 +375,26 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             allSets.forEach((s, i) => {
                 const c1 = calculateEloChange(runP1, runP2, s.s1, s.s2, getKFactor(p1Mp + i))
                 const c2 = calculateEloChange(runP2, runP1, s.s2, s.s1, getKFactor(p2Mp + i))
-                totalP1Change += c1
-                totalP2Change += c2
-                runP1 += c1
-                runP2 += c2
+
+                const s1Won = s.s1 > s.s2
+                const s2Won = s.s2 > s.s1
+                let bonus1 = 0
+                let bonus2 = 0
+
+                if (activeRules.length > 0) {
+                    activeRules.forEach(rule => {
+                        const bonus = 2 * (rule.trigger_value || 0)
+                        if (bonus > 0 && rule.type === 'streak') {
+                            if (rule.targetPlayerId === player1.id && s1Won) bonus1 += bonus
+                            else if (rule.targetPlayerId === player2.id && s2Won) bonus2 += bonus
+                        }
+                    })
+                }
+
+                totalP1Change += c1 + bonus1
+                totalP2Change += c2 + bonus2
+                runP1 += c1 + bonus1
+                runP2 += c2 + bonus2
             })
             setEloChange({ p1: Math.round(totalP1Change), p2: Math.round(totalP2Change) })
             setTimeout(() => setEloChange(null), 3000)

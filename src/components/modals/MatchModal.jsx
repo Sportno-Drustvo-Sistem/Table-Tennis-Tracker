@@ -31,15 +31,16 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
         const { streak, winnerId } = matches ? getHeadToHeadStreak(p1.id, p2.id, matches) : { streak: 0, winnerId: null }
         let streakRule = null
+        let winnerName = null
 
         if (streak >= 8 && winnerId) {
-            const winnerName = winnerId === p1.id ? p1.name : p2.name
+            winnerName = winnerId === p1.id ? p1.name : p2.name
             const loserName = winnerId === p1.id ? p2.name : p1.name
             streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
         }
 
         const rules = []
-        if (streakRule) rules.push({ ...streakRule, type: 'streak' })
+        if (streakRule) rules.push({ ...streakRule, type: 'streak', targetPlayerId: winnerId, targetPlayerName: winnerName })
 
         if (debuffs) {
             if (debuffs[p1.id]) rules.push({ ...debuffs[p1.id], targetPlayerId: p1.id, targetPlayerName: p1.name, type: 'mayhem' })

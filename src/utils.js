@@ -62,11 +62,28 @@ export const buildEloHistory = (users, matches) => {
         const c1 = calculateEloChange(eloBefore1, eloBefore2, m.score1, m.score2, getKFactor(mpc[p1]))
         const c2 = calculateEloChange(eloBefore2, eloBefore1, m.score2, m.score1, getKFactor(mpc[p2]))
 
-        ratings[p1] += c1
-        ratings[p2] += c2
-
         const p1Won = m.score1 > m.score2;
         const p2Won = m.score2 > m.score1;
+
+        let bonusP1 = 0
+        let bonusP2 = 0
+
+        if (m.handicap_rule) {
+            const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
+            rules.forEach(rule => {
+                const bonus = 2 * (rule.trigger_value || 0)
+                if (bonus > 0 && rule.type === 'streak') {
+                    if (rule.targetPlayerId === p1 && p1Won) {
+                        bonusP1 += bonus
+                    } else if (rule.targetPlayerId === p2 && p2Won) {
+                        bonusP2 += bonus
+                    }
+                }
+            })
+        }
+
+        ratings[p1] += c1 + bonusP1
+        ratings[p2] += c2 + bonusP2
 
         matchHistory.push({
             matchId: m.id,
@@ -76,8 +93,8 @@ export const buildEloHistory = (users, matches) => {
             p2EloBefore: eloBefore2,
             p1EloAfter: ratings[p1],
             p2EloAfter: ratings[p2],
-            p1Change: c1,
-            p2Change: c2,
+            p1Change: c1 + bonusP1,
+            p2Change: c2 + bonusP2,
             score1: m.score1,
             score2: m.score2,
             date: new Date(m.created_at)
@@ -86,7 +103,7 @@ export const buildEloHistory = (users, matches) => {
         playerEloTimelines[p1].push({
             matchNum: mpc[p1],
             elo: ratings[p1],
-            change: c1,
+            change: c1 + bonusP1,
             opponentId: p2,
             result: p1Won ? 'W' : 'L',
             date: new Date(m.created_at),
@@ -96,7 +113,7 @@ export const buildEloHistory = (users, matches) => {
         playerEloTimelines[p2].push({
             matchNum: mpc[p2],
             elo: ratings[p2],
-            change: c2,
+            change: c2 + bonusP2,
             opponentId: p1,
             result: p2Won ? 'W' : 'L',
             date: new Date(m.created_at),
@@ -137,7 +154,7 @@ export const recalculatePlayerStats = async () => {
     // 2. Fetch all matches ordered by date (Optimization: Select only needed columns)
     const { data: matches, error: matchesError } = await supabase
         .from('matches')
-        .select('player1_id, player2_id, score1, score2, created_at')
+        .select('player1_id, player2_id, score1, score2, handicap_rule, created_at')
         .order('created_at', { ascending: true })
 
     if (matchesError) {
@@ -192,8 +209,28 @@ export const recalculatePlayerStats = async () => {
         const p1Change = calculateEloChange(p1Rating, p2Rating, match.score1, match.score2, k1)
         const p2Change = calculateEloChange(p2Rating, p1Rating, match.score2, match.score1, k2)
 
-        p1.elo_rating += p1Change
-        p2.elo_rating += p2Change
+        const p1Won = match.score1 > match.score2
+        const p2Won = match.score2 > match.score1
+
+        let bonusP1 = 0
+        let bonusP2 = 0
+
+        if (match.handicap_rule) {
+            const rules = Array.isArray(match.handicap_rule) ? match.handicap_rule : [match.handicap_rule]
+            rules.forEach(rule => {
+                const bonus = 2 * (rule.trigger_value || 0)
+                if (bonus > 0 && rule.type === 'streak') {
+                    if (rule.targetPlayerId === p1Id && p1Won) {
+                        bonusP1 += bonus
+                    } else if (rule.targetPlayerId === p2Id && p2Won) {
+                        bonusP2 += bonus
+                    }
+                }
+            })
+        }
+
+        p1.elo_rating += p1Change + bonusP1
+        p2.elo_rating += p2Change + bonusP2
     })
 
     // 5. Update users in Supabase
@@ -397,6 +434,7 @@ export const getHandicapRule = (streak, winnerName, loserName, allDebuffs = []) 
         // But for streak rules color: 
         // In MatchModal: severity === 'critical' ? 'bg-red-500' : 'bg-orange-500'
         // Let's keep compatibility.
-        original_severity: randomRule.severity
+        original_severity: randomRule.severity,
+        trigger_value: randomRule.trigger_value
     }
 }
