@@ -1,12 +1,20 @@
 import React, { useState } from 'react'
 import { X, Shuffle, Check, ArrowRight, ArrowLeft } from 'lucide-react'
 import UserCard from '../UserCard'
+import { getAvatarFallback } from '../../utils'
 
-const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected }) => {
+const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected, padelStats }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
     const [phase, setPhase] = useState('select') // 'select' or 'assign'
     const [team1, setTeam1] = useState([])
     const [team2, setTeam2] = useState([])
+
+    // Build padel stats map
+    const padelStatsMap = {}
+        ; (padelStats || []).forEach(s => {
+            padelStatsMap[s.user_id] = s
+        })
+
 
     if (!isOpen) return null
 
@@ -78,7 +86,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected }) 
     const PlayerBadge = ({ player, teamColor }) => (
         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${teamColor}`}>
             <img
-                src={player.avatar_url || 'https://via.placeholder.com/40'}
+                src={player.avatar_url || getAvatarFallback(player.name)}
                 className="w-8 h-8 rounded-full object-cover bg-gray-200"
                 alt={player.name}
             />
@@ -131,6 +139,8 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected }) 
                                             isSelected={selectedPlayers.some(p => p.id === user.id)}
                                             onClick={() => handlePlayerClick(user)}
                                             onEdit={() => { }}
+                                            sport="padel"
+                                            padelStats={padelStatsMap[user.id]}
                                         />
                                     ))}
                                 </div>
@@ -150,7 +160,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected }) 
                                             <div key={player.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-200 dark:border-gray-600">
                                                 <div className="flex items-center gap-3">
                                                     <img
-                                                        src={player.avatar_url || 'https://via.placeholder.com/40'}
+                                                        src={player.avatar_url || getAvatarFallback(player.name)}
                                                         className="w-10 h-10 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
                                                         alt={player.name}
                                                     />

@@ -659,6 +659,7 @@ function App() {
           onClose={() => setIsPadelSelectionOpen(false)}
           users={users}
           onTeamsSelected={handlePadelTeamsSelected}
+          padelStats={padelStats}
         />
 
         <PadelMatchGeneratorModal
