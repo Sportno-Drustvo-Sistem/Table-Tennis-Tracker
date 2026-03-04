@@ -157,10 +157,9 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             <div
                 className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md flex items-center justify-between flex-wrap gap-4"
                 style={{
-                    borderWidth: playerRank?.division <= 1 ? '3px' : '2px',
-                    borderStyle: playerRank?.division === 3 ? 'dashed' : 'solid',
+                    borderWidth: '3px',
+                    borderStyle: 'solid',
                     borderColor: playerRank?.color || '#3b82f6',
-                    boxShadow: (playerRank?.division <= 1) ? `0 0 12px ${playerRank?.color}40, 0 1px 3px rgba(0,0,0,0.1)` : undefined,
                 }}
             >
                 <div className="flex items-center space-x-4">
