@@ -10,6 +10,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
     const [score2, setScore2] = useState(0)
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
+    const [refusedRules, setRefusedRules] = useState(new Set())
 
     // Manual Override State
     const [p1, setP1] = useState(player1)
@@ -20,6 +21,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
             getActiveDebuffs().then(setAllDebuffs)
             setP1(player1)
             setP2(player2)
+            setRefusedRules(new Set())
         }
     }, [isOpen, player1, player2])
 
@@ -68,7 +70,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         player2_id: p2.id,
                         score1: parseInt(score1),
                         score2: parseInt(score2),
-                        handicap_rule: activeRules.length > 0 ? activeRules : null,
+                        handicap_rule: activeRules.filter((_, idx) => !refusedRules.has(idx)).length > 0 ? activeRules.filter((_, idx) => !refusedRules.has(idx)) : null,
                         tournament_id: tournamentId || null
                     }
                 ])
@@ -99,26 +101,40 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                 {activeRules.length > 0 && (
                     <div className="mb-8 space-y-3">
                         {activeRules.map((rule, idx) => (
-                            <div key={idx} className={`p-4 border-l-4 rounded-r-lg text-left shadow-sm ${rule.type === 'mayhem'
+                            <div key={idx} className={`relative p-4 border-l-4 rounded-r-lg text-left shadow-sm transition-opacity ${refusedRules.has(idx) ? 'opacity-40 grayscale' : ''} ${rule.type === 'mayhem'
                                 ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
                                 : 'bg-amber-50 dark:bg-amber-900/40 border-amber-500'
                                 }`}>
-                                <div className="flex items-start">
-                                    {rule.type === 'mayhem' ? (
-                                        <Skull className="text-purple-600 dark:text-purple-400 mr-3 mt-1 flex-shrink-0" size={24} />
-                                    ) : (
-                                        <Scale className="text-amber-600 dark:text-amber-400 mr-3 mt-1 flex-shrink-0" size={24} />
-                                    )}
-                                    <div>
-                                        <h4 className={`font-bold uppercase text-sm tracking-wide mb-1 ${rule.type === 'mayhem' ? 'text-purple-800 dark:text-purple-200' : 'text-amber-800 dark:text-amber-200'
-                                            }`}>
-                                            {rule.targetPlayerName ? `${rule.targetPlayerName}: ` : ''}{rule.title}
-                                        </h4>
-                                        <p className={`font-medium ${rule.type === 'mayhem' ? 'text-purple-700 dark:text-purple-100' : 'text-amber-700 dark:text-amber-100'
-                                            }`}>
-                                            {rule.description}
-                                        </p>
+                                <div className="flex flex-col sm:flex-row sm:items-start pr-8">
+                                    <div className="flex items-start flex-1">
+                                        {rule.type === 'mayhem' ? (
+                                            <Skull className="text-purple-600 dark:text-purple-400 mr-3 mt-1 flex-shrink-0" size={24} />
+                                        ) : (
+                                            <Scale className="text-amber-600 dark:text-amber-400 mr-3 mt-1 flex-shrink-0" size={24} />
+                                        )}
+                                        <div>
+                                            <h4 className={`font-bold uppercase text-sm tracking-wide mb-1 ${rule.type === 'mayhem' ? 'text-purple-800 dark:text-purple-200' : 'text-amber-800 dark:text-amber-200'
+                                                }`}>
+                                                {rule.targetPlayerName ? `${rule.targetPlayerName}: ` : ''}{rule.title}
+                                            </h4>
+                                            <p className={`font-medium ${rule.type === 'mayhem' ? 'text-purple-700 dark:text-purple-100' : 'text-amber-700 dark:text-amber-100'
+                                                }`}>
+                                                {rule.description}
+                                            </p>
+                                        </div>
                                     </div>
+                                    <button
+                                        onClick={() => {
+                                            const newRefused = new Set(refusedRules)
+                                            if (newRefused.has(idx)) newRefused.delete(idx)
+                                            else newRefused.add(idx)
+                                            setRefusedRules(newRefused)
+                                        }}
+                                        className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
+                                        title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
+                                    >
+                                        <X size={20} className={refusedRules.has(idx) ? "rotate-45" : ""} />
+                                    </button>
                                 </div>
                             </div>
                         ))}

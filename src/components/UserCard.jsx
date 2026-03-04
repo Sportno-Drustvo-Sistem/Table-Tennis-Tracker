@@ -68,8 +68,8 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
             )}
 
             {compact && (
-                <div className="flex items-center mt-1 text-yellow-500 font-semibold text-xs">
-                    <span>{wins}</span>
+                <div className="flex items-center mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: rank.color, backgroundColor: `${rank.color}22` }}>
+                    {elo}
                 </div>
             )}
         </div>

@@ -156,6 +156,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
     const [showWinAnimation, setShowWinAnimation] = useState(false)
+    const [refusedRules, setRefusedRules] = useState(new Set())
 
     // Multi-set state
     const [bestOf, setBestOf] = useState(1) // 1 (single), 3, or 5
@@ -184,6 +185,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setBestOf(1)
             setMatchStarted(false)
             setEloChange(null)
+            setRefusedRules(new Set())
             getActiveDebuffs().then(setAllDebuffs)
 
             // Determine initial server: Higher seed (Lower Elo) serves first
@@ -353,7 +355,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         player2_id: player2.id,
                         score1: setScore.s1,
                         score2: setScore.s2,
-                        handicap_rule: activeRules.length > 0 ? activeRules : null,
+                        handicap_rule: activeRules.filter((_, idx) => !refusedRules.has(idx)).length > 0 ? activeRules.filter((_, idx) => !refusedRules.has(idx)) : null,
                         tournament_id: tournamentId || null,
                     }])
                 if (matchError) throw matchError
@@ -382,7 +384,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 let bonus2 = 0
 
                 if (activeRules.length > 0) {
-                    activeRules.forEach(rule => {
+                    activeRules.forEach((rule, idx) => {
+                        if (refusedRules.has(idx)) return
                         const bonus = 2 * (rule.trigger_value || 0)
                         if (bonus > 0 && rule.type === 'streak') {
                             if (rule.targetPlayerId === player1.id && s1Won) bonus1 += bonus
@@ -557,11 +560,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 {activeRules.length > 0 && (
                     <div className="mx-6 mb-2 space-y-2">
                         {activeRules.map((rule, idx) => (
-                            <div key={idx} className={`p-3 border-l-4 rounded-r-lg text-left text-sm ${rule.type === 'mayhem'
+                            <div key={idx} className={`relative p-3 border-l-4 rounded-r-lg text-left text-sm transition-opacity ${refusedRules.has(idx) ? 'opacity-40 grayscale' : ''} ${rule.type === 'mayhem'
                                 ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
                                 : 'bg-amber-50 dark:bg-amber-900/40 border-amber-500'
                                 }`}>
-                                <div className="flex items-start">
+                                <div className="flex items-start pr-6">
                                     {rule.type === 'mayhem' ? (
                                         <Skull className="text-purple-600 dark:text-purple-400 mr-2 mt-0.5 flex-shrink-0" size={16} />
                                     ) : (
@@ -576,6 +579,18 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                         </span>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => {
+                                        const newRefused = new Set(refusedRules)
+                                        if (newRefused.has(idx)) newRefused.delete(idx)
+                                        else newRefused.add(idx)
+                                        setRefusedRules(newRefused)
+                                    }}
+                                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors"
+                                    title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
+                                >
+                                    <X size={16} className={refusedRules.has(idx) ? "rotate-45" : ""} />
+                                </button>
                             </div>
                         ))}
                     </div>
