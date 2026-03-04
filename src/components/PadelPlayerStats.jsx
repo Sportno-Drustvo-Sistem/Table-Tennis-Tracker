@@ -351,10 +351,12 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                                     <div className="flex flex-col items-center flex-1 justify-center px-1">
                                         <div className="flex items-center">
                                             <span className={`font-bold mr-2 ${item.result === 'W' ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{item.result}</span>
-                                            <span className="font-mono font-bold text-gray-900 dark:text-white text-base">{item.score} <span className="text-xs text-gray-400 font-normal">Sets</span></span>
+                                            <span className="font-mono font-bold text-gray-900 dark:text-white text-base">
+                                                {item.setsData && item.setsData.length === 1 ? item.gamesScore : item.score} <span className="text-xs text-gray-400 font-normal">{item.setsData && item.setsData.length === 1 ? 'Games' : 'Sets'}</span>
+                                            </span>
                                         </div>
                                         {/* Show set scores below */}
-                                        {item.setsData && item.setsData.length > 0 && (
+                                        {item.setsData && item.setsData.length > 1 && (
                                             <div className="flex space-x-1 mt-1 font-mono text-[10px] text-gray-500 dark:text-gray-400">
                                                 {item.setsData.map((s, idx) => {
                                                     const myGames = item.isTeam1 ? s.team1Games : s.team2Games;

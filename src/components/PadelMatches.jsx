@@ -210,7 +210,10 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
                                                         // Calculate Sets won for display
                                                         let s1 = 0;
                                                         let s2 = 0;
-                                                        if (match.sets_data && match.sets_data.length > 0) {
+                                                        if (match.sets_data && match.sets_data.length === 1) {
+                                                            s1 = match.sets_data[0].team1Games;
+                                                            s2 = match.sets_data[0].team2Games;
+                                                        } else if (match.sets_data && match.sets_data.length > 1) {
                                                             match.sets_data.forEach(s => {
                                                                 if (s.team1Games > s.team2Games) s1++;
                                                                 else if (s.team2Games > s.team1Games) s2++;
@@ -228,7 +231,7 @@ const PadelMatches = ({ matches, users, padelStats, onEditMatch, onMatchDeleted,
                                                                     <span className="text-gray-400">-</span>
                                                                     <span className={s2 > s1 ? 'text-green-600 dark:text-green-400' : ''}>{s2}</span>
                                                                 </div>
-                                                                {match.sets_data && match.sets_data.length > 0 && (
+                                                                {match.sets_data && match.sets_data.length > 1 && (
                                                                     <div className="flex space-x-2 text-xs text-gray-500 dark:text-gray-400 font-mono">
                                                                         {match.sets_data.map((set, idx) => (
                                                                             <span key={idx} className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">

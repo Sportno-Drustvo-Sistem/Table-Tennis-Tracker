@@ -181,7 +181,7 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                                     <div className="flex justify-end items-center">Streak <SortIcon column="streakValue" /></div>
                                 </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('scoreDiff')}>
-                                    <div className="flex justify-end items-center">Score Diff <SortIcon column="scoreDiff" /></div>
+                                    <div className="flex justify-end items-center">Games Diff <SortIcon column="scoreDiff" /></div>
                                 </th>
                             </tr>
                         </thead>
