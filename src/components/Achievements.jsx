@@ -2,70 +2,110 @@ import React, { useMemo } from 'react'
 import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair } from 'lucide-react'
 import { buildEloHistory } from '../utils'
 
+const LEVEL_COLORS = {
+    1: { name: 'Bronze', bg: 'bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600', text: 'text-amber-700 dark:text-amber-500' },
+    2: { name: 'Silver', bg: 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-500', text: 'text-gray-700 dark:text-gray-400' },
+    3: { name: 'Gold', bg: 'bg-yellow-100 dark:bg-yellow-900/40 border-yellow-400 dark:border-yellow-500', text: 'text-yellow-700 dark:text-yellow-500' },
+    4: { name: 'Platinum', bg: 'bg-cyan-100 dark:bg-cyan-900/40 border-cyan-400 dark:border-cyan-500', text: 'text-cyan-700 dark:text-cyan-500' },
+    5: { name: 'Diamond', bg: 'bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500', text: 'text-purple-700 dark:text-purple-400' }
+}
+
 const BADGE_DEFS = [
     {
         id: 'on_fire',
         label: 'On Fire',
-        desc: '5+ game win streak',
         icon: Flame,
-        color: 'text-orange-500',
-        bg: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',
+        levels: [
+            { req: 3, desc: '3+ game win streak' },
+            { req: 5, desc: '5+ game win streak' },
+            { req: 7, desc: '7+ game win streak' },
+            { req: 10, desc: '10+ game win streak' },
+            { req: 15, desc: '15+ game win streak' }
+        ]
     },
     {
         id: 'giant_killer',
         label: 'Giant Killer',
-        desc: 'Beat someone 200+ ELO above you',
         icon: Sword,
-        color: 'text-red-500',
-        bg: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+        levels: [
+            { req: 100, desc: 'Beat someone 100+ ELO above you' },
+            { req: 150, desc: 'Beat someone 150+ ELO above you' },
+            { req: 200, desc: 'Beat someone 200+ ELO above you' },
+            { req: 300, desc: 'Beat someone 300+ ELO above you' },
+            { req: 400, desc: 'Beat someone 400+ ELO above you' }
+        ]
     },
     {
         id: 'summit',
         label: 'Summit',
-        desc: 'Reached #1 on the leaderboard',
         icon: Mountain,
-        color: 'text-emerald-500',
-        bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+        levels: [
+            { req: 10, desc: 'Reached Top 10 on leaderboard' },
+            { req: 5, desc: 'Reached Top 5 on leaderboard' },
+            { req: 3, desc: 'Reached Top 3 on leaderboard' },
+            { req: 2, desc: 'Reached Top 2 on leaderboard' },
+            { req: 1, desc: 'Reached #1 on leaderboard' }
+        ]
     },
     {
         id: 'rising_star',
         label: 'Rising Star',
-        desc: 'Gained 100+ ELO in 7 days',
         icon: TrendingUp,
-        color: 'text-blue-500',
-        bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        levels: [
+            { req: 100, desc: 'Gained 100+ ELO in 7 days' },
+            { req: 150, desc: 'Gained 150+ ELO in 7 days' },
+            { req: 200, desc: 'Gained 200+ ELO in 7 days' },
+            { req: 300, desc: 'Gained 300+ ELO in 7 days' },
+            { req: 400, desc: 'Gained 400+ ELO in 7 days' }
+        ]
     },
     {
         id: 'perfect_game',
         label: 'Perfect Game',
-        desc: 'Won a game 11-0',
         icon: Target,
-        color: 'text-purple-500',
-        bg: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+        levels: [
+            { req: 1, desc: 'Won a game 11-0' },
+            { req: 3, desc: 'Won 3 games 11-0' },
+            { req: 5, desc: 'Won 5 games 11-0' },
+            { req: 10, desc: 'Won 10 games 11-0' },
+            { req: 20, desc: 'Won 20 games 11-0' }
+        ]
     },
     {
         id: 'century',
-        label: 'Century',
-        desc: 'Played 100+ matches',
+        label: 'Veteran',
         icon: Medal,
-        color: 'text-yellow-500',
-        bg: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
+        levels: [
+            { req: 50, desc: 'Played 50+ matches' },
+            { req: 100, desc: 'Played 100+ matches' },
+            { req: 250, desc: 'Played 250+ matches' },
+            { req: 500, desc: 'Played 500+ matches' },
+            { req: 1000, desc: 'Played 1000+ matches' }
+        ]
     },
     {
         id: 'variety',
         label: 'Social Butterfly',
-        desc: 'Played 10+ different opponents',
         icon: Users,
-        color: 'text-pink-500',
-        bg: 'bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800',
+        levels: [
+            { req: 2, desc: 'Played 2+ different opponents' },
+            { req: 5, desc: 'Played 5+ different opponents' },
+            { req: 10, desc: 'Played 10+ different opponents' },
+            { req: 15, desc: 'Played 15+ different opponents' },
+            { req: 20, desc: 'Played 20+ different opponents' }
+        ]
     },
     {
         id: 'clutch_master',
         label: 'Clutch Master',
-        desc: '60%+ win rate in deuce games',
         icon: Crosshair,
-        color: 'text-indigo-500',
-        bg: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
+        levels: [
+            { req: 0.5, desc: '50%+ win rate in deuce games (min 5)' },
+            { req: 0.6, desc: '60%+ win rate in deuce games (min 5)' },
+            { req: 0.7, desc: '70%+ win rate in deuce games (min 5)' },
+            { req: 0.8, desc: '80%+ win rate in deuce games (min 5)' },
+            { req: 0.9, desc: '90%+ win rate in deuce games (min 5)' }
+        ]
     },
 ]
 
@@ -78,7 +118,23 @@ const Achievements = ({ playerId, users, matches }) => {
 
         if (playerMatches.length === 0) return []
 
-        const badges = new Set()
+        const badges = {} // { badge_id: level_index }
+
+        // Helper to check which level was reached (returns 0-4, or -1 if none)
+        // ascending indicates if higher metric is better (streak, ELO gained) 
+        // string 'summit' needs reversed logic (lower rank is better)
+        const getLevel = (id, metric, ascending = true) => {
+            const def = BADGE_DEFS.find(b => b.id === id)
+            let highest = -1
+            for (let i = 0; i < def.levels.length; i++) {
+                if (ascending ? metric >= def.levels[i].req : metric <= def.levels[i].req) {
+                    highest = i
+                } else if (ascending) {
+                    break // Next levels require higher metrics, so we can stop
+                }
+            }
+            return highest
+        }
 
         // --- On Fire: current 5+ win streak ---
         let streak = 0
@@ -89,65 +145,86 @@ const Achievements = ({ playerId, users, matches }) => {
             if (won) streak++
             else break
         }
-        if (streak >= 5) badges.add('on_fire')
+        const onFireLvl = getLevel('on_fire', streak)
+        if (onFireLvl >= 0) badges['on_fire'] = onFireLvl
 
         const eloData = buildEloHistory(users, matches)
 
-        // --- Giant Killer: beat someone 200+ ELO above you ---
-        const checkGK = eloData.matchHistory.some(m => {
-            if (m.p1Id === playerId && m.score1 > m.score2 && m.p2EloBefore - m.p1EloBefore >= 200) return true
-            if (m.p2Id === playerId && m.score2 > m.score1 && m.p1EloBefore - m.p2EloBefore >= 200) return true
-            return false
+        // --- Giant Killer: highest ELO beaten ---
+        let maxEloDiff = 0
+        eloData.matchHistory.forEach(m => {
+            if (m.p1Id === playerId && m.score1 > m.score2) {
+                const diff = m.p2EloBefore - m.p1EloBefore
+                if (diff > maxEloDiff) maxEloDiff = diff
+            }
+            if (m.p2Id === playerId && m.score2 > m.score1) {
+                const diff = m.p1EloBefore - m.p2EloBefore
+                if (diff > maxEloDiff) maxEloDiff = diff
+            }
         })
-        if (checkGK) badges.add('giant_killer')
+        const gkLvl = getLevel('giant_killer', maxEloDiff)
+        if (gkLvl >= 0) badges['giant_killer'] = gkLvl
 
-        // --- Summit: was ever #1 ---
+        // --- Summit: best rank ever ---
         const ratingsCheck = {}
         users.forEach(u => { ratingsCheck[u.id] = 1200 })
+        let bestRank = Infinity
 
         for (const m of eloData.matchHistory) {
             ratingsCheck[m.p1Id] = m.p1EloAfter
             ratingsCheck[m.p2Id] = m.p2EloAfter
 
             if (m.p1Id === playerId || m.p2Id === playerId) {
-                const isTop = users.every(u => ratingsCheck[playerId] >= ratingsCheck[u.id])
-                if (isTop) badges.add('summit')
+                // Determine rank among all players
+                // Rank is 1 + number of players with strictly higher ELO
+                const myElo = ratingsCheck[playerId]
+                const rank = 1 + users.filter(u => ratingsCheck[u.id] > myElo).length
+                if (rank < bestRank) bestRank = rank
             }
         }
+        if (bestRank !== Infinity) {
+            const summitLvl = getLevel('summit', bestRank, false) // false because lower rank is better (1 is best)
+            if (summitLvl >= 0) badges['summit'] = summitLvl
+        }
 
-        // --- Rising Star: gained 100+ ELO in any 7-day window ---
+        // --- Rising Star: gained ELO in any 7-day window ---
         const myTimeline = eloData.playerEloTimelines[playerId] || []
+        let maxSevenDayGain = 0
         for (let i = 0; i < myTimeline.length; i++) {
             for (let j = i + 1; j < myTimeline.length; j++) {
                 const daysDiff = (myTimeline[j].date - myTimeline[i].date) / (1000 * 60 * 60 * 24)
                 if (daysDiff > 7) break
-                if (myTimeline[j].elo - myTimeline[i].elo >= 100) {
-                    badges.add('rising_star')
-                    break
-                }
+                const gain = myTimeline[j].elo - myTimeline[i].elo
+                if (gain > maxSevenDayGain) maxSevenDayGain = gain
             }
-            if (badges.has('rising_star')) break
         }
+        const rsLvl = getLevel('rising_star', maxSevenDayGain)
+        if (rsLvl >= 0) badges['rising_star'] = rsLvl
 
-        // --- Perfect Game: won 11-0 ---
+        // --- Perfect Game: 11-0 wins ---
+        let perfects = 0
         playerMatches.forEach(m => {
             const isP1 = m.player1_id === playerId
             const myScore = isP1 ? m.score1 : m.score2
             const oppScore = isP1 ? m.score2 : m.score1
-            if (myScore === 11 && oppScore === 0) badges.add('perfect_game')
+            if (myScore === 11 && oppScore === 0) perfects++
         })
+        const pgLvl = getLevel('perfect_game', perfects)
+        if (pgLvl >= 0) badges['perfect_game'] = pgLvl
 
-        // --- Century: 100+ matches ---
-        if (playerMatches.length >= 100) badges.add('century')
+        // --- Veteran: tracked matches length ---
+        const vetLvl = getLevel('century', playerMatches.length)
+        if (vetLvl >= 0) badges['century'] = vetLvl
 
-        // --- Social Butterfly: 10+ unique opponents ---
+        // --- Social Butterfly: unique opponents ---
         const opponents = new Set()
         playerMatches.forEach(m => {
             opponents.add(m.player1_id === playerId ? m.player2_id : m.player1_id)
         })
-        if (opponents.size >= 10) badges.add('variety')
+        const sbLvl = getLevel('variety', opponents.size)
+        if (sbLvl >= 0) badges['variety'] = sbLvl
 
-        // --- Clutch Master: 60%+ win rate in deuce games (both scored 10+), min 5 deuce matches ---
+        // --- Clutch Master: deuce win rate (min 5) ---
         let deuceWins = 0
         let deuceTotal = 0
         playerMatches.forEach(m => {
@@ -159,12 +236,16 @@ const Achievements = ({ playerId, users, matches }) => {
                 if (myScore > oppScore) deuceWins++
             }
         })
-        if (deuceTotal >= 5 && (deuceWins / deuceTotal) >= 0.6) badges.add('clutch_master')
+        if (deuceTotal >= 5) {
+            const wr = deuceWins / deuceTotal
+            const cmLvl = getLevel('clutch_master', wr)
+            if (cmLvl >= 0) badges['clutch_master'] = cmLvl
+        }
 
-        return Array.from(badges)
+        return badges
     }, [playerId, users, matches])
 
-    if (!earned.length && !matches?.length) return null
+    if (Object.keys(earned).length === 0 && !matches?.length) return null
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
@@ -174,22 +255,29 @@ const Achievements = ({ playerId, users, matches }) => {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {BADGE_DEFS.map(badge => {
-                    const isEarned = earned.includes(badge.id)
+                    const earnedLevelIndex = earned[badge.id]
+                    const isEarned = earnedLevelIndex !== undefined
+                    const levelDef = isEarned ? badge.levels[earnedLevelIndex] : badge.levels[0]
+                    const theme = isEarned ? LEVEL_COLORS[earnedLevelIndex + 1] : null
+
                     const Icon = badge.icon
                     return (
                         <div
                             key={badge.id}
                             className={`flex flex-col items-center p-3 rounded-lg border text-center transition-all ${isEarned
-                                ? `${badge.bg}`
-                                : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-35 grayscale'
+                                ? theme.bg
+                                : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-50 grayscale'
                                 }`}
-                            title={badge.desc}
+                            title={levelDef.desc}
                         >
-                            <Icon className={`${isEarned ? badge.color : 'text-gray-400'} mb-1`} size={24} />
-                            <span className={`text-xs font-bold ${isEarned ? 'text-gray-800 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-                                {badge.label}
+                            <Icon className={`${isEarned ? theme.text : 'text-gray-400'} mb-1`} size={24} />
+                            <span className={`text-xs font-bold flex flex-col items-center gap-0.5 ${isEarned ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}>
+                                <span>{badge.label}</span>
+                                {isEarned && (
+                                    <span className={`text-[10px] px-1.5 rounded-sm ${theme.bg} ${theme.text}`}>Level {earnedLevelIndex + 1} ({theme.name})</span>
+                                )}
                             </span>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{badge.desc}</span>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{levelDef.desc}</span>
                         </div>
                     )
                 })}
