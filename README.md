@@ -1,70 +1,114 @@
 # 🏓 Ping Pong & Padel Tracker
 
-A modern, web-based tracker for your local sports club or office league. Initially built for ping pong, now expanded to support Padel doubles! Keep track of scores, run tournaments, view leaderboards, and analyze player statistics to see who truly rules the court.
+A modern, high-performance web application for tracking sports leagues, tournaments, and player statistics. Designed for local clubs, office leagues, or competitive circles to professionalize their matches.
 
-## Features
+![App Screenshot](https://raw.githubusercontent.com/lucide-react/lucide/main/icons/trophy.png)
 
-### 🏆 Tournaments (New!)
-*   **Bracket Generator**: Create Single or Double Elimination brackets for 4-16 players.
-*   **Seeding**: Optional Swiss stage (coming soon) or random seeding.
-*   **Trophy Case**: Tournament results are permanently saved. Winners get virtual trophies displayed on their profile.
-*   **Integrated Stats**: Tournament matches count towards your global ELO and win/loss records.
+## 🌟 Key Features
 
-### 🎾 Padel Support
-*   **Doubles Tracking**: Record matches for 2v2 Padel games.
-*   **Separate Stats**: Padel ELO and stats are tracked separately from Ping Pong.
-*   **Team Analysis**: See which partnerships work best.
+### 🎙️ Live Umpire & Voice (New!)
 
-### 🏅 Leaderboard
-*   **Rankings**: Automatically ranked by Wins, Losses, Win %, and Score Difference.
-*   **Streaks**: See who is currently on a hot winning streak or a cold losing streak.
-*   **Sorting**: Click any column header to sort the leaderboard by that metric.
-*   **Date Filtering**: Filter the leaderboard to see who was the best in a specific month or year.
+* **Point-by-Point Scoring**: Real-time match tracking with a dedicated umpire interface.
+* **Serve Indicator**: Automatic calculation of whose serve it is, including ELO-based initial serve determination.
+* **Voice Announcements**: Built-in `speechSynthesis` to call scores and match points automatically.
 
-### 📊 Player Stats
-*   **Deep Dive**: Select any player to view their detailed performance metrics.
-*   **Trophy Case**: View a collection of badges and medals from tournament performances.
-*   **Head-to-Head**: See your win/loss record against every opponent.
-*   **Timeline**: View a history of recent matches with win/loss indicators.
+### 📢 Discord Integration (New!)
 
-### ⚔️ Match Tracking
-*   **Quick Entry**: Select players/teams and log a match in seconds.
-*   **Handicap System**: Automatic handicap suggestions if a player is on a massive winning streak against another.
-*   **Avatar Support**: Upload profile pictures for players.
+* **Daily Reports**: Automatic summaries of the day's action sent directly to your Discord server.
+* **Highlight Detection**: Automatically identifies biggest upsets (ELO gaps) and most active players.
+* **H2H Summaries**: Detailed breakdown of every matchup played that day.
 
-### 🌗 Dark Mode
-*   **Theme Toggle**: Switch between Light and Dark mode to suit your environment.
+### 🏆 Tournaments
 
-## Tech Stack
-*   **Frontend**: React + Vite
-*   **Styling**: TailwindCSS + Vanilla CSS
-*   **Icons**: Lucide React
-*   **Backend**: Supabase (Database & Storage)
+* **Bracket Management**: Generate Single or Double Elimination brackets for 4-16 players.
+* **Trophy Case**: Winners earn permanent virtual trophies displayed on their global profiles.
+* **Management**: Full control to create, manage, and delete tournaments as needed.
+* **Integrated Stats**: Every tournament match feeds back into global player rankings.
 
-## Setup & Running
+### 🎾 Padel & Doubles Support
 
-1.  **Install Dependencies**
+* **2v2 Tracking**: Full support for Padel doubles with team-based stats.
+* **Independent Rankings**: Padel ELO and history are tracked separately from Ping Pong.
+* **Synergy Analysis**: See which player partnerships are the most dominant.
+
+### 💹 Advanced ELO & Ranking System
+
+* **Dynamic K-Factor**: Adjusted based on match experience to ensure fair progression.
+* **Handicap System**: Automatic debuffs suggested for players on significant winning streaks to keep games competitive.
+* **Professional Tiers**: Custom ranks from **Iron** to **Champion** based on MMR.
+
+### 📊 Player Statistics
+
+* **Achievements**: Track goals like "Clutch Master" (win % at match point) and debuff challenges.
+* **Head-to-Head**: Deep historic analysis of your performance against every opponent.
+* **ELO Timeline**: Interactive charts showing your rise (or fall) through the ranks.
+
+---
+
+## 🛠️ Tech Stack
+
+* **Frontend**: [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+* **Styling**: [TailwindCSS](https://tailwindcss.com/)
+* **Database**: [Supabase](https://supabase.com/) (Real-time DB & Auth)
+* **Charts**: [Recharts](https://recharts.org/)
+* **Icons**: [Twemoji](https://twemoji.twitter.com/) + [Lucide](https://lucide.dev/)
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+* Supabase Account
+
+### Option 1: Local Development
+
+1. **Install Dependencies**
+
     ```bash
     npm install
     ```
 
-2.  **Environment Setup**
-    Create a `.env` file in the root directory and add your Supabase credentials:
+2. **Environment Setup**
+    Create a `.env` file:
+
     ```env
     VITE_SUPABASE_URL=your_project_url
     VITE_SUPABASE_ANON_KEY=your_anon_key
     ```
 
-3.  **Run Locally**
+3. **Run Development Server**
+
     ```bash
     npm run dev
     ```
 
-## Database Schema
-The app uses Supabase for data persistence. Key tables:
+### Option 2: Docker (Recommended)
 
-*   `users`: Player info (id, name, avatar_url, stats).
-*   `matches`: Ping pong match records.
-*   `padel_matches`: Padel match records.
-*   `tournaments`: Tournament metadata (name, status, format).
-*   `tournament_results`: Player placements in tournaments.
+We provide a containerized setup for easy deployment:
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+```
+
+The app will be available at `http://localhost:8080`.
+
+---
+
+## 📂 Project Structure
+
+- `/src/components`: React UI components grouped by feature (Modals, Tournament, etc.).
+* `/src/utils.js`: Core logic for ELO, Ranks, and Match calculations.
+* `/src/discordUtils.js`: Logic for Discord Webhook formatting and delivery.
+* `/supabase`: Database migrations and configuration.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please ensure you follow the clean code principles (SOLID, DRY) and document new features in the code comments.
+
+---
+*Created with ❤️ for the competitive spirit.*
