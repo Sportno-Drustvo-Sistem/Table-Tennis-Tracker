@@ -98,6 +98,28 @@ const speak = async (text) => {
     } catch (e) { console.error("Speech Error:", e) }
 }
 
+const playAudioSequence = async (paths, fallbackText) => {
+    let hasError = false
+    for (const path of paths) {
+        if (hasError) break;
+        await new Promise((resolve) => {
+            const audio = new Audio(`/sounds/voices/${path}`)
+            audio.onended = resolve
+            audio.onerror = () => {
+                hasError = true
+                resolve() // skip on error
+            }
+            audio.play().catch((e) => {
+                hasError = true
+                resolve()
+            })
+        })
+    }
+    if (hasError && fallbackText) {
+        speak(fallbackText)
+    }
+}
+
 /**
  * PadelLiveMatchModal — Full live match tracker with correct Padel scoring and serving rules.
  * Padel scoring: 15/30/40/Deuce/Advantage per game, first to 6 games wins a set (tiebreak at 6-6).
@@ -336,7 +358,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 advanceServe()
 
                 if (soundEnabled) {
-                    setTimeout(() => speak('Tiebreak!'), 100)
+                    setTimeout(() => playAudioSequence(['tiebreak.mp3'], 'Tiebreak!'), 100)
                 }
                 return
             }
@@ -360,16 +382,18 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                     setT2Points(newT2Pts)
                     if (soundEnabled) {
                         playWinSound()
-                        const winnerName = mw === 1 ? 'Green' : 'Red'
-                        setTimeout(() => speak(`Game, set, and match... ${winnerName} wins!`), 300)
+                        const winnerName = mw === 1 ? 'green' : 'red'
+                        const winnerNameFallback = mw === 1 ? 'Green' : 'Red'
+                        setTimeout(() => playAudioSequence([`${winnerName}_wins.mp3`], `Game, set, and match... ${winnerNameFallback} wins!`), 300)
                     }
                     return
                 }
 
                 // Set won but match continues — announce and start new set after delay
                 if (soundEnabled) {
-                    const setWinnerName = setWon === 1 ? 'Green' : 'Red'
-                    setTimeout(() => speak(`Set to ${setWinnerName}... ${newSetsWon1} - ${newSetsWon2}.`), 200)
+                    const setWinnerName = setWon === 1 ? 'green' : 'red'
+                    const setWinnerNameFallback = setWon === 1 ? 'Green' : 'Red'
+                    setTimeout(() => playAudioSequence([`set_to_${setWinnerName}.mp3`, `${newSetsWon1}.mp3`, `${newSetsWon2}.mp3`], `Set to ${setWinnerNameFallback}... ${newSetsWon1} - ${newSetsWon2}.`), 200)
                 }
 
                 setT1Games(newT1Games)
@@ -394,8 +418,9 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             advanceServe()
 
             if (soundEnabled) {
-                const gwName = gameWon === 1 ? 'Green' : 'Red'
-                setTimeout(() => speak(`Game ${gwName}... ${newT1Games} - ${newT2Games}.`), 150)
+                const gwName = gameWon === 1 ? 'green' : 'red'
+                const gwNameFallback = gameWon === 1 ? 'Green' : 'Red'
+                setTimeout(() => playAudioSequence([`game_to_${gwName}.mp3`, `${newT1Games}.mp3`, `${newT2Games}.mp3`], `Game ${gwNameFallback}... ${newT1Games} - ${newT2Games}.`), 150)
             }
             return
         }
@@ -406,8 +431,18 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
         // Voice announcement for point
         if (soundEnabled) {
+            let files = []
+            if (isTiebreak) {
+                files = [`${newT1Pts}.mp3`, `${newT2Pts}.mp3`]
+            } else if (newT1Pts >= 3 && newT2Pts >= 3) {
+                if (newT1Pts === newT2Pts) files = ['deuce.mp3']
+                else if (newT1Pts > newT2Pts) files = ['advantage_green.mp3']
+                else files = ['advantage_red.mp3']
+            } else {
+                files = [`${PADEL_POINTS[newT1Pts]}.mp3`, `${PADEL_POINTS[newT2Pts]}.mp3`]
+            }
             const announcement = getScoreAnnouncement(newT1Pts, newT2Pts, isTiebreak)
-            setTimeout(() => speak(announcement), 100)
+            setTimeout(() => playAudioSequence(files, announcement), 100)
         }
     }, [t1Points, t2Points, t1Games, t2Games, completedSets, isTiebreak,
         servingTeam, t1ServeIndex, t2ServeIndex, totalGamesInSet,

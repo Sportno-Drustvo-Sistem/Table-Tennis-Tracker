@@ -145,6 +145,28 @@ const speak = async (text) => {
     } catch (e) { console.error("Speech Error:", e) }
 }
 
+const playAudioSequence = async (paths, fallbackText) => {
+    let hasError = false
+    for (const path of paths) {
+        if (hasError) break;
+        await new Promise((resolve) => {
+            const audio = new Audio(`/sounds/voices/${path}`)
+            audio.onended = resolve
+            audio.onerror = () => {
+                hasError = true
+                resolve() // skip on error
+            }
+            audio.play().catch((e) => {
+                hasError = true
+                resolve()
+            })
+        })
+    }
+    if (hasError && fallbackText) {
+        speak(fallbackText)
+    }
+}
+
 const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState(0)
@@ -282,14 +304,14 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 if (soundEnabled) {
                     playWinSound()
                     const winnerName = mw === 1 ? 'Blue' : 'Red'
-                    setTimeout(() => speak(`${winnerName} wins!`), 300)
+                    setTimeout(() => playAudioSequence([`${winnerName.toLowerCase()}_wins.mp3`], `${winnerName} wins!`), 300)
                 }
             } else {
                 // Game within set done, start next game
                 setGameWinner(w)
                 if (soundEnabled) {
                     const gameWinnerName = w === 1 ? 'Blue' : 'Red'
-                    setTimeout(() => speak(`Game to ${gameWinnerName}... ${newGamesWon1} - ${newGamesWon2}.`), 200)
+                    setTimeout(() => playAudioSequence([`game_to_${gameWinnerName.toLowerCase()}.mp3`, `${newGamesWon1}.mp3`, `${newGamesWon2}.mp3`], `Game to ${gameWinnerName}... ${newGamesWon1} - ${newGamesWon2}.`), 200)
                 }
                 // Auto-reset after a brief pause
                 setTimeout(() => {
@@ -320,13 +342,13 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                 // Using commas and ellipses forces the speech engine to pause naturally
                 if (isDeuce && newS1 === newS2) {
-                    setTimeout(() => speak(`Deuce... ... ${serverName} serves.`), 100)
+                    setTimeout(() => playAudioSequence(['deuce.mp3', `${serverName.toLowerCase()}_serves.mp3`], `Deuce... ... ${serverName} serves.`), 100)
                 } else if (mp1 && !matchWinner) {
-                    setTimeout(() => speak(`Blue match point... Red.. ${newS2}... ... ${serverName} serves.`), 100)
+                    setTimeout(() => playAudioSequence(['blue_match_point.mp3', 'red.mp3', `${newS2}.mp3`, `${serverName.toLowerCase()}_serves.mp3`], `Blue match point... Red.. ${newS2}... ... ${serverName} serves.`), 100)
                 } else if (mp2 && !matchWinner) {
-                    setTimeout(() => speak(`Red match point... Blue.. ${newS1}... ... ${serverName} serves.`), 100)
+                    setTimeout(() => playAudioSequence(['red_match_point.mp3', 'blue.mp3', `${newS1}.mp3`, `${serverName.toLowerCase()}_serves.mp3`], `Red match point... Blue.. ${newS1}... ... ${serverName} serves.`), 100)
                 } else {
-                    setTimeout(() => speak(`${newS1}... ${newS2}... ... ${serverName} serves.`), 100)
+                    setTimeout(() => playAudioSequence([`${newS1}.mp3`, `${newS2}.mp3`, `${serverName.toLowerCase()}_serves.mp3`], `${newS1}... ${newS2}... ... ${serverName} serves.`), 100)
                 }
             }
         }
