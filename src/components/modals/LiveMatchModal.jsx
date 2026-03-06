@@ -145,18 +145,46 @@ const speak = async (text) => {
     } catch (e) { console.error("Speech Error:", e) }
 }
 
+let sharedVoicesAudio = null
+let audioUnlocked = false
+
+const unlockAudioAndSpeech = () => {
+    if (audioUnlocked) return
+
+    // Unlock Web Audio
+    const ctx = getAudioCtx()
+    if (ctx.state === 'suspended') ctx.resume()
+
+    // Unlock Speech Synthesis
+    if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance('')
+        u.volume = 0
+        window.speechSynthesis.speak(u)
+    }
+
+    // Unlock HTML5 Audio
+    if (!sharedVoicesAudio) {
+        sharedVoicesAudio = new Audio()
+        sharedVoicesAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+        sharedVoicesAudio.play().catch(() => { })
+    }
+    audioUnlocked = true
+}
+
 const playAudioSequence = async (paths, fallbackText) => {
     let hasError = false
+    if (!sharedVoicesAudio) sharedVoicesAudio = new Audio()
+
     for (const path of paths) {
         if (hasError) break;
         await new Promise((resolve) => {
-            const audio = new Audio(`/sounds/voices/${path}`)
-            audio.onended = resolve
-            audio.onerror = () => {
+            sharedVoicesAudio.src = `/sounds/voices/${path}`
+            sharedVoicesAudio.onended = resolve
+            sharedVoicesAudio.onerror = () => {
                 hasError = true
                 resolve() // skip on error
             }
-            audio.play().catch((e) => {
+            sharedVoicesAudio.play().catch((e) => {
                 hasError = true
                 resolve()
             })
@@ -270,6 +298,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const gamesWon2 = completedSets.filter(s => s.s2 > s.s1).length
 
     const scorePoint = (playerNum) => {
+        unlockAudioAndSpeech()
         if (gameWinner || matchWinner) return
 
         let newS1 = score1
@@ -355,6 +384,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     }
 
     const undoLast = () => {
+        unlockAudioAndSpeech()
         if (history.length === 0 || gameWinner || matchWinner) return
 
         const lastScorer = history[history.length - 1]
@@ -435,6 +465,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     }
 
     const handleRematch = () => {
+        unlockAudioAndSpeech()
         setScore1(0)
         setScore2(0)
         setHistory([])
@@ -529,7 +560,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             {[1, 3, 5].map(n => (
                                 <button
                                     key={n}
-                                    onClick={() => setBestOf(n)}
+                                    onClick={() => { unlockAudioAndSpeech(); setBestOf(n); }}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${bestOf === n
                                         ? 'bg-blue-500 text-white'
                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'

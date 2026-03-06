@@ -98,18 +98,46 @@ const speak = async (text) => {
     } catch (e) { console.error("Speech Error:", e) }
 }
 
+let sharedVoicesAudio = null
+let audioUnlocked = false
+
+const unlockAudioAndSpeech = () => {
+    if (audioUnlocked) return
+
+    // Unlock Web Audio
+    const ctx = getAudioCtx()
+    if (ctx.state === 'suspended') ctx.resume()
+
+    // Unlock Speech Synthesis
+    if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance('')
+        u.volume = 0
+        window.speechSynthesis.speak(u)
+    }
+
+    // Unlock HTML5 Audio
+    if (!sharedVoicesAudio) {
+        sharedVoicesAudio = new Audio()
+        sharedVoicesAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+        sharedVoicesAudio.play().catch(() => { })
+    }
+    audioUnlocked = true
+}
+
 const playAudioSequence = async (paths, fallbackText) => {
     let hasError = false
+    if (!sharedVoicesAudio) sharedVoicesAudio = new Audio()
+
     for (const path of paths) {
         if (hasError) break;
         await new Promise((resolve) => {
-            const audio = new Audio(`/sounds/voices/${path}`)
-            audio.onended = resolve
-            audio.onerror = () => {
+            sharedVoicesAudio.src = `/sounds/voices/${path}`
+            sharedVoicesAudio.onended = resolve
+            sharedVoicesAudio.onerror = () => {
                 hasError = true
                 resolve() // skip on error
             }
-            audio.play().catch((e) => {
+            sharedVoicesAudio.play().catch((e) => {
                 hasError = true
                 resolve()
             })
@@ -283,6 +311,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // --- Score a point ---
     const scorePoint = useCallback((teamNum) => {
+        unlockAudioAndSpeech()
         if (matchWinner) return
 
         if (!matchStarted) setMatchStarted(true)
@@ -451,6 +480,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // --- Undo last point ---
     const undoLast = useCallback(() => {
+        unlockAudioAndSpeech()
         if (history.length === 0 || matchWinner) return
         const prev = history[history.length - 1]
         setT1Points(prev.t1Points)
@@ -525,6 +555,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // --- Rematch ---
     const handleRematch = () => {
+        unlockAudioAndSpeech()
         setT1Points(0)
         setT2Points(0)
         setT1Games(0)
@@ -605,7 +636,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                             {[1, 3].map(n => (
                                 <button
                                     key={n}
-                                    onClick={() => setMatchFormat(n)}
+                                    onClick={() => { unlockAudioAndSpeech(); setMatchFormat(n); }}
                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${matchFormat === n
                                         ? 'bg-green-500 text-white'
                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
