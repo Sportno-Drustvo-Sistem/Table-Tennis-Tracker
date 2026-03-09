@@ -91,7 +91,15 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         if (tourneyError) { showToast('Error starting tournament: ' + tourneyError.message, 'error'); return }
 
         const tournamentId = tourneyData.id
-        const participants = shuffle(users.filter(u => playerIds.includes(u.id)))
+        // For groups, we can shuffle first so groups are random.
+        // For standard bracket, sort by ELO descending to properly seed 1v4, 2v3 etc.
+        let participants = users.filter(u => playerIds.includes(u.id))
+        if (useGroupStage) {
+            participants = shuffle(participants)
+        } else {
+            participants.sort((a, b) => (b.elo_rating || 1200) - (a.elo_rating || 1200))
+        }
+
         const usersMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})
 
         if (useGroupStage) {

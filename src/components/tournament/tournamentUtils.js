@@ -144,17 +144,16 @@ export const propagateAdvancements = (allRounds, mayhemMode, debuffsPool, usersM
             round.matches.forEach((match, mIdx) => {
                 // 1. Determine winner if it's a bye or has only one valid player
                 //    Only auto-assign byes during initial setup (seeding), not mid-tournament
-                if (!match.winner && isInitialSetup) {
+                //    And ONLY if the match was explicitly marked as a bye during generation
+                if (!match.winner && isInitialSetup && match.isBye) {
                     // One player is real, the other is null or missing
                     if (match.player1 && !match.player2) {
                         match.winner = match.player1
-                        match.isBye = true
                         changed = true
                     } else if (!match.player1 && match.player2) {
                         match.winner = match.player2
-                        match.isBye = true
                         changed = true
-                    } else if (match.isBye && !match.player1 && !match.player2) {
+                    } else if (!match.player1 && !match.player2) {
                         // Special case: both null (e.g. propagated bye in LB)
                         match.winner = null
                     }
@@ -489,12 +488,6 @@ export const initGroupStandings = (players) => {
     }))
 }
 
-/**
- * Seed players into elimination bracket based on Group standings
- * and the specific pairing rules:
- * - Single group: 1st vs last, 2nd vs second-to-last, etc.
- * - Two groups: A1 vs BLAST, B1 vs ALAST, etc.
- */
 export const seedFromGroups = (groups) => {
     // Rank each group first
     const rankedGroups = groups.map(group => {
@@ -507,55 +500,20 @@ export const seedFromGroups = (groups) => {
     const participants = []
 
     if (rankedGroups.length === 1) {
-        const sorted = rankedGroups[0]
-        const n = sorted.length
-
-        // Custom rule: for 5 players (or any odd N), 1st seed gets a bye
-        if (n % 2 !== 0) {
-            // Rank 1 gets bye, others pair up
-            participants.push(sorted[0].player) // Seed 1
-            participants.push(null)             // Bye for Seed 1
-
-            // Remaining players (2, 3, 4, 5...) paired 2nd vs last, 3rd vs second-to-last
-            const remaining = sorted.slice(1)
-            for (let i = 0; i < Math.floor(remaining.length / 2); i++) {
-                participants.push(remaining[i].player)
-                participants.push(remaining[remaining.length - 1 - i].player)
-            }
-        } else {
-            // Even: 1vN, 2v(N-1) etc.
-            for (let i = 0; i < n / 2; i++) {
-                participants.push(sorted[i].player)
-                participants.push(sorted[n - 1 - i].player)
-            }
-        }
+        // Just return the single group straight down from 1st to last
+        return rankedGroups[0].map(s => s.player)
     } else {
-        // Two groups: A1 vs BLAST, B1 vs ALAST, A2 vs B(LAST-1), etc.
-        const groupA = rankedGroups[0]
-        const groupB = rankedGroups[1]
-        const m = groupA.length // They are split evenly
-
-        for (let i = 0; i < Math.floor(m / 2); i++) {
-            const oppositeIdx = m - 1 - i
-
-            // Pair Ai vs B(opposite)
-            participants.push(groupA[i].player)
-            participants.push(groupB[oppositeIdx].player)
-
-            // Pair Bi vs A(opposite)
-            participants.push(groupB[i].player)
-            participants.push(groupA[oppositeIdx].player)
-        }
-
-        // If m is odd, pair the middle players from each group
-        if (m % 2 !== 0) {
-            const mid = Math.floor(m / 2)
-            participants.push(groupA[mid].player)
-            participants.push(groupB[mid].player)
+        // Interleaved serpentine seeding for 2+ groups
+        // e.g., A1, B1, A2, B2, A3, B3
+        const maxLen = Math.max(...rankedGroups.map(g => g.length))
+        for (let i = 0; i < maxLen; i++) {
+            for (let g = 0; g < rankedGroups.length; g++) {
+                if (rankedGroups[g][i]) {
+                    participants.push(rankedGroups[g][i].player)
+                }
+            }
         }
     }
-
-
 
     return participants
 }
