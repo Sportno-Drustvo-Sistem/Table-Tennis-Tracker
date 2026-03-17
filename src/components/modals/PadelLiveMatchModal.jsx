@@ -528,19 +528,22 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
             if (matchError) throw matchError
 
-            await recalculatePadelStats()
+            // Incremental ELO Update
+            const builtMatch = {
+                team1_player1_id: team1[0].id,
+                team1_player2_id: team1[1].id,
+                team2_player1_id: team2[0].id,
+                team2_player2_id: team2[1].id,
+                score1: totalT1Games,
+                score2: totalT2Games
+            }
 
-            // Calculate ELO change for display animation
-            const statsMap = {}
-                ; (padelStats || []).forEach(s => { statsMap[s.user_id] = s })
-            const t1Elo = ((statsMap[team1[0]?.id]?.elo_rating || 1200) + (statsMap[team1[1]?.id]?.elo_rating || 1200)) / 2
-            const t2Elo = ((statsMap[team2[0]?.id]?.elo_rating || 1200) + (statsMap[team2[1]?.id]?.elo_rating || 1200)) / 2
-            const avgMp = ((statsMap[team1[0]?.id]?.matches_played || 0) + (statsMap[team1[1]?.id]?.matches_played || 0) +
-                (statsMap[team2[0]?.id]?.matches_played || 0) + (statsMap[team2[1]?.id]?.matches_played || 0)) / 4
-            const k = getKFactor(avgMp)
-            const c1 = calculateEloChange(t1Elo, t2Elo, totalT1Games, totalT2Games, k)
-            const c2 = calculateEloChange(t2Elo, t1Elo, totalT2Games, totalT1Games, k)
-            setEloChange({ t1: Math.round(c1), t2: Math.round(c2) })
+            const changes = await applyPadelMatchResultToStats(builtMatch)
+            
+            setEloChange({ 
+                t1: Math.round(changes[team1[0].id]), 
+                t2: Math.round(changes[team2[0].id]) 
+            })
             setTimeout(() => setEloChange(null), 3000)
 
             showToast('Padel match saved!', 'success')

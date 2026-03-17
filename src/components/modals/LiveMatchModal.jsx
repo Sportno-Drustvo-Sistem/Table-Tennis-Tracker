@@ -413,45 +413,15 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 if (matchError) throw matchError
             }
 
-            await recalculatePlayerStats()
-
-            // Compute ELO display delta accurately:
-            // Replay history from 1200 baseline up to the current match to find pre-match ELOs,
-            // then calculate the change for each set as if played sequentially.
-            const p1Elo = player1.elo_rating || 1200
-            const p2Elo = player2.elo_rating || 1200
-            let totalP1Change = 0
-            let totalP2Change = 0
-            let runP1 = p1Elo
-            let runP2 = p2Elo
-            const p1Mp = player1.matches_played || 0
-            const p2Mp = player2.matches_played || 0
-            allSets.forEach((s, i) => {
-                const c1 = calculateEloChange(runP1, runP2, s.s1, s.s2, getKFactor(p1Mp + i))
-                const c2 = calculateEloChange(runP2, runP1, s.s2, s.s1, getKFactor(p2Mp + i))
-
-                const s1Won = s.s1 > s.s2
-                const s2Won = s.s2 > s.s1
-                let bonus1 = 0
-                let bonus2 = 0
-
-                if (activeRules.length > 0) {
-                    activeRules.forEach((rule, idx) => {
-                        if (refusedRules.has(idx)) return
-                        const bonus = 2 * (rule.trigger_value || 0)
-                        if (bonus > 0 && rule.type === 'streak') {
-                            if (rule.targetPlayerId === player1.id && s1Won) bonus1 += bonus
-                            else if (rule.targetPlayerId === player2.id && s2Won) bonus2 += bonus
-                        }
-                    })
-                }
-
-                totalP1Change += c1 + bonus1
-                totalP2Change += c2 + bonus2
-                runP1 += c1 + bonus1
-                runP2 += c2 + bonus2
-            })
-            setEloChange({ p1: Math.round(totalP1Change), p2: Math.round(totalP2Change) })
+            // 2. Incremental ELO Update
+            const { p1Change, p2Change } = await applyMatchResultToStats(
+                player1.id, 
+                player2.id, 
+                allSets, 
+                activeRules.filter((_, idx) => !refusedRules.has(idx))
+            )
+            
+            setEloChange({ p1: Math.round(p1Change), p2: Math.round(p2Change) })
             setTimeout(() => setEloChange(null), 3000)
 
             showToast('Match saved!', 'success')

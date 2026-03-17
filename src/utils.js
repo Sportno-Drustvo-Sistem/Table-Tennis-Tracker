@@ -277,6 +277,90 @@ export const recalculatePlayerStats = async () => {
     }
 }
 
+export const applyMatchResultToStats = async (p1Id, p2Id, sets, activeRules = []) => {
+    // 1. Fetch exact current stats for only these two players
+    const { data: players, error: fetchError } = await supabase
+        .from('users')
+        .select('id, elo_rating, matches_played, total_wins, name, avatar_url, is_ranked')
+        .in('id', [p1Id, p2Id])
+
+    if (fetchError || !players || players.length !== 2) {
+        console.error('Error fetching players for incremental update:', fetchError)
+        throw new Error('Failed to load player stats for update')
+    }
+
+    const p1 = players.find(p => p.id === p1Id)
+    const p2 = players.find(p => p.id === p2Id)
+
+    // 2. Process each set incrementally
+    let runP1Elo = p1.elo_rating
+    let runP2Elo = p2.elo_rating
+    let runP1Matches = p1.matches_played
+    let runP2Matches = p2.matches_played
+    let p1Wins = p1.total_wins
+    let p2Wins = p2.total_wins
+
+    sets.forEach(set => {
+        runP1Matches++
+        runP2Matches++
+
+        if (set.s1 > set.s2) p1Wins++
+        if (set.s2 > set.s1) p2Wins++
+
+        const k1 = getKFactor(runP1Matches)
+        const k2 = getKFactor(runP2Matches)
+
+        const change1 = calculateEloChange(runP1Elo, runP2Elo, set.s1, set.s2, k1)
+        const change2 = calculateEloChange(runP2Elo, runP1Elo, set.s2, set.s1, k2)
+
+        let bonus1 = 0
+        let bonus2 = 0
+        
+        activeRules.forEach(rule => {
+             const bonus = 2 * (rule.trigger_value || 0)
+             if (bonus > 0 && rule.type === 'streak') {
+                 if (rule.targetPlayerId === p1Id && set.s1 > set.s2) bonus1 += bonus
+                 else if (rule.targetPlayerId === p2Id && set.s2 > set.s1) bonus2 += bonus
+             }
+        })
+
+        runP1Elo += change1 + bonus1
+        runP2Elo += change2 + bonus2
+    })
+
+    // 3. Upsert ONLY these two players
+    const updates = [
+        {
+            ...p1,
+            elo_rating: runP1Elo,
+            matches_played: runP1Matches,
+            total_wins: p1Wins,
+            is_ranked: runP1Matches >= 10
+        },
+        {
+            ...p2,
+            elo_rating: runP2Elo,
+            matches_played: runP2Matches,
+            total_wins: p2Wins,
+            is_ranked: runP2Matches >= 10
+        }
+    ]
+
+    const { error: updateError } = await supabase
+        .from('users')
+        .upsert(updates)
+
+    if (updateError) {
+        console.error('Error in incremental ELO update:', updateError)
+        throw updateError
+    }
+
+    return {
+        p1Change: runP1Elo - p1.elo_rating,
+        p2Change: runP2Elo - p2.elo_rating
+    }
+}
+
 export const getHeadToHeadStreak = (player1Id, player2Id, matches) => {
     // Filter matches between these two players
     const h2hMatches = matches.filter(m =>

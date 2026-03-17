@@ -129,8 +129,8 @@ function App() {
       { data: padelStatsData, error: padelStatsError },
     ] = await Promise.all([
       supabase.from('users').select('*').order('total_wins', { ascending: false }),
-      supabase.from('matches').select('*').order('created_at', { ascending: false }),
-      supabase.from('padel_matches').select('*').order('created_at', { ascending: false }),
+      supabase.from('matches').select('*').order('created_at', { ascending: false }).limit(2000),
+      supabase.from('padel_matches').select('*').order('created_at', { ascending: false }).limit(2000),
       supabase.from('padel_stats').select('*'),
     ])
 

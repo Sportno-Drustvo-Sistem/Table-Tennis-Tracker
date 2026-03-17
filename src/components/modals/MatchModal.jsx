@@ -77,8 +77,13 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
             if (matchError) throw matchError
 
-            // 2. Recalculate stats
-            await recalculatePlayerStats()
+            // 2. Recalculate stats incrementally
+            await applyMatchResultToStats(
+                p1.id,
+                p2.id,
+                [{ s1: parseInt(score1), s2: parseInt(score2) }],
+                activeRules.filter((_, idx) => !refusedRules.has(idx))
+            )
 
             onMatchSaved()
             setScore1('')

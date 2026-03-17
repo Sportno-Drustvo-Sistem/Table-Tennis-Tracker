@@ -118,7 +118,16 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved })
                 throw matchError
             }
 
-            await recalculatePadelStats()
+            // Incremental Update
+            const builtMatch = {
+                team1_player1_id: localTeam1[0].id,
+                team1_player2_id: localTeam1[1].id,
+                team2_player1_id: localTeam2[0].id,
+                team2_player2_id: localTeam2[1].id,
+                score1: team1TotalGames,
+                score2: team2TotalGames
+            }
+            await applyPadelMatchResultToStats(builtMatch)
 
             onMatchSaved()
 
