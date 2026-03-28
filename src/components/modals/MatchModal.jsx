@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Scale, Skull } from 'lucide-react'
+import { Scale, Skull, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
+import { applyMatchResultToStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
 import { useToast } from '../../contexts/ToastContext'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, isAdmin, availablePlayers, onOverridePlayers }) => {

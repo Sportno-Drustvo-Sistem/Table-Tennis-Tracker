@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, calculateEloChange, getKFactor, buildEloHistory, getAvatarFallback } from '../../utils'
+import { applyMatchResultToStats, recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, calculateEloChange, getKFactor, buildEloHistory, getAvatarFallback } from '../../utils'
 import { useToast } from '../../contexts/ToastContext'
 
 const WINNING_SCORE = 11
