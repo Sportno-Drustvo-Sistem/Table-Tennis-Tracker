@@ -52,6 +52,16 @@ describe('Tournament Utils - Single Elimination', () => {
         const winners = byes.map(m => m.winner.id).sort()
         expect(winners).toEqual(['1', '2', '3'])
     })
+
+    it('auto-advances bye winners into later single-elimination rounds', () => {
+        const participants = mockPlayers.slice(0, 5)
+        const bracket = generateSingleEliminationBracket(participants, false, [], {}, null)
+        const semiFinals = bracket.find(r => r.name === 'Semi-Finals')
+
+        expect(semiFinals.matches[0].player1?.id).toBe('1')
+        expect(semiFinals.matches[1].player1?.id).toBe('2')
+        expect(semiFinals.matches[1].player2?.id).toBe('3')
+    })
 })
 
 describe('Tournament Utils - Group Stage Seeding', () => {

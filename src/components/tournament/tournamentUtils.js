@@ -261,8 +261,18 @@ function findNextRoundIdx(allRounds, currentRoundIdx, match) {
     const currentRound = allRounds[currentRoundIdx]
     if (currentRound.name === 'Grand Final' || currentRound.bracket === 'grand_final') return -1
 
+    // Single-elimination rounds do not carry a bracket tag.
+    if (!currentRound.bracket) {
+        for (let i = currentRoundIdx + 1; i < allRounds.length; i++) {
+            const r = allRounds[i]
+            if (r.name === '3rd Place Match') continue
+            if (!r.bracket) return i
+        }
+        return -1
+    }
+
     // Determine type: winners or losers
-    const currentBracket = currentRound.bracket || 'winners'
+    const currentBracket = currentRound.bracket
 
     // Generic next round search
     for (let i = currentRoundIdx + 1; i < allRounds.length; i++) {

@@ -62,7 +62,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
             }
 
             // 1. Insert match
-            const { error: matchError } = await supabase
+            const { data: savedMatch, error: matchError } = await supabase
                 .from('matches')
                 .insert([
                     {
@@ -74,6 +74,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         tournament_id: tournamentId || null
                     }
                 ])
+                .select()
+                .single()
 
             if (matchError) throw matchError
 
@@ -85,7 +87,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                 activeRules.filter((_, idx) => !refusedRules.has(idx))
             )
 
-            onMatchSaved()
+            onMatchSaved?.(savedMatch)
             setScore1('')
             setScore2(0)
         } catch (error) {

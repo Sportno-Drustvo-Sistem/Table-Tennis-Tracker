@@ -399,8 +399,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         setSaving(true)
         try {
             const allSets = completedSets
+            let lastSavedMatch = null
             for (const setScore of allSets) {
-                const { error: matchError } = await supabase
+                const { data: savedMatch, error: matchError } = await supabase
                     .from('matches')
                     .insert([{
                         player1_id: player1.id,
@@ -410,7 +411,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         handicap_rule: activeRules.filter((_, idx) => !refusedRules.has(idx)).length > 0 ? activeRules.filter((_, idx) => !refusedRules.has(idx)) : null,
                         tournament_id: tournamentId || null,
                     }])
+                    .select()
+                    .single()
                 if (matchError) throw matchError
+                lastSavedMatch = savedMatch
             }
 
             // 2. Incremental ELO Update
@@ -425,7 +429,18 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setTimeout(() => setEloChange(null), 3000)
 
             showToast('Match saved!', 'success')
-            if (onMatchSaved) onMatchSaved()
+            if (onMatchSaved) {
+                const setsWon1 = allSets.filter(set => set.s1 > set.s2).length
+                const setsWon2 = allSets.filter(set => set.s2 > set.s1).length
+                onMatchSaved({
+                    id: lastSavedMatch?.id,
+                    player1_id: player1.id,
+                    player2_id: player2.id,
+                    score1: setsWon1,
+                    score2: setsWon2,
+                    tournament_id: tournamentId || null,
+                })
+            }
         } catch (error) {
             console.error(error)
             showToast('Error saving match: ' + error.message, 'error')

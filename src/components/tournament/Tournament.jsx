@@ -156,16 +156,12 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
     // ─── Group Match Saved ─────────────────────────
 
-    const handleGroupMatchSaved = async () => {
-        const { data: latestMatch } = await supabase
-            .from('matches').select('*')
-            .order('created_at', { ascending: false }).limit(1).single()
-
-        if (!latestMatch) { setSelectedMatchId(null); return }
+    const handleGroupMatchSaved = async (savedMatch) => {
+        if (!savedMatch) { setSelectedMatchId(null); return }
 
         // Link to tournament
-        if (!latestMatch.tournament_id) {
-            await supabase.from('matches').update({ tournament_id: activeTournament.id }).eq('id', latestMatch.id)
+        if (!savedMatch.tournament_id && savedMatch.id) {
+            await supabase.from('matches').update({ tournament_id: activeTournament.id }).eq('id', savedMatch.id)
         }
 
         const t = { ...activeTournament }
@@ -178,9 +174,9 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         const p2Idx = standings.findIndex(s => s.playerId === pairing.player2Id)
 
         if (p1Idx !== -1 && p2Idx !== -1) {
-            const s1isP1 = latestMatch.player1_id === pairing.player1Id
-            const s1Score = s1isP1 ? latestMatch.score1 : latestMatch.score2
-            const s2Score = s1isP1 ? latestMatch.score2 : latestMatch.score1
+            const s1isP1 = savedMatch.player1_id === pairing.player1Id
+            const s1Score = s1isP1 ? savedMatch.score1 : savedMatch.score2
+            const s2Score = s1isP1 ? savedMatch.score2 : savedMatch.score1
 
             standings[p1Idx] = {
                 ...standings[p1Idx],
@@ -202,7 +198,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         }
 
         // Mark this pairing as completed
-        group.completedMatches = [...(group.completedMatches || []), { player1Id: pairing.player1Id, player2Id: pairing.player2Id, matchId: latestMatch.id }]
+        group.completedMatches = [...(group.completedMatches || []), { player1Id: pairing.player1Id, player2Id: pairing.player2Id, matchId: savedMatch.id || `${pairing.player1Id}_${pairing.player2Id}` }]
         group.standings = standings
         t.groups[groupIndex] = group
 
@@ -261,13 +257,9 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
 
     // ─── Bracket Match Saved ───────────────────────
 
-    const handleMatchSaved = async () => {
-        const { data: latestMatch } = await supabase
-            .from('matches').select('*')
-            .order('created_at', { ascending: false }).limit(1).single()
-
-        if (latestMatch) {
-            updateBracketWithResult(selectedMatchId.roundIndex, selectedMatchId.matchId, latestMatch)
+    const handleMatchSaved = async (savedMatch) => {
+        if (savedMatch) {
+            updateBracketWithResult(selectedMatchId.roundIndex, selectedMatchId.matchId, savedMatch)
         }
         setSelectedMatchId(null)
         if (fetchData) fetchData()
