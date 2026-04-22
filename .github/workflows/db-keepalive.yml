@@ -1,0 +1,28 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Ping Supabase
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_KEEPALIVE_TABLE: ${{ secrets.SUPABASE_KEEPALIVE_TABLE }}
+          SUPABASE_KEEPALIVE_COLUMN: ${{ secrets.SUPABASE_KEEPALIVE_COLUMN }}
+          SUPABASE_KEEPALIVE_SCHEMA: ${{ secrets.SUPABASE_KEEPALIVE_SCHEMA }}
+        run: npm run db:keepalive
