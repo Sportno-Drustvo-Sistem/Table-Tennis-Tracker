@@ -1,8 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-loadEnvFile('.env')
-loadEnvFile('.env.local')
+const MODE = readModeArg(process.argv) || process.env.MODE || process.env.NODE_ENV || ''
+const protectedKeys = new Set(Object.keys(process.env))
+
+loadEnvFile('.env', protectedKeys)
+loadEnvFile('.env.local', protectedKeys)
+
+if (MODE) {
+  loadEnvFile(`.env.${MODE}`, protectedKeys)
+  loadEnvFile(`.env.${MODE}.local`, protectedKeys)
+}
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY
@@ -12,7 +20,7 @@ const KEEPALIVE_SCHEMA = process.env.SUPABASE_KEEPALIVE_SCHEMA || 'public'
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error(
-    'Missing Supabase credentials. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
+    `Missing Supabase credentials. Checked process env${MODE ? ` and .env files for mode "${MODE}"` : ''}. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.`
   )
   process.exit(1)
 }
@@ -28,13 +36,13 @@ const headers = {
   'Accept-Profile': KEEPALIVE_SCHEMA,
 }
 
-function loadEnvFile(filename) {
+function loadEnvFile(filename, protectedKeys) {
   const filePath = resolve(process.cwd(), filename)
   if (!existsSync(filePath)) {
     return
   }
 
-  const fileContents = readFileSync(filePath, 'utf8')
+  const fileContents = readFileSync(filePath, 'utf8').replace(/^\uFEFF/u, '')
 
   for (const rawLine of fileContents.split(/\r?\n/u)) {
     const line = rawLine.trim()
@@ -47,8 +55,9 @@ function loadEnvFile(filename) {
       continue
     }
 
-    const key = line.slice(0, separatorIndex).trim()
-    if (!key || process.env[key] !== undefined) {
+    const rawKey = line.slice(0, separatorIndex).trim()
+    const key = rawKey.startsWith('export ') ? rawKey.slice(7).trim() : rawKey
+    if (!key || protectedKeys.has(key)) {
       continue
     }
 
@@ -62,6 +71,21 @@ function loadEnvFile(filename) {
 
     process.env[key] = value
   }
+}
+
+function readModeArg(argv) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index]
+    if (value === '--mode') {
+      return argv[index + 1]
+    }
+
+    if (value.startsWith('--mode=')) {
+      return value.slice('--mode='.length)
+    }
+  }
+
+  return ''
 }
 
 async function pingDatabase(method) {
