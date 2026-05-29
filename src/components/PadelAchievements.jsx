@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair } from 'lucide-react'
+import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair, Shield } from 'lucide-react'
 import { buildPadelEloHistory, getMatchWinner } from '../padelUtils'
 import { getActiveDebuffs } from '../utils'
 
