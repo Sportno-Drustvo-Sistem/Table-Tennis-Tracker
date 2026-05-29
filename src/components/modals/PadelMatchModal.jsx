@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { ArrowLeftRight, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePadelStats } from '../../padelUtils'
+import { applyPadelMatchResultToStats } from '../../padelUtils'
 import { useToast } from '../../contexts/ToastContext'
 
 const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved }) => {
@@ -125,7 +125,9 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved })
                 team2_player1_id: localTeam2[0].id,
                 team2_player2_id: localTeam2[1].id,
                 score1: team1TotalGames,
-                score2: team2TotalGames
+                score2: team2TotalGames,
+                match_format: matchFormat,
+                sets_data: cleanSets
             }
             await applyPadelMatchResultToStats(builtMatch)
 

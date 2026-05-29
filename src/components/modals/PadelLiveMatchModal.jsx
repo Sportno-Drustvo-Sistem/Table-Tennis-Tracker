@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Undo2, Trophy, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePadelStats } from '../../padelUtils'
-import { calculateExpectedScore, calculateEloChange, getKFactor, getAvatarFallback } from '../../utils'
+import { applyPadelMatchResultToStats } from '../../padelUtils'
+import { calculateExpectedScore, getAvatarFallback } from '../../utils'
 import { useToast } from '../../contexts/ToastContext'
 
 // --- Padel Scoring Constants ---
@@ -33,7 +33,7 @@ const playBlip = () => {
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
         osc.start(ctx.currentTime)
         osc.stop(ctx.currentTime + 0.12)
-    } catch (e) { /* silent fail */ }
+    } catch { /* silent fail */ }
 }
 
 const playWinSound = () => {
@@ -52,7 +52,7 @@ const playWinSound = () => {
             osc.start(ctx.currentTime + i * 0.15)
             osc.stop(ctx.currentTime + i * 0.15 + 0.3)
         })
-    } catch (e) { /* silent fail */ }
+    } catch { /* silent fail */ }
 }
 
 let cachedVoices = []
@@ -137,7 +137,7 @@ const playAudioSequence = async (paths, fallbackText) => {
                 hasError = true
                 resolve() // skip on error
             }
-            sharedVoicesAudio.play().catch((e) => {
+            sharedVoicesAudio.play().catch(() => {
                 hasError = true
                 resolve()
             })
@@ -162,7 +162,6 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
     const [matchStarted, setMatchStarted] = useState(false)
     const [matchWinner, setMatchWinner] = useState(null) // null | 1 | 2
     const [saving, setSaving] = useState(false)
-    const [showWinAnimation, setShowWinAnimation] = useState(false)
     const [eloChange, setEloChange] = useState(null)
 
     // --- Set tracking ---
@@ -208,7 +207,6 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             setMatchStarted(false)
             setMatchWinner(null)
             setSaving(false)
-            setShowWinAnimation(false)
             setEloChange(null)
             setHistory([])
             setIsTiebreak(false)
@@ -404,7 +402,6 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                     // Match over!
                     const mw = newSetsWon1 >= setsNeeded ? 1 : 2
                     setMatchWinner(mw)
-                    setShowWinAnimation(true)
                     setT1Games(newT1Games)
                     setT2Games(newT2Games)
                     setT1Points(newT1Pts)
@@ -535,7 +532,9 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 team2_player1_id: team2[0].id,
                 team2_player2_id: team2[1].id,
                 score1: totalT1Games,
-                score2: totalT2Games
+                score2: totalT2Games,
+                match_format: matchFormat === 1 ? 'best_of_1' : 'best_of_3',
+                sets_data: setsData
             }
 
             const changes = await applyPadelMatchResultToStats(builtMatch)
@@ -566,7 +565,6 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
         setCompletedSets([])
         setMatchStarted(false)
         setMatchWinner(null)
-        setShowWinAnimation(false)
         setEloChange(null)
         setHistory([])
         setIsTiebreak(false)
@@ -592,6 +590,13 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
         return () => window.removeEventListener('keydown', onKey)
     }, [isOpen, matchWinner, scorePoint, undoLast])
 
+    // Serving player info
+    const servingPlayerObj = useMemo(() => {
+        if (!team1 || !team2 || team1.length < 2 || team2.length < 2) return null
+        if (currentServer === 1) return team1[currentServerPlayer]
+        return team2[currentServerPlayer]
+    }, [currentServer, currentServerPlayer, team1, team2])
+
     if (!isOpen || !team1 || !team2 || team1.length < 2 || team2.length < 2) return null
 
     // --- Display values ---
@@ -599,12 +604,6 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
     const t2PointDisplay = getPointDisplay(t2Points, t1Points, isTiebreak)
     const isDeuce = !isTiebreak && t1Points >= 3 && t2Points >= 3 && t1Points === t2Points
     const isAdvantage = !isTiebreak && t1Points >= 3 && t2Points >= 3 && t1Points !== t2Points
-
-    // Serving player info
-    const servingPlayerObj = useMemo(() => {
-        if (currentServer === 1) return team1[currentServerPlayer]
-        return team2[currentServerPlayer]
-    }, [currentServer, currentServerPlayer, team1, team2])
 
     // Match point detection
     const isSetPoint1 = !matchWinner && t1Games >= 5 && t1Games > t2Games && t1Points >= 3 && t1Points > t2Points && !isTiebreak
