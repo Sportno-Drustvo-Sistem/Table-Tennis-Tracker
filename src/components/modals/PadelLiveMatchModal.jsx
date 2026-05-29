@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Undo2, Trophy, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyPadelMatchResultToStats } from '../../padelUtils'
+import { applyPadelMatchResultToStats, validatePadelSets } from '../../padelUtils'
 import { calculateExpectedScore, getAvatarFallback } from '../../utils'
 import { useToast } from '../../contexts/ToastContext'
 
@@ -506,10 +506,16 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 team1Games: s.t1Games,
                 team2Games: s.t2Games
             }))
+            const validation = validatePadelSets(setsData)
+            if (!validation.valid) {
+                showToast(validation.message, 'error')
+                return
+            }
 
             // Calculate total games for the overall match score
-            const totalT1Games = completedSets.reduce((sum, s) => sum + s.t1Games, 0)
-            const totalT2Games = completedSets.reduce((sum, s) => sum + s.t2Games, 0)
+            const validSets = validation.sets
+            const totalT1Games = validation.summary.team1Games
+            const totalT2Games = validation.summary.team2Games
 
             const { error: matchError } = await supabase
                 .from('padel_matches')
@@ -520,7 +526,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                     team2_player2_id: team2[1].id,
                     score1: totalT1Games,
                     score2: totalT2Games,
-                    sets_data: setsData,
+                    sets_data: validSets,
                 }])
 
             if (matchError) throw matchError
@@ -534,7 +540,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 score1: totalT1Games,
                 score2: totalT2Games,
                 match_format: matchFormat === 1 ? 'best_of_1' : 'best_of_3',
-                sets_data: setsData
+                sets_data: validSets
             }
 
             const changes = await applyPadelMatchResultToStats(builtMatch)

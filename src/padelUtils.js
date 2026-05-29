@@ -1,25 +1,73 @@
 import { supabase } from './supabaseClient'
-import { getKFactor, calculateExpectedScore, calculateEloChange } from './utils'
+import { getKFactor, calculateEloChange } from './utils'
 
 /**
  * Determine the winner of a padel match by sets won, or games won if no sets exist.
  * Returns 1 for Team 1, 2 for Team 2, 0 for Tie.
  */
-export const getMatchWinner = (match) => {
-    if (match.sets_data && match.sets_data.length > 0) {
-        let s1 = 0;
-        let s2 = 0;
-        match.sets_data.forEach(s => {
-            if (s.team1Games > s.team2Games) s1++;
-            else if (s.team2Games > s.team1Games) s2++;
-        });
-        if (s1 > s2) return 1;
-        if (s2 > s1) return 2;
-        return 0; // tie within sets (rare but possible)
+export const normalizePadelSets = (setsData = []) => {
+    if (!Array.isArray(setsData)) return []
+    return setsData.map(set => ({
+        team1Games: Number(set.team1Games) || 0,
+        team2Games: Number(set.team2Games) || 0,
+    }))
+}
+
+export const getPadelScoreSummary = (match) => {
+    const sets = normalizePadelSets(match?.sets_data)
+    const hasSets = sets.length > 0
+    let team1Sets = 0
+    let team2Sets = 0
+    let team1Games = hasSets ? 0 : (Number(match?.score1) || 0)
+    let team2Games = hasSets ? 0 : (Number(match?.score2) || 0)
+
+    sets.forEach(set => {
+        team1Games += set.team1Games
+        team2Games += set.team2Games
+        if (set.team1Games > set.team2Games) team1Sets += 1
+        else if (set.team2Games > set.team1Games) team2Sets += 1
+    })
+
+    let winner = 0
+    if (hasSets) {
+        if (team1Sets > team2Sets) winner = 1
+        else if (team2Sets > team1Sets) winner = 2
+    } else if (team1Games > team2Games) winner = 1
+    else if (team2Games > team1Games) winner = 2
+
+    return {
+        sets,
+        hasSets,
+        team1Sets,
+        team2Sets,
+        team1Games,
+        team2Games,
+        winner,
     }
-    if (match.score1 > match.score2) return 1;
-    if (match.score2 > match.score1) return 2;
-    return 0;
+}
+
+export const validatePadelSets = (setsData = []) => {
+    const sets = normalizePadelSets(setsData)
+    const playedSets = sets.filter(set => set.team1Games > 0 || set.team2Games > 0)
+
+    if (playedSets.length === 0) {
+        return { valid: false, message: 'Enter at least one completed set score.' }
+    }
+
+    if (playedSets.some(set => set.team1Games === set.team2Games)) {
+        return { valid: false, message: 'Each saved set needs a clear winner.' }
+    }
+
+    const summary = getPadelScoreSummary({ sets_data: playedSets })
+    if (summary.winner === 0) {
+        return { valid: false, message: 'The match needs a clear set winner.' }
+    }
+
+    return { valid: true, message: '', sets: playedSets, summary }
+}
+
+export const getMatchWinner = (match) => {
+    return getPadelScoreSummary(match).winner
 }
 
 /**
