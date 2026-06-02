@@ -2,13 +2,20 @@ import React, { memo } from 'react'
 import { Check, Pencil } from 'lucide-react'
 import { getEloRank, getAvatarFallback } from '../utils'
 
-const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, compact, sport, padelStats }) => {
-    // Use padel stats when in padel mode, otherwise ping pong stats from user object
+const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdmin, compact, sport, padelStats, tennisStats }) => {
+    // Use separate sport stats for padel/tennis, otherwise ping pong stats from user object.
     const isPadel = sport === 'padel'
-    const elo = isPadel ? (padelStats?.elo_rating || 1200) : (user.elo_rating || 1200)
-    const wins = isPadel ? (padelStats?.total_wins || 0) : (user.total_wins || 0)
-    const gamesPlayed = isPadel ? (padelStats?.matches_played || 0) : (user.matches_played || 0)
+    const isTennis = sport === 'tennis'
+    const sportStats = isPadel ? padelStats : isTennis ? tennisStats : null
+    const elo = sportStats ? (sportStats.elo_rating || 1200) : (user.elo_rating || 1200)
+    const wins = sportStats ? (sportStats.total_wins || 0) : (user.total_wins || 0)
+    const gamesPlayed = sportStats ? (sportStats.matches_played || 0) : (user.matches_played || 0)
     const rank = getEloRank(elo)
+    const accentClass = isPadel
+        ? 'text-green-600 dark:text-green-400'
+        : isTennis
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-blue-600 dark:text-blue-400'
 
     return (
         <div
@@ -50,7 +57,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
                 <>
                     {/* ELO + Rank badge */}
                     <div className="flex items-center gap-1.5 mt-1">
-                        <span className={`text-lg font-extrabold ${isPadel ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                        <span className={`text-lg font-extrabold ${accentClass}`}>
                             {elo}
                         </span>
                         <span
