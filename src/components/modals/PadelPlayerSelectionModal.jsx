@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { X, Shuffle, Check, ArrowRight, ArrowLeft } from 'lucide-react'
+import { X, Shuffle, Check, ArrowRight, ArrowLeft, Zap } from 'lucide-react'
 import UserCard from '../UserCard'
 import { getAvatarFallback } from '../../utils'
 
-const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected, padelStats }) => {
+const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', onTeamsSelected, onLiveTeamsSelected, padelStats }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
     const [phase, setPhase] = useState('select') // 'select' or 'assign'
     const [team1, setTeam1] = useState([])
@@ -67,7 +67,11 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected, pa
 
     const handleConfirm = () => {
         if (team1.length !== 2 || team2.length !== 2) return
-        onTeamsSelected(team1, team2)
+        if (mode === 'live' && onLiveTeamsSelected) {
+            onLiveTeamsSelected(team1, team2)
+        } else {
+            onTeamsSelected(team1, team2)
+        }
         resetState()
     }
 
@@ -101,7 +105,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected, pa
                 <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {phase === 'select' ? 'Select Players for Padel Match' : 'Assign Teams'}
+                            {phase === 'select' ? `Select Players for Padel ${mode === 'live' ? 'Live Match' : 'Match'}` : 'Assign Teams'}
                         </h2>
                         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                             {phase === 'select'
@@ -280,8 +284,8 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, onTeamsSelected, pa
                                     disabled={team1.length !== 2 || team2.length !== 2}
                                     className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                                 >
-                                    <Check size={18} className="mr-2" />
-                                    Start Match
+                                    {mode === 'live' ? <Zap size={18} className="mr-2" /> : <Check size={18} className="mr-2" />}
+                                    {mode === 'live' ? 'Start Live Match' : 'Record Score'}
                                 </button>
                             </div>
                         </>

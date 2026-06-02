@@ -26,7 +26,6 @@ import PadelMatches from './components/PadelMatches'
 import PadelPlayerSelectionModal from './components/modals/PadelPlayerSelectionModal'
 import PadelMatchModal from './components/modals/PadelMatchModal'
 import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
-import PadelMatchGeneratorModal from './components/modals/PadelMatchGeneratorModal'
 import PadelLiveMatchModal from './components/modals/PadelLiveMatchModal'
 import Tournament from './components/tournament/Tournament'
 import { useToast } from './contexts/ToastContext'
@@ -88,14 +87,12 @@ function App() {
 
   // Modal States — Padel
   const [isPadelSelectionOpen, setIsPadelSelectionOpen] = useState(false)
+  const [padelSelectionMode, setPadelSelectionMode] = useState('record')
   const [isPadelMatchModalOpen, setIsPadelMatchModalOpen] = useState(false)
-  const [isPadelGeneratorOpen, setIsPadelGeneratorOpen] = useState(false)
   const [padelTeams, setPadelTeams] = useState({ team1: null, team2: null })
-  const [isPadelMatchFromGenerator, setIsPadelMatchFromGenerator] = useState(false)
   const [editingPadelMatch, setEditingPadelMatch] = useState(null)
   const [isPadelLiveMatchOpen, setIsPadelLiveMatchOpen] = useState(false)
   const [padelLiveMatchTeams, setPadelLiveMatchTeams] = useState({ team1: null, team2: null })
-  const [isPadelLiveFromGenerator, setIsPadelLiveFromGenerator] = useState(false)
 
   // Persist sport selection
   useEffect(() => {
@@ -257,45 +254,26 @@ function App() {
   // Padel handlers
   const handlePadelTeamsSelected = (team1, team2) => {
     setPadelTeams({ team1, team2 })
-    setIsPadelMatchFromGenerator(false)
     setIsPadelSelectionOpen(false)
     setIsPadelMatchModalOpen(true)
   }
 
-  const handlePadelMatchGenerated = (team1, team2) => {
-    setPadelTeams({ team1, team2 })
-    setIsPadelMatchFromGenerator(true)
-    setIsPadelGeneratorOpen(false)
-    setIsPadelMatchModalOpen(true)
+  const handlePadelLiveTeamsSelected = (team1, team2) => {
+    setPadelLiveMatchTeams({ team1, team2 })
+    setIsPadelSelectionOpen(false)
+    setIsPadelLiveMatchOpen(true)
   }
 
   const handlePadelMatchSaved = () => {
     setIsPadelMatchModalOpen(false)
     setPadelTeams({ team1: null, team2: null })
     fetchData()
-
-    if (isPadelMatchFromGenerator) {
-      setIsPadelMatchFromGenerator(false)
-      setIsPadelGeneratorOpen(true)
-    }
-  }
-
-  // Padel Live Match: teams from generator go to live match
-  const handlePadelLiveMatchGenerated = (team1, team2) => {
-    setIsPadelLiveFromGenerator(true)
-    setPadelLiveMatchTeams({ team1, team2 })
-    setIsPadelGeneratorOpen(false)
-    setIsPadelLiveMatchOpen(true)
   }
 
   const handlePadelLiveMatchSaved = () => {
     setIsPadelLiveMatchOpen(false)
     setPadelLiveMatchTeams({ team1: null, team2: null })
     fetchData()
-    if (isPadelLiveFromGenerator) {
-      setIsPadelLiveFromGenerator(false)
-      setIsPadelGeneratorOpen(true)
-    }
   }
 
   const isPingPong = activeSport === 'pingpong'
@@ -449,7 +427,7 @@ function App() {
             </button>
 
             {activeTab === 'matches' && (
-              <div className="flex gap-2 shrink-0">
+              <div className="basis-full flex justify-center gap-2 shrink-0">
                 {isPingPong && (
                   <button
                     onClick={() => setIsGeneratorOpen(true)}
@@ -462,7 +440,10 @@ function App() {
                 )}
                 {!isPingPong && (
                   <button
-                    onClick={() => setIsPadelGeneratorOpen(true)}
+                    onClick={() => {
+                      setPadelSelectionMode('live')
+                      setIsPadelSelectionOpen(true)
+                    }}
                     aria-label="Live Match"
                     title="Live Match"
                     className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md"
@@ -471,7 +452,14 @@ function App() {
                   </button>
                 )}
                 <button
-                  onClick={() => isPingPong ? setIsPlayerSelectionOpen(true) : setIsPadelSelectionOpen(true)}
+                  onClick={() => {
+                    if (isPingPong) {
+                      setIsPlayerSelectionOpen(true)
+                    } else {
+                      setPadelSelectionMode('record')
+                      setIsPadelSelectionOpen(true)
+                    }
+                  }}
                   aria-label="Record Match"
                   title="Record Match"
                   className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
@@ -555,7 +543,6 @@ function App() {
                 padelStats={padelStats}
                 onEditMatch={setEditingPadelMatch}
                 onMatchDeleted={fetchData}
-                onGenerateMatch={() => setIsPadelGeneratorOpen(true)}
                 isAdmin={isAdmin}
               />
             )
@@ -658,17 +645,10 @@ function App() {
           isOpen={isPadelSelectionOpen}
           onClose={() => setIsPadelSelectionOpen(false)}
           users={users}
+          mode={padelSelectionMode}
           onTeamsSelected={handlePadelTeamsSelected}
+          onLiveTeamsSelected={handlePadelLiveTeamsSelected}
           padelStats={padelStats}
-        />
-
-        <PadelMatchGeneratorModal
-          isOpen={isPadelGeneratorOpen}
-          onClose={() => setIsPadelGeneratorOpen(false)}
-          users={users}
-          matches={padelMatches}
-          padelStats={padelStats}
-          onMatchGenerated={handlePadelLiveMatchGenerated}
         />
 
         <PadelEditMatchModal

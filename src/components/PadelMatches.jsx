@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Edit2, Trash2, Calendar, RefreshCw, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { buildPadelEloHistory, getPadelScoreSummary, recalculatePadelStats } from '../padelUtils'
@@ -30,6 +30,19 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
         })
     }, [matches, searchQuery, users])
 
+    const filteredMatchIds = useMemo(() => filteredMatches.map(match => match.id), [filteredMatches])
+    const selectedFilteredIds = useMemo(
+        () => filteredMatchIds.filter(id => selectedIds.has(id)),
+        [filteredMatchIds, selectedIds]
+    )
+    const allFilteredSelected = filteredMatches.length > 0 && selectedFilteredIds.length === filteredMatches.length
+    const hasFilteredSelection = selectedFilteredIds.length > 0
+
+    useEffect(() => {
+        setSelectedIds(new Set())
+        setBulkDeleteConfirm(false)
+    }, [searchQuery])
+
     const toggleSelect = (id) => {
         setSelectedIds(prev => {
             const next = new Set(prev)
@@ -40,19 +53,19 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
     }
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === filteredMatches.length) {
+        if (allFilteredSelected) {
             setSelectedIds(new Set())
         } else {
-            setSelectedIds(new Set(filteredMatches.map(match => match.id)))
+            setSelectedIds(new Set(filteredMatchIds))
         }
     }
 
     const handleBulkDelete = async () => {
-        if (selectedIds.size === 0) return
+        if (selectedFilteredIds.length === 0) return
         setLoading(true)
         setBulkDeleteConfirm(false)
         try {
-            const { error } = await supabase.from('padel_matches').delete().in('id', [...selectedIds])
+            const { error } = await supabase.from('padel_matches').delete().in('id', selectedFilteredIds)
             if (error) throw error
 
             await recalculatePadelStats()
@@ -208,7 +221,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
                 <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-red-700 dark:text-red-300">
-                            {selectedIds.size} match{selectedIds.size === 1 ? '' : 'es'} selected
+                            {selectedFilteredIds.length} match{selectedFilteredIds.length === 1 ? '' : 'es'} selected
                         </span>
                         <button onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">
                             Clear selection
@@ -217,7 +230,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
                     {bulkDeleteConfirm ? (
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-red-600 dark:text-red-400 font-bold">Are you sure?</span>
-                            <button onClick={handleBulkDelete} disabled={loading} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm disabled:opacity-50 flex items-center gap-1">
+                            <button onClick={handleBulkDelete} disabled={loading || !hasFilteredSelection} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm disabled:opacity-50 flex items-center gap-1">
                                 <Trash2 size={14} /> {loading ? 'Deleting...' : 'Confirm Delete'}
                             </button>
                             <button onClick={() => setBulkDeleteConfirm(false)} className="px-3 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 font-bold text-sm">
@@ -225,7 +238,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
                             </button>
                         </div>
                     ) : (
-                        <button onClick={() => setBulkDeleteConfirm(true)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm flex items-center gap-2">
+                        <button onClick={() => setBulkDeleteConfirm(true)} disabled={!hasFilteredSelection} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm flex items-center gap-2 disabled:opacity-50">
                             <Trash2 size={14} /> Delete Selected
                         </button>
                     )}
@@ -257,7 +270,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
                                     {isAdmin && isBulkMode && (
                                         <th className="px-2 sm:px-3 py-3 sm:py-4 w-8 sm:w-10">
                                             <button onClick={toggleSelectAll} className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                                                {selectedIds.size === filteredMatches.length && filteredMatches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : selectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                                                {allFilteredSelected ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : hasFilteredSelection ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
                                             </button>
                                         </th>
                                     )}
