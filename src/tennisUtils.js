@@ -141,6 +141,7 @@ export const recalculateTennisStats = async () => {
             elo_rating: 1200,
             matches_played: 0,
             total_wins: 0,
+            total_losses: 0,
         }
     })
 
@@ -153,8 +154,13 @@ export const recalculateTennisStats = async () => {
         stats[p2].matches_played += 1
 
         const winner = getTennisMatchWinner(match)
-        if (winner === 1) stats[p1].total_wins += 1
-        else if (winner === 2) stats[p2].total_wins += 1
+        if (winner === 1) {
+            stats[p1].total_wins += 1
+            stats[p2].total_losses += 1
+        } else if (winner === 2) {
+            stats[p2].total_wins += 1
+            stats[p1].total_losses += 1
+        }
 
         const p1Elo = stats[p1].elo_rating
         const p2Elo = stats[p2].elo_rating
@@ -169,6 +175,7 @@ export const recalculateTennisStats = async () => {
         elo_rating: s.elo_rating,
         matches_played: s.matches_played,
         total_wins: s.total_wins,
+        total_losses: s.total_losses,
         is_ranked: s.matches_played >= 10,
     }))
 
@@ -201,15 +208,20 @@ export const applyTennisMatchResultToStats = async (match) => {
     const statsMap = {}
     ;[p1, p2].forEach(id => {
         const existing = currentStats?.find(s => s.user_id === id)
-        statsMap[id] = existing ? { ...existing } : { user_id: id, elo_rating: 1200, matches_played: 0, total_wins: 0 }
+        statsMap[id] = existing ? { ...existing, total_losses: existing.total_losses || 0 } : { user_id: id, elo_rating: 1200, matches_played: 0, total_wins: 0, total_losses: 0 }
     })
 
     statsMap[p1].matches_played += 1
     statsMap[p2].matches_played += 1
 
     const winner = getTennisMatchWinner(match)
-    if (winner === 1) statsMap[p1].total_wins += 1
-    else if (winner === 2) statsMap[p2].total_wins += 1
+    if (winner === 1) {
+        statsMap[p1].total_wins += 1
+        statsMap[p2].total_losses += 1
+    } else if (winner === 2) {
+        statsMap[p2].total_wins += 1
+        statsMap[p1].total_losses += 1
+    }
 
     const p1Elo = statsMap[p1].elo_rating
     const p2Elo = statsMap[p2].elo_rating
@@ -224,6 +236,7 @@ export const applyTennisMatchResultToStats = async (match) => {
         elo_rating: s.elo_rating,
         matches_played: s.matches_played,
         total_wins: s.total_wins,
+        total_losses: s.total_losses,
         is_ranked: s.matches_played >= 10,
     }))
 
