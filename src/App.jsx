@@ -345,77 +345,79 @@ function App() {
             />
 
             {/* Navigation Tabs */}
-            <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
-              <button
-                onClick={() => setActiveTab('grid')}
-                aria-label="Players Tab"
-                title="Players"
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid'
-                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <LayoutGrid size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Players</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('leaderboard')}
-                aria-label="Leaderboard Tab"
-                title="Leaderboard"
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard'
-                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Leaderboard</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('stats')}
-                aria-label="Stats Tab"
-                title="Stats"
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats'
-                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <BarChart2 size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Stats</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('matches')}
-                aria-label="Matches Tab"
-                title="Matches"
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches'
-                  ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <Calendar size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Matches</span>
-              </button>
-              {isPingPong && (
+            <div className="basis-full flex justify-center">
+              <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
                 <button
-                  onClick={() => setActiveTab('tournament')}
-                  aria-label="Tournament Tab"
-                  title="Tournament"
-                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'tournament'
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                  onClick={() => setActiveTab('grid')}
+                  aria-label="Players Tab"
+                  title="Players"
+                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid'
+                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                 >
-                  <Swords size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
+                  <LayoutGrid size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Players</span>
                 </button>
-              )}
-              {isAdmin && (
                 <button
-                  onClick={() => setActiveTab('settings')}
-                  aria-label="Settings Tab"
-                  title="Settings"
-                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'settings'
-                    ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100'
+                  onClick={() => setActiveTab('leaderboard')}
+                  aria-label="Leaderboard Tab"
+                  title="Leaderboard"
+                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard'
+                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                 >
-                  <Settings size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Settings</span>
+                  <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Leaderboard</span>
                 </button>
-              )}
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  aria-label="Stats Tab"
+                  title="Stats"
+                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats'
+                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                >
+                  <BarChart2 size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Stats</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('matches')}
+                  aria-label="Matches Tab"
+                  title="Matches"
+                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches'
+                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200')
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                >
+                  <Calendar size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Matches</span>
+                </button>
+                {isPingPong && (
+                  <button
+                    onClick={() => setActiveTab('tournament')}
+                    aria-label="Tournament Tab"
+                    title="Tournament"
+                    className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'tournament'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                  >
+                    <Swords size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    aria-label="Settings Tab"
+                    title="Settings"
+                    className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'settings'
+                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                  >
+                    <Settings size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Settings</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <button
