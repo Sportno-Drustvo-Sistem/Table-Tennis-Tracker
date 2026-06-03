@@ -34,8 +34,8 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
                 elo_rating: ts?.elo_rating || 1200,
                 matches_played: ts?.matches_played || 0,
                 is_ranked: ts?.is_ranked || false,
-                wins: startDate || endDate ? 0 : (ts?.total_wins || 0),
-                losses: startDate || endDate ? 0 : Math.max((ts?.matches_played || 0) - (ts?.total_wins || 0), 0),
+                wins: 0,
+                losses: 0,
                 gamesFor: 0,
                 gamesAgainst: 0,
                 results: [],
@@ -75,6 +75,13 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
 
     const sortedStats = useMemo(() => {
         return [...stats].sort((a, b) => {
+            if (sortConfig.key === 'elo_rating') {
+                const aActive = a.wins + a.losses > 0
+                const bActive = b.wins + b.losses > 0
+                if (!aActive && bActive) return 1
+                if (!bActive && aActive) return -1
+            }
+
             const aValue = a[sortConfig.key]
             const bValue = b[sortConfig.key]
             if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
@@ -97,12 +104,18 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-end">
                 <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
                     <Trophy className="mr-2 text-emerald-500" /> Tennis Leaderboard
                 </h2>
-                <DateRangePicker startDate={startDate} endDate={endDate} onStartDateChange={setStartDate} onEndDateChange={setEndDate} />
             </div>
+
+            <DateRangePicker
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+            />
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="overflow-x-auto">
