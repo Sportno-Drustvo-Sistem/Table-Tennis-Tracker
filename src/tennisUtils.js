@@ -104,8 +104,25 @@ export const validateTennisSets = (setsData = [], matchFormat = 'best_of_3') => 
         if (!validation.valid) return validation
     }
 
+    let p1SetsWon = 0
+    let p2SetsWon = 0
+    for (let idx = 0; idx < playedSets.length; idx += 1) {
+        const set = playedSets[idx]
+        if (set.player1Games > set.player2Games) p1SetsWon += 1
+        else p2SetsWon += 1
+
+        if (idx < playedSets.length - 1 && Math.max(p1SetsWon, p2SetsWon) >= requiredSetsToWin) {
+            return {
+                valid: false,
+                message: matchFormat === 'best_of_1'
+                    ? 'A single-set match ends when a player wins 1 set.'
+                    : 'A best-of-3 match ends when a player wins 2 sets.',
+            }
+        }
+    }
+
     const summary = getTennisScoreSummary({ sets_data: playedSets })
-    if (summary.winner === 0 || Math.max(summary.player1Sets, summary.player2Sets) < requiredSetsToWin) {
+    if (summary.winner === 0 || Math.max(summary.player1Sets, summary.player2Sets) !== requiredSetsToWin) {
         return { valid: false, message: 'The match needs a clear set winner.' }
     }
 

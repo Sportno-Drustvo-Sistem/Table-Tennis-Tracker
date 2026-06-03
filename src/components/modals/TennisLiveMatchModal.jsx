@@ -55,7 +55,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
         return points > opponentPoints ? 'AD' : '40'
     }, [isTiebreak])
 
-    const checkPointWinner = (a, b) => {
+    const checkPointWinner = useCallback((a, b) => {
         if (isTiebreak) {
             if (a >= 7 && a - b >= 2) return 1
             if (b >= 7 && b - a >= 2) return 2
@@ -64,9 +64,9 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
         if (a >= 4 && a - b >= 2) return 1
         if (b >= 4 && b - a >= 2) return 2
         return null
-    }
+    }, [isTiebreak])
 
-    const completeSetIfNeeded = (nextP1Games, nextP2Games, nextCompletedSets, finalP1Points, finalP2Points) => {
+    const completeSetIfNeeded = useCallback((nextP1Games, nextP2Games, nextCompletedSets, finalP1Points, finalP2Points) => {
         let setWinner = null
         if (nextP1Games >= 6 && nextP1Games - nextP2Games >= 2) setWinner = 1
         if (nextP2Games >= 6 && nextP2Games - nextP1Games >= 2) setWinner = 2
@@ -81,8 +81,8 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
         const completedSet = {
             player1Games: nextP1Games,
             player2Games: nextP2Games,
-            player1Tiebreak: nextP1Games === 7 && nextP2Games === 6 ? finalP1Points : null,
-            player2Tiebreak: nextP2Games === 7 && nextP1Games === 6 ? finalP2Points : null,
+            player1Tiebreak: nextP1Games === 7 && nextP2Games === 6 ? finalP1Points : nextP2Games === 7 && nextP1Games === 6 ? finalP1Points : null,
+            player2Tiebreak: nextP1Games === 7 && nextP2Games === 6 ? finalP2Points : nextP2Games === 7 && nextP1Games === 6 ? finalP2Points : null,
         }
         const updatedSets = [...nextCompletedSets, completedSet]
         setCompletedSets(updatedSets)
@@ -97,9 +97,9 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
         const setsToWin = matchFormat === 'best_of_1' ? 1 : 2
         if (p1Sets >= setsToWin) setMatchWinner(1)
         if (p2Sets >= setsToWin) setMatchWinner(2)
-    }
+    }, [matchFormat])
 
-    const scorePoint = (playerNumber) => {
+    const scorePoint = useCallback((playerNumber) => {
         if (matchWinner) return
         setMatchStarted(true)
         setHistory(prev => [...prev, { p1Games, p2Games, p1Points, p2Points, isTiebreak, server, completedSets, matchWinner }])
@@ -122,7 +122,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
         setP2Games(nextP2Games)
         setServer(prev => prev === 1 ? 2 : 1)
         completeSetIfNeeded(nextP1Games, nextP2Games, completedSets, nextP1Points, nextP2Points)
-    }
+    }, [checkPointWinner, completeSetIfNeeded, completedSets, isTiebreak, matchWinner, p1Games, p1Points, p2Games, p2Points, server])
 
     const undoLast = useCallback(() => {
         if (!history.length || matchWinner) return

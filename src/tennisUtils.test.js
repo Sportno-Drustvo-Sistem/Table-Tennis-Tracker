@@ -48,4 +48,28 @@ describe('tennis score helpers', () => {
             message: 'A 7-6 set needs a valid tiebreak score.',
         })
     })
+
+    it('rejects extra sets after a best-of-3 match has already been decided', () => {
+        expect(validateTennisSets([
+            { player1Games: 6, player2Games: 1 },
+            { player1Games: 6, player2Games: 2 },
+            { player1Games: 6, player2Games: 3 },
+        ])).toMatchObject({
+            valid: false,
+            message: 'A best-of-3 match ends when a player wins 2 sets.',
+        })
+    })
+
+    it('accepts live tiebreak set data with both tiebreak scores saved', () => {
+        expect(validateTennisSets([
+            { player1Games: 7, player2Games: 6, player1Tiebreak: 9, player2Tiebreak: 7 },
+        ], 'best_of_1')).toMatchObject({
+            valid: true,
+            summary: {
+                player1Sets: 1,
+                player2Sets: 0,
+                winner: 1,
+            },
+        })
+    })
 })
