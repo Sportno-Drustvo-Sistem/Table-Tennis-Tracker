@@ -4,6 +4,29 @@ import DateRangePicker from './DateRangePicker'
 import { getAvatarFallback, getEloRank } from '../utils'
 import { getTennisMatchWinner } from '../tennisUtils'
 
+const getStreak = (results) => {
+    let currentStreak = 0
+    let streakType = null
+
+    for (const result of results) {
+        if (!streakType) {
+            streakType = result
+            currentStreak = 1
+        } else if (result === streakType) {
+            currentStreak += 1
+        } else {
+            break
+        }
+    }
+
+    const streakValue = streakType === 'W' ? currentStreak : streakType === 'L' ? -currentStreak : 0
+    return {
+        streak: streakType ? `${currentStreak}${streakType}` : '-',
+        streakValue,
+        streakType,
+    }
+}
+
 const TennisLeaderboard = ({ users, matches, tennisStats }) => {
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -70,6 +93,7 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
             ...player,
             gamesDiff: player.gamesFor - player.gamesAgainst,
             winRate: player.wins + player.losses > 0 ? (player.wins / (player.wins + player.losses)) * 100 : 0,
+            ...getStreak(player.results),
         }))
     }, [endDate, matches, startDate, tennisStatsMap, users])
 
@@ -90,6 +114,12 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
         })
     }, [sortConfig, stats])
 
+    const championId = useMemo(() => {
+        const activePlayers = sortedStats.filter(player => player.wins + player.losses > 0)
+        if (activePlayers.length === 0) return null
+        return activePlayers.reduce((best, player) => (player.elo_rating > best.elo_rating ? player : best), activePlayers[0]).id
+    }, [sortedStats])
+
     const requestSort = (key) => {
         setSortConfig(prev => ({
             key,
@@ -98,8 +128,10 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
     }
 
     const renderSortIcon = (columnKey) => {
-        if (sortConfig.key !== columnKey) return null
-        return sortConfig.direction === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />
+        if (sortConfig.key !== columnKey) return <div className="w-4 h-4 ml-1 opacity-0"></div>
+        return sortConfig.direction === 'asc'
+            ? <ArrowUp size={16} className="ml-1" />
+            : <ArrowDown size={16} className="ml-1" />
     }
 
     return (
@@ -122,46 +154,60 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                <th className="px-4 py-4">#</th>
-                                <th className="px-4 py-4">Player</th>
-                                <th className="px-4 py-4 cursor-pointer" onClick={() => requestSort('elo_rating')}>ELO {renderSortIcon('elo_rating')}</th>
-                                <th className="px-4 py-4 cursor-pointer" onClick={() => requestSort('wins')}>W {renderSortIcon('wins')}</th>
-                                <th className="px-4 py-4 cursor-pointer" onClick={() => requestSort('losses')}>L {renderSortIcon('losses')}</th>
-                                <th className="px-4 py-4 cursor-pointer" onClick={() => requestSort('winRate')}>Win % {renderSortIcon('winRate')}</th>
-                                <th className="px-4 py-4 hidden sm:table-cell">Form</th>
+                                <th className="px-6 py-4">Rank</th>
+                                <th className="px-6 py-4">Player</th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('elo_rating')}>
+                                    <div className="flex justify-end items-center">ELO {renderSortIcon('elo_rating')}</div>
+                                </th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('wins')}>
+                                    <div className="flex justify-end items-center">Wins {renderSortIcon('wins')}</div>
+                                </th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('losses')}>
+                                    <div className="flex justify-end items-center">Losses {renderSortIcon('losses')}</div>
+                                </th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('winRate')}>
+                                    <div className="flex justify-end items-center">Win % {renderSortIcon('winRate')}</div>
+                                </th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('streakValue')}>
+                                    <div className="flex justify-end items-center">Streak {renderSortIcon('streakValue')}</div>
+                                </th>
+                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('gamesDiff')}>
+                                    <div className="flex justify-end items-center">Games Diff {renderSortIcon('gamesDiff')}</div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {sortedStats.map((player, index) => {
-                                const rank = getEloRank(player.elo_rating)
-                                return (
-                                    <tr key={player.id} className="hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors">
-                                        <td className="px-4 py-4 font-bold text-gray-500 dark:text-gray-400">{index + 1}</td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <img src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-9 h-9 rounded-full object-cover bg-gray-200" />
-                                                <div>
-                                                    <div className="font-bold text-gray-900 dark:text-white">{player.name}</div>
-                                                    <div className="text-xs" style={{ color: rank.color }}>{rank.label}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">{Math.round(player.elo_rating)}</td>
-                                        <td className="px-4 py-4 text-green-600 dark:text-green-400 font-bold">{player.wins}</td>
-                                        <td className="px-4 py-4 text-red-500 dark:text-red-400 font-bold">{player.losses}</td>
-                                        <td className="px-4 py-4 font-mono">{player.winRate.toFixed(1)}%</td>
-                                        <td className="px-4 py-4 hidden sm:table-cell">
-                                            <div className="flex gap-1">
-                                                {player.results.slice(0, 5).map((result, idx) => (
-                                                    <span key={idx} className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${result === 'W' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
-                                                        {result}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
+                            {sortedStats.map((player, index) => (
+                                <tr key={player.id} className="hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors">
+                                    <td className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500">#{index + 1}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center">
+                                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end items-center gap-1.5">
+                                            <span className="font-bold text-emerald-600 dark:text-emerald-400">{Math.round(player.elo_rating)}</span>
+                                            {(() => {
+                                                const rank = getEloRank(player.elo_rating, player.id === championId)
+                                                return (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: rank.color, backgroundColor: `${rank.color}22` }}>{rank.label}</span>
+                                                )
+                                            })()}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-medium text-green-600 dark:text-green-400">{player.wins}</td>
+                                    <td className="px-6 py-4 text-right font-medium text-red-500 dark:text-red-400">{player.losses}</td>
+                                    <td className="px-6 py-4 text-right font-bold dark:text-gray-300">{player.winRate.toFixed(1)}%</td>
+                                    <td className={`px-6 py-4 text-right font-bold ${player.streakType === 'W' ? 'text-green-600 dark:text-green-400' : (player.streakType === 'L' ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500')}`}>
+                                        {player.streak}
+                                    </td>
+                                    <td className={`px-6 py-4 text-right font-bold ${player.gamesDiff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {player.gamesDiff > 0 ? '+' : ''}{player.gamesDiff}
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
