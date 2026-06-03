@@ -6,12 +6,12 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
     // Use separate sport stats for padel/tennis, otherwise ping pong stats from user object.
     const isPadel = sport === 'padel'
     const isTennis = sport === 'tennis'
-    const defaultSportStats = { elo_rating: 1200, total_wins: 0, total_losses: 0, matches_played: 0 }
+    const defaultSportStats = { elo_rating: 1200, total_wins: 0, matches_played: 0 }
     const sportStats = isPadel ? (padelStats || defaultSportStats) : isTennis ? (tennisStats || defaultSportStats) : null
     const elo = sportStats ? (sportStats.elo_rating || 1200) : (user.elo_rating || 1200)
     const wins = sportStats ? (sportStats.total_wins || 0) : (user.total_wins || 0)
     const gamesPlayed = sportStats ? (sportStats.matches_played || 0) : (user.matches_played || 0)
-    const losses = sportStats ? (sportStats.total_losses ?? Math.max(gamesPlayed - wins, 0)) : Math.max(gamesPlayed - wins, 0)
+    const losses = Math.max(gamesPlayed - wins, 0)
     const rank = getEloRank(elo)
     const accentClass = isPadel
         ? 'text-green-600 dark:text-green-400'

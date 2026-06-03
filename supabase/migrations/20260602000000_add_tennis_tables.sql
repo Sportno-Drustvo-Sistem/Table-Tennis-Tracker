@@ -19,7 +19,6 @@ CREATE TABLE
         elo_rating INTEGER DEFAULT 1200,
         matches_played INTEGER DEFAULT 0,
         total_wins INTEGER DEFAULT 0,
-        total_losses INTEGER DEFAULT 0,
         is_ranked BOOLEAN DEFAULT FALSE
     );
 

@@ -35,7 +35,7 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
                 matches_played: ts?.matches_played || 0,
                 is_ranked: ts?.is_ranked || false,
                 wins: startDate || endDate ? 0 : (ts?.total_wins || 0),
-                losses: startDate || endDate ? 0 : (ts?.total_losses || Math.max((ts?.matches_played || 0) - (ts?.total_wins || 0), 0)),
+                losses: startDate || endDate ? 0 : Math.max((ts?.matches_played || 0) - (ts?.total_wins || 0), 0),
                 gamesFor: 0,
                 gamesAgainst: 0,
                 results: [],
