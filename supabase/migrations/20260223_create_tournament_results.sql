@@ -1,7 +1,7 @@
 -- Create Tournament Results Table
 create table
     if not exists public.tournament_results (
-        id uuid not null default uuid_generate_v4 (),
+        id uuid not null default gen_random_uuid (),
         tournament_id uuid not null references public.tournaments (id) on delete cascade,
         user_id uuid not null references public.users (id) on delete cascade,
         rank integer not null,

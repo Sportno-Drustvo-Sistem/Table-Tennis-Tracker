@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS public.users (
-    id UUID NOT NULL DEFAULT uuid_generate_v4(),
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     avatar_url TEXT,
     total_wins INTEGER DEFAULT 0,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 ) TABLESPACE pg_default;
 
 CREATE TABLE IF NOT EXISTS public.tournaments (
-    id UUID NOT NULL DEFAULT uuid_generate_v4(),
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     format TEXT NOT NULL DEFAULT 'single_elim'::TEXT,
     status TEXT NOT NULL DEFAULT 'active'::TEXT,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
 ) TABLESPACE pg_default;
 
 CREATE TABLE IF NOT EXISTS public.matches (
-    id UUID NOT NULL DEFAULT uuid_generate_v4(),
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
     player1_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     player2_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     score1 INTEGER NOT NULL DEFAULT 0,

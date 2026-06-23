@@ -18,6 +18,15 @@ describe('fresh Supabase migration readiness', () => {
         expect(new Set(versions).size).toBe(versions.length)
     })
 
+    it('uses search-path-safe uuid defaults', () => {
+        const migrations = migrationNames().map(name => [name, readMigration(name)])
+        const offenders = migrations
+            .filter(([, sql]) => sql.includes('uuid_generate_v4'))
+            .map(([name]) => name)
+
+        expect(offenders).toEqual([])
+    })
+
     it('creates core users and matches tables before feature migrations run', () => {
         const names = migrationNames()
         const baselineName = findMigration('baseline_core_schema')

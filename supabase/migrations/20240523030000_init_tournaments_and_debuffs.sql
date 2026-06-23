@@ -3,7 +3,7 @@ create extension if not exists "uuid-ossp";
 
 -- 1. Create Tournaments Table (if missing)
 create table if not exists public.tournaments (
-  id uuid not null default uuid_generate_v4 (),
+  id uuid not null default gen_random_uuid (),
   name text not null,
   format text not null default 'single_elim'::text,
   status text not null default 'active'::text,
@@ -23,7 +23,7 @@ end $$;
 
 -- 3. Create Debuffs Table
 create table if not exists public.debuffs (
-  id uuid not null default uuid_generate_v4 (),
+  id uuid not null default gen_random_uuid (),
   title text not null,
   description text not null,
   severity integer null default 5,
