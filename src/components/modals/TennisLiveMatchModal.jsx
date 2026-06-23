@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { RotateCcw, Save, Undo2, Volume2, VolumeX, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyTennisMatchResultToStats, validateTennisSets } from '../../tennisUtils'
+import { validateTennisSets } from '../../tennisUtils'
 import { getAvatarFallback } from '../../utils'
-import { useToast } from '../../contexts/ToastContext'
+import { recordTennisMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
 const TENNIS_POINTS = ['0', '15', '30', '40']
 
@@ -148,20 +149,15 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
                 return
             }
 
-            const builtMatch = {
-                player1_id: player1.id,
-                player2_id: player2.id,
+            const { changes } = await recordTennisMatch(supabase, {
+                player1Id: player1.id,
+                player2Id: player2.id,
                 score1: validation.summary.player1Games,
                 score2: validation.summary.player2Games,
-                match_format: matchFormat,
-                sets_data: validation.sets,
-            }
-
-            const { error } = await supabase.from('tennis_matches').insert([builtMatch])
-            if (error) throw error
-
-            const changes = await applyTennisMatchResultToStats(builtMatch)
-            setEloChange({ p1: Math.round(changes[player1.id]), p2: Math.round(changes[player2.id]) })
+                matchFormat,
+                setsData: validation.sets,
+            })
+            setEloChange({ p1: Math.round(changes[player1.id] || 0), p2: Math.round(changes[player2.id] || 0) })
             setTimeout(() => setEloChange(null), 3000)
             showToast('Tennis match saved!', 'success')
             onMatchSaved?.()

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Edit2, AlertTriangle, Save, X, Settings } from 'lucide-react'
 import { supabase } from '../supabaseClient'
-import { useToast } from '../contexts/ToastContext'
+import { useToast } from '../contexts/useToast'
 
 const DebuffSettings = ({ isAdmin }) => {
     const { showToast, showConfirm } = useToast()
@@ -18,11 +18,7 @@ const DebuffSettings = ({ isAdmin }) => {
         is_active: true
     })
 
-    useEffect(() => {
-        fetchDebuffs()
-    }, [])
-
-    const fetchDebuffs = async () => {
+    const fetchDebuffs = useCallback(async () => {
         setLoading(true)
         const { data, error } = await supabase
             .from('debuffs')
@@ -40,7 +36,12 @@ const DebuffSettings = ({ isAdmin }) => {
             setDebuffs(cleanData)
         }
         setLoading(false)
-    }
+    }, [])
+
+    useEffect(() => {
+        const timer = setTimeout(fetchDebuffs, 0)
+        return () => clearTimeout(timer)
+    }, [fetchDebuffs])
 
     const handleSave = async () => {
         if (!formData.title || !formData.description) return

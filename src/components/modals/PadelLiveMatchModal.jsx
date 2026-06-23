@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Undo2, Trophy, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyPadelMatchResultToStats, validatePadelSets } from '../../padelUtils'
+import { validatePadelSets } from '../../padelUtils'
 import { calculateExpectedScore, getAvatarFallback } from '../../utils'
-import { useToast } from '../../contexts/ToastContext'
+import { recordPadelMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
 // --- Padel Scoring Constants ---
 const PADEL_POINTS = ['0', '15', '30', '40'] // Standard point sequence
@@ -517,37 +518,18 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             const totalT1Games = validation.summary.team1Games
             const totalT2Games = validation.summary.team2Games
 
-            const { error: matchError } = await supabase
-                .from('padel_matches')
-                .insert([{
-                    team1_player1_id: team1[0].id,
-                    team1_player2_id: team1[1].id,
-                    team2_player1_id: team2[0].id,
-                    team2_player2_id: team2[1].id,
-                    score1: totalT1Games,
-                    score2: totalT2Games,
-                    sets_data: validSets,
-                }])
-
-            if (matchError) throw matchError
-
-            // Incremental ELO Update
-            const builtMatch = {
-                team1_player1_id: team1[0].id,
-                team1_player2_id: team1[1].id,
-                team2_player1_id: team2[0].id,
-                team2_player2_id: team2[1].id,
+            const { changes } = await recordPadelMatch(supabase, {
+                team1: [team1[0].id, team1[1].id],
+                team2: [team2[0].id, team2[1].id],
                 score1: totalT1Games,
                 score2: totalT2Games,
-                match_format: matchFormat === 1 ? 'best_of_1' : 'best_of_3',
-                sets_data: validSets
-            }
+                matchFormat: matchFormat === 1 ? 'best_of_1' : 'best_of_3',
+                setsData: validSets,
+            })
 
-            const changes = await applyPadelMatchResultToStats(builtMatch)
-            
-            setEloChange({ 
-                t1: Math.round(changes[team1[0].id]), 
-                t2: Math.round(changes[team2[0].id]) 
+            setEloChange({
+                t1: Math.round(changes[team1[0].id] || 0),
+                t2: Math.round(changes[team2[0].id] || 0)
             })
             setTimeout(() => setEloChange(null), 3000)
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Scale, Skull, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyMatchResultToStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
-import { useToast } from '../../contexts/ToastContext'
+import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
+import { recordPingPongMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, isAdmin, availablePlayers, onOverridePlayers }) => {
     const { showToast } = useToast()
@@ -24,8 +25,6 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
             setRefusedRules(new Set())
         }
     }, [isOpen, player1, player2])
-
-    if (!isOpen) return null
 
     // Calculate Handicap
     const activeRules = useMemo(() => {
@@ -61,31 +60,14 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                 onOverridePlayers(p1, p2)
             }
 
-            // 1. Insert match
-            const { data: savedMatch, error: matchError } = await supabase
-                .from('matches')
-                .insert([
-                    {
-                        player1_id: p1.id,
-                        player2_id: p2.id,
-                        score1: parseInt(score1),
-                        score2: parseInt(score2),
-                        handicap_rule: activeRules.filter((_, idx) => !refusedRules.has(idx)).length > 0 ? activeRules.filter((_, idx) => !refusedRules.has(idx)) : null,
-                        tournament_id: tournamentId || null
-                    }
-                ])
-                .select()
-                .single()
-
-            if (matchError) throw matchError
-
-            // 2. Recalculate stats incrementally
-            await applyMatchResultToStats(
-                p1.id,
-                p2.id,
-                [{ s1: parseInt(score1), s2: parseInt(score2) }],
-                activeRules.filter((_, idx) => !refusedRules.has(idx))
-            )
+            const acceptedRules = activeRules.filter((_, idx) => !refusedRules.has(idx))
+            const { match: savedMatch } = await recordPingPongMatch(supabase, {
+                player1Id: p1.id,
+                player2Id: p2.id,
+                sets: [{ s1: parseInt(score1), s2: parseInt(score2) }],
+                handicapRule: acceptedRules.length > 0 ? acceptedRules : null,
+                tournamentId: tournamentId || null,
+            })
 
             onMatchSaved?.(savedMatch)
             setScore1('')
@@ -98,7 +80,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
         }
     }
 
-    const unselectedPlayers = availablePlayers ? availablePlayers.filter(ap => ap.id !== p1?.id && ap.id !== p2?.id) : []
+    if (!isOpen) return null
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

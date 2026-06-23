@@ -34,7 +34,7 @@ import TennisMatchModal from './components/modals/TennisMatchModal'
 import TennisEditMatchModal from './components/modals/TennisEditMatchModal'
 import TennisLiveMatchModal from './components/modals/TennisLiveMatchModal'
 import Tournament from './components/tournament/Tournament'
-import { useToast } from './contexts/ToastContext'
+import { useToast } from './contexts/useToast'
 
 // --- Main App ---
 
@@ -173,7 +173,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    fetchData()
+    const initialFetchTimer = setTimeout(fetchData, 0)
 
     // Realtime Subscription with Debounce
     let debounceTimer
@@ -215,6 +215,7 @@ function App() {
 
     return () => {
       supabase.removeChannel(subscription)
+      clearTimeout(initialFetchTimer)
       if (debounceTimer) clearTimeout(debounceTimer)
     }
   }, [fetchData])
@@ -227,22 +228,24 @@ function App() {
       if (totalMatchesPlayed === 0) {
         console.log('Detected uninitialized stats. Running recalculation...')
         migrationAttempted.current = true
-        setMigrating(true)
-        recalculatePlayerStats()
-          .then(() => {
-            console.log('Recalculation complete.')
-            fetchData()
+        queueMicrotask(() => {
+          setMigrating(true)
+          recalculatePlayerStats()
+            .then(() => {
+              console.log('Recalculation complete.')
+              fetchData()
+            })
+            .catch(err => {
+              console.error('Migration failed:', err)
+              if (err.message && err.message.includes('column')) {
+                showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
+              }
+            })
+            .finally(() => setMigrating(false))
           })
-          .catch(err => {
-            console.error('Migration failed:', err)
-            if (err.message && err.message.includes('column')) {
-              showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
-            }
-          })
-          .finally(() => setMigrating(false))
       }
     }
-  }, [loading, matches.length, users.length, fetchData, showToast])
+  }, [loading, matches.length, users, fetchData, showToast])
 
   const handleUserClick = (user) => {
     setStatsPlayerId(user.id)

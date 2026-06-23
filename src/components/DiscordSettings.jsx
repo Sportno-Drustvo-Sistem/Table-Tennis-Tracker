@@ -24,7 +24,7 @@ const DiscordSettings = () => {
         try {
             await updateDiscordWebhook(webhookUrl)
             setStatus({ type: 'success', message: 'Webhook URL saved successfully!' })
-        } catch (error) {
+        } catch {
             setStatus({ type: 'error', message: 'Failed to save webhook URL.' })
         } finally {
             setSaving(false)

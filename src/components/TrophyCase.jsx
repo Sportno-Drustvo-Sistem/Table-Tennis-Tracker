@@ -54,7 +54,6 @@ const TrophyCase = ({ playerId }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {results.map(result => {
                         const isWin = result.rank === 1
-                        const isTop3 = result.rank <= 3
 
                         // Color Logic
                         let bgColor = 'bg-gray-50 dark:bg-gray-700/50'
