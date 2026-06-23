@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS public.settings (
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for now (assuming admin-only access will be handled in UI)
-CREATE POLICY "Allow all for settings" ON settings FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all for settings" ON public.settings;
+CREATE POLICY "Allow all for settings" ON public.settings FOR ALL USING (true) WITH CHECK (true);
 
 -- Insert default placeholder if not exists
 INSERT INTO public.settings (key, value)

@@ -44,11 +44,11 @@ drop policy if exists "Enable read access for all users" on public.debuffs;
 create policy "Enable read access for all users" on public.debuffs for select using (true);
 
 drop policy if exists "Enable write access for all users" on public.debuffs;
-create policy "Enable write access for all users" on public.debuffs for all using (true);
+create policy "Enable write access for all users" on public.debuffs for all using (true) with check (true);
 
 -- Tournaments
 drop policy if exists "Enable read access for all users" on public.tournaments;
 create policy "Enable read access for all users" on public.tournaments for select using (true);
 
 drop policy if exists "Enable write access for all users" on public.tournaments;
-create policy "Enable write access for all users" on public.tournaments for all using (true);
+create policy "Enable write access for all users" on public.tournaments for all using (true) with check (true);

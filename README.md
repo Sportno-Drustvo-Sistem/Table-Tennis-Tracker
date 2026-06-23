@@ -76,6 +76,8 @@ A modern, high-performance web application for tracking sports leagues, tourname
     VITE_SUPABASE_ANON_KEY=your_anon_key
     ```
 
+    For a brand-new Supabase backend, follow [Fresh Supabase Instance Setup](docs/supabase-fresh-instance.md).
+
 3. **Run Development Server**
 
     ```bash

@@ -24,4 +24,4 @@ select
 
 drop policy if exists "Enable write access for all users" on public.tournament_results;
 
-create policy "Enable write access for all users" on public.tournament_results for all using (true);
+create policy "Enable write access for all users" on public.tournament_results for all using (true) with check (true);

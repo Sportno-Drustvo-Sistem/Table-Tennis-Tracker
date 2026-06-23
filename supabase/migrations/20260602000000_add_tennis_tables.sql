@@ -26,10 +26,12 @@ ALTER TABLE tennis_matches ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE tennis_stats ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow all for tennis_matches" ON tennis_matches FOR ALL USING (true)
+DROP POLICY IF EXISTS "Allow all for tennis_matches" ON public.tennis_matches;
+CREATE POLICY "Allow all for tennis_matches" ON public.tennis_matches FOR ALL USING (true)
 WITH
     CHECK (true);
 
-CREATE POLICY "Allow all for tennis_stats" ON tennis_stats FOR ALL USING (true)
+DROP POLICY IF EXISTS "Allow all for tennis_stats" ON public.tennis_stats;
+CREATE POLICY "Allow all for tennis_stats" ON public.tennis_stats FOR ALL USING (true)
 WITH
     CHECK (true);

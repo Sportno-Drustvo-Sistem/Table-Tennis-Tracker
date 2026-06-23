@@ -29,10 +29,12 @@ ALTER TABLE padel_matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE padel_stats ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for anon (same policy as existing tables)
-CREATE POLICY "Allow all for padel_matches" ON padel_matches FOR ALL USING (true)
+DROP POLICY IF EXISTS "Allow all for padel_matches" ON public.padel_matches;
+CREATE POLICY "Allow all for padel_matches" ON public.padel_matches FOR ALL USING (true)
 WITH
     CHECK (true);
 
-CREATE POLICY "Allow all for padel_stats" ON padel_stats FOR ALL USING (true)
+DROP POLICY IF EXISTS "Allow all for padel_stats" ON public.padel_stats;
+CREATE POLICY "Allow all for padel_stats" ON public.padel_stats FOR ALL USING (true)
 WITH
     CHECK (true);

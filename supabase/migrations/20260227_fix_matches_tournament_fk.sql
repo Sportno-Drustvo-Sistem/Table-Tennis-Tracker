@@ -4,4 +4,7 @@
 ALTER TABLE public.matches
 DROP CONSTRAINT IF EXISTS matches_tournament_id_fkey;
 
+ALTER TABLE public.matches
+ADD COLUMN IF NOT EXISTS tournament_id UUID;
+
 ALTER TABLE public.matches ADD CONSTRAINT matches_tournament_id_fkey FOREIGN KEY (tournament_id) REFERENCES public.tournaments (id) ON DELETE SET NULL;
