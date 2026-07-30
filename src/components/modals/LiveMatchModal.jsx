@@ -196,7 +196,7 @@ const playAudioSequence = async (paths, fallbackText) => {
     }
 }
 
-const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
+const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, adminToken }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
@@ -399,6 +399,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             const allSets = completedSets
             const acceptedRules = activeRules.filter((_, idx) => !refusedRules.has(idx))
             const { match: lastSavedMatch, changes } = await recordPingPongMatch(supabase, {
+                adminToken,
                 player1Id: player1.id,
                 player2Id: player2.id,
                 sets: allSets,

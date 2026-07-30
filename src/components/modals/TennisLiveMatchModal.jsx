@@ -8,7 +8,7 @@ import { useToast } from '../../contexts/useToast'
 
 const TENNIS_POINTS = ['0', '15', '30', '40']
 
-const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
+const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
     const [matchFormat, setMatchFormat] = useState('best_of_3')
     const [matchStarted, setMatchStarted] = useState(false)
@@ -150,6 +150,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved 
             }
 
             const { changes } = await recordTennisMatch(supabase, {
+                adminToken,
                 player1Id: player1.id,
                 player2Id: player2.id,
                 score1: validation.summary.player1Games,

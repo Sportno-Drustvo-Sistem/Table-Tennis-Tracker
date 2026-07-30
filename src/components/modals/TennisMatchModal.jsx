@@ -8,7 +8,7 @@ import { useToast } from '../../contexts/useToast'
 
 const emptySet = { player1Games: '', player2Games: '', player1Tiebreak: '', player2Tiebreak: '' }
 
-const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
+const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
     const [matchFormat, setMatchFormat] = useState('best_of_3')
     const [sets, setSets] = useState([{ ...emptySet }, { ...emptySet }, { ...emptySet }])
@@ -51,6 +51,7 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) =
         setSaving(true)
         try {
             await recordTennisMatch(supabase, {
+                adminToken,
                 player1Id: player1.id,
                 player2Id: player2.id,
                 score1: validation.summary.player1Games,

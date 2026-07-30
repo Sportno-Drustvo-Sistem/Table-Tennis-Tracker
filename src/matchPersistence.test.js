@@ -9,12 +9,14 @@ import {
 describe('match persistence RPC helpers', () => {
     it('builds ping pong RPC params from one or more saved sets', () => {
         expect(buildPingPongRecordParams({
+            adminToken: 'admin-token',
             player1Id: 'p1',
             player2Id: 'p2',
             sets: [{ s1: 11, s2: 8 }, { s1: 9, s2: 11 }],
             handicapRule: [{ type: 'streak', targetPlayerId: 'p1', trigger_value: 8 }],
             tournamentId: 't1',
         })).toEqual({
+            p_admin_token: 'admin-token',
             p_player1_id: 'p1',
             p_player2_id: 'p2',
             p_sets: [{ s1: 11, s2: 8 }, { s1: 9, s2: 11 }],
@@ -25,6 +27,7 @@ describe('match persistence RPC helpers', () => {
 
     it('builds padel RPC params with teams, match format, and set data', () => {
         expect(buildPadelRecordParams({
+            adminToken: 'admin-token',
             team1: ['a', 'b'],
             team2: ['c', 'd'],
             score1: 13,
@@ -32,6 +35,7 @@ describe('match persistence RPC helpers', () => {
             matchFormat: 'best_of_3',
             setsData: [{ team1Games: 6, team2Games: 4 }, { team1Games: 7, team2Games: 5 }],
         })).toEqual({
+            p_admin_token: 'admin-token',
             p_team1_player1_id: 'a',
             p_team1_player2_id: 'b',
             p_team2_player1_id: 'c',
@@ -45,6 +49,7 @@ describe('match persistence RPC helpers', () => {
 
     it('builds tennis RPC params with match format and set data', () => {
         expect(buildTennisRecordParams({
+            adminToken: 'admin-token',
             player1Id: 'p1',
             player2Id: 'p2',
             score1: 12,
@@ -52,6 +57,7 @@ describe('match persistence RPC helpers', () => {
             matchFormat: 'best_of_3',
             setsData: [{ player1Games: 6, player2Games: 3 }, { player1Games: 6, player2Games: 4 }],
         })).toEqual({
+            p_admin_token: 'admin-token',
             p_player1_id: 'p1',
             p_player2_id: 'p2',
             p_score1: 12,
@@ -76,6 +82,7 @@ describe('match persistence RPC helpers', () => {
         }
 
         const result = await recordPingPongMatch(client, {
+            adminToken: 'admin-token',
             player1Id: 'p1',
             player2Id: 'p2',
             sets: [{ s1: 11, s2: 8 }],
@@ -88,5 +95,13 @@ describe('match persistence RPC helpers', () => {
             matches: [{ id: 'm1', score1: 11, score2: 8 }],
             changes: { p1: 12, p2: -12 },
         })
+    })
+
+    it('rejects match saves without an admin token', () => {
+        expect(() => buildPingPongRecordParams({
+            player1Id: 'p1',
+            player2Id: 'p2',
+            sets: [{ s1: 11, s2: 8 }],
+        })).toThrow('Admin mode is required to save matches')
     })
 })

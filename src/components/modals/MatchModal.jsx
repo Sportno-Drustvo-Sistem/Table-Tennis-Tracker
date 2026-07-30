@@ -5,7 +5,7 @@ import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../ut
 import { recordPingPongMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
 
-const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, isAdmin, availablePlayers, onOverridePlayers }) => {
+const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, isAdmin, adminToken, availablePlayers, onOverridePlayers }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState('')
     const [score2, setScore2] = useState(0)
@@ -62,6 +62,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
             const acceptedRules = activeRules.filter((_, idx) => !refusedRules.has(idx))
             const { match: savedMatch } = await recordPingPongMatch(supabase, {
+                adminToken,
                 player1Id: p1.id,
                 player2Id: p2.id,
                 sets: [{ s1: parseInt(score1), s2: parseInt(score2) }],

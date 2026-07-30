@@ -155,7 +155,7 @@ const playAudioSequence = async (paths, fallbackText) => {
  * Match format: Best of 3 sets or single set (user selectable).
  * Serving: Teams alternate per game; within a team, players alternate their serving games per set.
  */
-const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, padelStats }) => {
+const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, padelStats, adminToken }) => {
     const { showToast } = useToast()
 
     // --- Match state ---
@@ -519,6 +519,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             const totalT2Games = validation.summary.team2Games
 
             const { changes } = await recordPadelMatch(supabase, {
+                adminToken,
                 team1: [team1[0].id, team1[1].id],
                 team2: [team2[0].id, team2[1].id],
                 score1: totalT1Games,

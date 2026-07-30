@@ -1,4 +1,12 @@
-export const buildPingPongRecordParams = ({ player1Id, player2Id, sets, handicapRule = null, tournamentId = null }) => ({
+const requireAdminToken = (adminToken) => {
+    if (!adminToken) {
+        throw new Error('Admin mode is required to save matches')
+    }
+    return adminToken
+}
+
+export const buildPingPongRecordParams = ({ adminToken, player1Id, player2Id, sets, handicapRule = null, tournamentId = null }) => ({
+    p_admin_token: requireAdminToken(adminToken),
     p_player1_id: player1Id,
     p_player2_id: player2Id,
     p_sets: sets,
@@ -6,7 +14,8 @@ export const buildPingPongRecordParams = ({ player1Id, player2Id, sets, handicap
     p_tournament_id: tournamentId,
 })
 
-export const buildPadelRecordParams = ({ team1, team2, score1, score2, matchFormat = 'best_of_3', setsData = [] }) => ({
+export const buildPadelRecordParams = ({ adminToken, team1, team2, score1, score2, matchFormat = 'best_of_3', setsData = [] }) => ({
+    p_admin_token: requireAdminToken(adminToken),
     p_team1_player1_id: team1[0],
     p_team1_player2_id: team1[1],
     p_team2_player1_id: team2[0],
@@ -17,7 +26,8 @@ export const buildPadelRecordParams = ({ team1, team2, score1, score2, matchForm
     p_sets_data: setsData,
 })
 
-export const buildTennisRecordParams = ({ player1Id, player2Id, score1, score2, matchFormat = 'best_of_3', setsData = [] }) => ({
+export const buildTennisRecordParams = ({ adminToken, player1Id, player2Id, score1, score2, matchFormat = 'best_of_3', setsData = [] }) => ({
+    p_admin_token: requireAdminToken(adminToken),
     p_player1_id: player1Id,
     p_player2_id: player2Id,
     p_score1: score1,

@@ -20,7 +20,7 @@ import {
     handleDoubleElimAdvancement,
 } from './tournamentUtils'
 
-const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
+const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchData }) => {
     const { showToast, showConfirm } = useToast() // Added useToast hook
     const [activeTournament, setActiveTournament] = useState(null)
     const [cachedDebuffs, setCachedDebuffs] = useState([])
@@ -699,6 +699,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     tournamentId={activeTournament.id}
                     debuffs={modalDebuffs}
                     isAdmin={isAdmin}
+                    adminToken={adminToken}
                     availablePlayers={activeTournament.players}
                     onOverridePlayers={(p1, p2) => {
                         const newTournament = { ...activeTournament }
@@ -726,6 +727,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     tournamentId={activeTournament.id}
                     debuffs={modalDebuffs}
                     isAdmin={isAdmin}
+                    adminToken={adminToken}
                 />
             )}
 
