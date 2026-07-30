@@ -27,6 +27,19 @@ describe('fresh Supabase migration readiness', () => {
         expect(offenders).toEqual([])
     })
 
+    it('grants read-only Data API table access to frontend roles', () => {
+        const migration = readMigration(findMigration('frontend_data_api_grants'))
+
+        expect(migration).toContain('grant usage on schema public to anon, authenticated')
+        expect(migration).toContain('grant select on table')
+        expect(migration).not.toContain('grant select, insert, update, delete')
+        expect(migration).toContain('public.users')
+        expect(migration).toContain('public.matches')
+        expect(migration).toContain('public.padel_matches')
+        expect(migration).toContain('public.tennis_matches')
+        expect(migration).toContain('to anon, authenticated')
+    })
+
     it('creates core users and matches tables before feature migrations run', () => {
         const names = migrationNames()
         const baselineName = findMigration('baseline_core_schema')
