@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculatePlayerStats } from '../../utils'
-import { useToast } from '../../contexts/ToastContext'
+import { useToast } from '../../contexts/useToast'
 
-const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated, users }) => {
+const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState('')
     const [score2, setScore2] = useState(0)

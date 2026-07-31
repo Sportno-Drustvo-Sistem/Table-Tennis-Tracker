@@ -4,20 +4,22 @@ import { X, Lock, Unlock, AlertCircle } from 'lucide-react'
 const LoginModal = ({ isOpen, onClose, onLogin }) => {
     const [pin, setPin] = useState('')
     const [error, setError] = useState('')
+    const [submitting, setSubmitting] = useState(false)
 
-    // Hardcoded PIN for now - could be moved to env later
-    const ADMIN_PIN = '1234'
-
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
-        if (pin === ADMIN_PIN) {
-            onLogin()
+        setSubmitting(true)
+        setError('')
+
+        try {
+            await onLogin(pin)
             setPin('')
-            setError('')
             onClose()
-        } else {
-            setError('Incorrect PIN')
+        } catch (loginError) {
+            setError(loginError?.message || 'Unable to unlock admin mode')
             setPin('')
+        } finally {
+            setSubmitting(false)
         }
     }
 
@@ -54,9 +56,12 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
                                     setError('')
                                 }}
                                 className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-center text-2xl tracking-widest"
-                                placeholder="••••"
+                                placeholder="••••••"
                                 autoFocus
-                                maxLength={4}
+                                maxLength={6}
+                                pattern="[0-9]{6}"
+                                autoComplete="current-password"
+                                disabled={submitting}
                             />
                         </div>
 
@@ -69,10 +74,11 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
 
                         <button
                             type="submit"
-                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center"
+                            disabled={submitting || pin.length !== 6}
+                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors flex items-center justify-center"
                         >
                             <Unlock size={20} className="mr-2" />
-                            Unlock
+                            {submitting ? 'Checking…' : 'Unlock'}
                         </button>
                     </form>
                 </div>

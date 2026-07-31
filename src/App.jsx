@@ -3,6 +3,12 @@ import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords, Setti
 import { PingPongIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { recalculatePlayerStats } from './utils'
+import {
+  ADMIN_SESSION_STORAGE_KEY,
+  createAdminSession,
+  revokeAdminSession,
+  validateAdminSession,
+} from './adminSession'
 import UserCard from './components/UserCard'
 import Leaderboard from './components/Leaderboard'
 import PlayerStats from './components/PlayerStats'
@@ -34,7 +40,7 @@ import TennisMatchModal from './components/modals/TennisMatchModal'
 import TennisEditMatchModal from './components/modals/TennisEditMatchModal'
 import TennisLiveMatchModal from './components/modals/TennisLiveMatchModal'
 import Tournament from './components/tournament/Tournament'
-import { useToast } from './contexts/ToastContext'
+import { useToast } from './contexts/useToast'
 
 // --- Main App ---
 
@@ -60,19 +66,27 @@ function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
 
   // Admin State
-  const [isAdmin, setIsAdmin] = useState(() => {
-    return localStorage.getItem('isAdmin') === 'true'
-  })
+  const [adminToken, setAdminToken] = useState(null)
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const isAdmin = Boolean(adminToken)
 
-  const handleAdminLogin = () => {
-    setIsAdmin(true)
-    localStorage.setItem('isAdmin', 'true')
+  const handleAdminLogin = async (pin) => {
+    const session = await createAdminSession(supabase, pin)
+    setAdminToken(session.token)
+    localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(session))
   }
 
-  const handleAdminLogout = () => {
-    setIsAdmin(false)
+  const handleAdminLogout = async () => {
+    const tokenToRevoke = adminToken
+    setAdminToken(null)
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
     localStorage.removeItem('isAdmin')
+
+    try {
+      await revokeAdminSession(supabase, tokenToRevoke)
+    } catch (error) {
+      console.error('Failed to revoke admin session:', error)
+    }
   }
 
   // Navigation State
@@ -119,6 +133,35 @@ function App() {
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab)
   }, [activeTab])
+
+  useEffect(() => {
+    let cancelled = false
+    const restoreAdminSession = async () => {
+      const storedSession = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY)
+      localStorage.removeItem('isAdmin')
+      if (!storedSession) return
+
+      try {
+        const session = JSON.parse(storedSession)
+        const isValid = await validateAdminSession(supabase, session?.token)
+        if (cancelled) return
+
+        if (isValid) {
+          setAdminToken(session.token)
+        } else {
+          localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
+        }
+      } catch (error) {
+        console.error('Failed to restore admin session:', error)
+        localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
+      }
+    }
+
+    restoreAdminSession()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Apply Dark Mode
   useEffect(() => {
@@ -173,7 +216,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    fetchData()
+    const initialFetchTimer = setTimeout(fetchData, 0)
 
     // Realtime Subscription with Debounce
     let debounceTimer
@@ -215,6 +258,7 @@ function App() {
 
     return () => {
       supabase.removeChannel(subscription)
+      clearTimeout(initialFetchTimer)
       if (debounceTimer) clearTimeout(debounceTimer)
     }
   }, [fetchData])
@@ -227,22 +271,24 @@ function App() {
       if (totalMatchesPlayed === 0) {
         console.log('Detected uninitialized stats. Running recalculation...')
         migrationAttempted.current = true
-        setMigrating(true)
-        recalculatePlayerStats()
-          .then(() => {
-            console.log('Recalculation complete.')
-            fetchData()
+        queueMicrotask(() => {
+          setMigrating(true)
+          recalculatePlayerStats()
+            .then(() => {
+              console.log('Recalculation complete.')
+              fetchData()
+            })
+            .catch(err => {
+              console.error('Migration failed:', err)
+              if (err.message && err.message.includes('column')) {
+                showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
+              }
+            })
+            .finally(() => setMigrating(false))
           })
-          .catch(err => {
-            console.error('Migration failed:', err)
-            if (err.message && err.message.includes('column')) {
-              showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
-            }
-          })
-          .finally(() => setMigrating(false))
       }
     }
-  }, [loading, matches.length, users.length, fetchData, showToast])
+  }, [loading, matches.length, users, fetchData, showToast])
 
   const handleUserClick = (user) => {
     setStatsPlayerId(user.id)
@@ -503,7 +549,7 @@ function App() {
               <span className="hidden md:inline">Add Player</span>
             </button>
 
-            {activeTab === 'matches' && (
+            {activeTab === 'matches' && isAdmin && (
               <div className="basis-full flex justify-center gap-2 shrink-0">
                 {isPingPong && (
                   <button
@@ -658,6 +704,7 @@ function App() {
               matches={matches}
               fetchData={fetchData}
               isAdmin={isAdmin}
+              adminToken={adminToken}
             />
           )}
 
@@ -726,6 +773,7 @@ function App() {
             player2={selectedPlayers[1]}
             onMatchSaved={handleMatchSaved}
             matches={matches}
+            adminToken={adminToken}
           />
         )}
 
@@ -740,6 +788,7 @@ function App() {
             player2={liveMatchPlayers[1]}
             onMatchSaved={handleLiveMatchSaved}
             matches={matches}
+            adminToken={adminToken}
           />
         )}
 
@@ -773,6 +822,7 @@ function App() {
             team2={padelTeams.team2}
             users={users}
             onMatchSaved={handlePadelMatchSaved}
+            adminToken={adminToken}
           />
         )}
 
@@ -787,6 +837,7 @@ function App() {
             team2={padelLiveMatchTeams.team2}
             onMatchSaved={handlePadelLiveMatchSaved}
             padelStats={padelStats}
+            adminToken={adminToken}
           />
         )}
 
@@ -821,6 +872,7 @@ function App() {
             player1={tennisPlayers[0]}
             player2={tennisPlayers[1]}
             onMatchSaved={handleTennisMatchSaved}
+            adminToken={adminToken}
           />
         )}
 
@@ -834,6 +886,7 @@ function App() {
             player1={tennisLivePlayers[0]}
             player2={tennisLivePlayers[1]}
             onMatchSaved={handleTennisLiveMatchSaved}
+            adminToken={adminToken}
           />
         )}
       </div>

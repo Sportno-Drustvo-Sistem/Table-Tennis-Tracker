@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
-import { calculateEloChange, getKFactor, buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
+import { buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
 
 const PlayerStats = ({ users, matches, initialPlayerId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
@@ -159,7 +159,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
             avgScoreDiff: (wins + losses) > 0 ? ((pointsFor - pointsAgainst) / (wins + losses)).toFixed(1) : 0,
             eloHistory
         }
-    }, [selectedPlayerId, matches, startDate, endDate, users, eloData])
+    }, [selectedPlayerId, selectedPlayer?.matches_played, matches, startDate, endDate, users, eloData])
 
     if (!selectedPlayer) return <div>Select a player</div>
 

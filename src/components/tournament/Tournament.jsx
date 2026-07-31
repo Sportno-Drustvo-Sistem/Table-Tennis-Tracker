@@ -6,7 +6,7 @@ import MatchModal from '../modals/MatchModal'
 import LiveMatchModal from '../modals/LiveMatchModal'
 import { Trophy, RefreshCw, X, AlertTriangle, Swords, Users } from 'lucide-react'
 import { getActiveDebuffs, getRandomDebuff } from '../../utils'
-import { useToast } from '../../contexts/ToastContext' // Added import for useToast
+import { useToast } from '../../contexts/useToast'
 import {
     shuffle,
     generateSingleEliminationBracket,
@@ -18,13 +18,11 @@ import {
     propagateAdvancements,
     handleSingleElimAdvancement,
     handleDoubleElimAdvancement,
-    checkTournamentComplete
 } from './tournamentUtils'
 
-const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
+const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchData }) => {
     const { showToast, showConfirm } = useToast() // Added useToast hook
     const [activeTournament, setActiveTournament] = useState(null)
-    const [loading, setLoading] = useState(true)
     const [cachedDebuffs, setCachedDebuffs] = useState([])
     const [selectedMatchId, setSelectedMatchId] = useState(null)
 
@@ -52,7 +50,6 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                 localStorage.removeItem(STORAGE_KEY)
             }
         }
-        setLoading(false)
     }, [])
 
     useEffect(() => {
@@ -278,7 +275,6 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
         if (dbMatch.player1_id !== p1Id && dbMatch.player1_id !== p2Id) return
 
         const winnerId = dbMatch.score1 > dbMatch.score2 ? dbMatch.player1_id : dbMatch.player2_id
-        const loserId = winnerId === p1Id ? p2Id : p1Id
         const winner = winnerId === p1Id ? match.player1 : match.player2
         const loser = winnerId === p1Id ? match.player2 : match.player1
 
@@ -703,6 +699,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     tournamentId={activeTournament.id}
                     debuffs={modalDebuffs}
                     isAdmin={isAdmin}
+                    adminToken={adminToken}
                     availablePlayers={activeTournament.players}
                     onOverridePlayers={(p1, p2) => {
                         const newTournament = { ...activeTournament }
@@ -730,6 +727,7 @@ const Tournament = ({ users, isAdmin, matches: globalMatches, fetchData }) => {
                     tournamentId={activeTournament.id}
                     debuffs={modalDebuffs}
                     isAdmin={isAdmin}
+                    adminToken={adminToken}
                 />
             )}
 

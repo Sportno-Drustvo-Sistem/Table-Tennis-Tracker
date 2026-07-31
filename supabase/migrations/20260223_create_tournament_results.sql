@@ -1,7 +1,7 @@
 -- Create Tournament Results Table
 create table
     if not exists public.tournament_results (
-        id uuid not null default uuid_generate_v4 (),
+        id uuid not null default gen_random_uuid (),
         tournament_id uuid not null references public.tournaments (id) on delete cascade,
         user_id uuid not null references public.users (id) on delete cascade,
         rank integer not null,
@@ -24,4 +24,4 @@ select
 
 drop policy if exists "Enable write access for all users" on public.tournament_results;
 
-create policy "Enable write access for all users" on public.tournament_results for all using (true);
+create policy "Enable write access for all users" on public.tournament_results for all using (true) with check (true);

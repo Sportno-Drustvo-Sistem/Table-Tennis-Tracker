@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Trophy, RefreshCw, Swords, UserX } from 'lucide-react'
 
-const MatchNode = ({ match, onMatchClick, onManualBye, readOnly, roundIndex, matchIndex, totalRounds }) => {
+const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
     const p1 = match.player1
     const p2 = match.player2
     const winner = match.winner

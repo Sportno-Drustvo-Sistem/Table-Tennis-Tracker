@@ -3,7 +3,7 @@ import { Calendar, Check, CheckSquare, Edit2, ListChecks, MinusSquare, RefreshCw
 import { supabase } from '../supabaseClient'
 import { buildTennisEloHistory, getTennisScoreSummary, recalculateTennisStats } from '../tennisUtils'
 import { getAvatarFallback } from '../utils'
-import { useToast } from '../contexts/ToastContext'
+import { useToast } from '../contexts/useToast'
 
 const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
     const { showToast } = useToast()

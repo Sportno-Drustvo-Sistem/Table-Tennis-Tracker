@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { useToast } from '../../contexts/ToastContext'
+import { useToast } from '../../contexts/useToast'
 import { recalculatePadelStats } from '../../padelUtils'
 
 const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) => {
@@ -35,10 +35,6 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
     const handleFormatChange = (e) => {
         const format = e.target.value
         setMatchFormat(format)
-
-        let initialSets = 1
-        if (format === 'best_of_3') initialSets = 1
-        if (format === 'best_of_5') initialSets = 1
 
         // Don't auto-clear sets on format change if reducing, just let them add/delete manually for now, 
         // or just let it be handled by maxSets limits.
@@ -77,16 +73,12 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
             return
         }
 
-        let team1SetsWon = 0
-        let team2SetsWon = 0
         let team1TotalGames = 0
         let team2TotalGames = 0
 
         cleanSets.forEach(s => {
             team1TotalGames += s.team1Games
             team2TotalGames += s.team2Games
-            if (s.team1Games > s.team2Games) team1SetsWon++
-            else if (s.team2Games > s.team1Games) team2SetsWon++
         })
 
         setSaving(true)

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyTennisMatchResultToStats, validateTennisSets } from '../../tennisUtils'
+import { validateTennisSets } from '../../tennisUtils'
 import { getAvatarFallback } from '../../utils'
-import { useToast } from '../../contexts/ToastContext'
+import { recordTennisMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
 const emptySet = { player1Games: '', player2Games: '', player1Tiebreak: '', player2Tiebreak: '' }
 
-const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) => {
+const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
     const [matchFormat, setMatchFormat] = useState('best_of_3')
     const [sets, setSets] = useState([{ ...emptySet }, { ...emptySet }, { ...emptySet }])
@@ -49,18 +50,15 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved }) =
 
         setSaving(true)
         try {
-            const builtMatch = {
-                player1_id: player1.id,
-                player2_id: player2.id,
+            await recordTennisMatch(supabase, {
+                adminToken,
+                player1Id: player1.id,
+                player2Id: player2.id,
                 score1: validation.summary.player1Games,
                 score2: validation.summary.player2Games,
-                match_format: matchFormat,
-                sets_data: validation.sets,
-            }
-            const { error } = await supabase.from('tennis_matches').insert([builtMatch])
-            if (error) throw error
-
-            await applyTennisMatchResultToStats(builtMatch)
+                matchFormat,
+                setsData: validation.sets,
+            })
             showToast('Tennis match saved!', 'success')
             onMatchSaved?.()
         } catch (error) {

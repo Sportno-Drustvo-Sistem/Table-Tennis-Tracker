@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
     generateSingleEliminationBracket,
     generateDoubleEliminationBracket,
-    seedFromGroups,
-    propagateAdvancements
+    seedFromGroups
 } from './tournamentUtils'
 
 const mockPlayers = [

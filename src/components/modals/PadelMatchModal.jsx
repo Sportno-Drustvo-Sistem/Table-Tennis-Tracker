@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { ArrowLeftRight, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyPadelMatchResultToStats, validatePadelSets } from '../../padelUtils'
-import { useToast } from '../../contexts/ToastContext'
+import { validatePadelSets } from '../../padelUtils'
+import { recordPadelMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
-const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved }) => {
+const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
     const [matchFormat, setMatchFormat] = useState('best_of_3') // 'best_of_1', 'best_of_3', 'best_of_5'
     const [setsData, setSetsData] = useState([{ team1Games: '', team2Games: '' }])
@@ -81,39 +82,15 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved })
 
         setSaving(true)
         try {
-            const { error: matchError } = await supabase
-                .from('padel_matches')
-                .insert([
-                    {
-                        team1_player1_id: localTeam1[0].id,
-                        team1_player2_id: localTeam1[1].id,
-                        team2_player1_id: localTeam2[0].id,
-                        team2_player2_id: localTeam2[1].id,
-                        // We store total games won into score1/score2 for Elo calculations backwards compatibility!
-                        score1: team1TotalGames,
-                        score2: team2TotalGames,
-                        match_format: matchFormat,
-                        sets_data: validSets
-                    }
-                ])
-
-            if (matchError) {
-                console.error("Match saving error:", matchError)
-                throw matchError
-            }
-
-            // Incremental Update
-            const builtMatch = {
-                team1_player1_id: localTeam1[0].id,
-                team1_player2_id: localTeam1[1].id,
-                team2_player1_id: localTeam2[0].id,
-                team2_player2_id: localTeam2[1].id,
+            await recordPadelMatch(supabase, {
+                adminToken,
+                team1: [localTeam1[0].id, localTeam1[1].id],
+                team2: [localTeam2[0].id, localTeam2[1].id],
                 score1: team1TotalGames,
                 score2: team2TotalGames,
-                match_format: matchFormat,
-                sets_data: validSets
-            }
-            await applyPadelMatchResultToStats(builtMatch)
+                matchFormat,
+                setsData: validSets,
+            })
 
             onMatchSaved()
 

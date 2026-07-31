@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Users, ArrowRight, Dices, Trophy, Shield, Settings, Trash2 } from 'lucide-react'
 import { generateTournamentName } from '../../utils'
 import { supabase } from '../../supabaseClient'
-import { useToast } from '../../contexts/ToastContext'
+import { useToast } from '../../contexts/useToast'
 
 const TournamentSetup = ({ users, onStart, isAdmin }) => {
     const [name, setName] = useState(generateTournamentName())

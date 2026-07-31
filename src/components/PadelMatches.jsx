@@ -3,7 +3,7 @@ import { Edit2, Trash2, Calendar, RefreshCw, Check, X, CheckSquare, Square, Minu
 import { supabase } from '../supabaseClient'
 import { buildPadelEloHistory, getPadelScoreSummary, recalculatePadelStats } from '../padelUtils'
 import { getAvatarFallback } from '../utils'
-import { useToast } from '../contexts/ToastContext'
+import { useToast } from '../contexts/useToast'
 import { TennisIcon } from './Icons'
 
 const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {

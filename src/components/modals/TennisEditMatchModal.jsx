@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { recalculateTennisStats, validateTennisSets } from '../../tennisUtils'
-import { useToast } from '../../contexts/ToastContext'
+import { useToast } from '../../contexts/useToast'
 
 const TennisEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) => {
     const { showToast } = useToast()
