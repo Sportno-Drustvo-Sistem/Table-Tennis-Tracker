@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/useToast'
 
-const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAdmin }) => {
+const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAdmin, adminToken }) => {
     const { showToast } = useToast()
     const [name, setName] = useState('')
     const [file, setFile] = useState(null)
@@ -40,10 +40,12 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
                 publicUrl = data.publicUrl
             }
 
-            const { error: updateError } = await supabase
-                .from('users')
-                .update({ name, avatar_url: publicUrl })
-                .eq('id', user.id)
+            const { error: updateError } = await supabase.rpc('update_player', {
+                p_admin_token: adminToken,
+                p_user_id: user.id,
+                p_name: name,
+                p_avatar_url: publicUrl,
+            })
 
             if (updateError) throw updateError
 

@@ -729,6 +729,7 @@ function App() {
           onClose={() => setEditingUser(null)}
           onUserUpdated={fetchData}
           isAdmin={isAdmin}
+          adminToken={adminToken}
         />
 
         <LoginModal

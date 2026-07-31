@@ -40,6 +40,18 @@ describe('fresh Supabase migration readiness', () => {
         expect(migration).toContain('to anon, authenticated')
     })
 
+    it('allows player edits only through a validated admin session', () => {
+        const migration = readMigration(findMigration('admin_player_updates'))
+
+        expect(migration).toContain('create function public.update_player')
+        expect(migration).toContain('perform private.require_admin_session(p_admin_token)')
+        expect(migration).toContain('update public.users')
+        expect(migration).toContain(
+            'grant execute on function public.update_player(text, uuid, text, text)'
+        )
+        expect(migration).not.toContain('grant update on')
+    })
+
     it('creates core users and matches tables before feature migrations run', () => {
         const names = migrationNames()
         const baselineName = findMigration('baseline_core_schema')
