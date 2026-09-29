@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react'
 import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search, Skull } from 'lucide-react'
-import { useToast } from '../contexts/ToastContext'
+import { useToast } from '../contexts/useToast'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../utils'
 import { PingPongIcon } from './Icons'
 
-const Matches = ({ matches, users, onEditMatch, onMatchDeleted, onGenerateMatch, isAdmin }) => {
+const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)

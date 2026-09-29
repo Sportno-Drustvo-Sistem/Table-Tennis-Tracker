@@ -3,6 +3,13 @@ import { ArrowUp, ArrowDown, Trophy } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
 import { getEloRank, getAvatarFallback } from '../utils'
 
+const SortIcon = ({ column, sortKey, sortDirection }) => {
+    if (sortKey !== column) return <div className="w-4 h-4 ml-1 opacity-0"></div>
+    return sortDirection === 'asc'
+        ? <ArrowUp size={16} className="ml-1" />
+        : <ArrowDown size={16} className="ml-1" />
+}
+
 const Leaderboard = ({ users, matches }) => {
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -136,12 +143,9 @@ const Leaderboard = ({ users, matches }) => {
         setSortConfig({ key, direction })
     }
 
-    const SortIcon = ({ column }) => {
-        if (sortConfig.key !== column) return <div className="w-4 h-4 ml-1 opacity-0"></div>
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp size={16} className="ml-1" />
-            : <ArrowDown size={16} className="ml-1" />
-    }
+    const renderSortIcon = (column) => (
+        <SortIcon column={column} sortKey={sortConfig.key} sortDirection={sortConfig.direction} />
+    )
 
     return (
         <div className="space-y-6">
@@ -169,37 +173,37 @@ const Leaderboard = ({ users, matches }) => {
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('elo_rating')}
                                 >
-                                    <div className="flex justify-end items-center">ELO <SortIcon column="elo_rating" /></div>
+                                    <div className="flex justify-end items-center">ELO {renderSortIcon('elo_rating')}</div>
                                 </th>
                                 <th
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('wins')}
                                 >
-                                    <div className="flex justify-end items-center">Wins <SortIcon column="wins" /></div>
+                                    <div className="flex justify-end items-center">Wins {renderSortIcon('wins')}</div>
                                 </th>
                                 <th
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('losses')}
                                 >
-                                    <div className="flex justify-end items-center">Losses <SortIcon column="losses" /></div>
+                                    <div className="flex justify-end items-center">Losses {renderSortIcon('losses')}</div>
                                 </th>
                                 <th
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('winRate')}
                                 >
-                                    <div className="flex justify-end items-center">Win % <SortIcon column="winRate" /></div>
+                                    <div className="flex justify-end items-center">Win % {renderSortIcon('winRate')}</div>
                                 </th>
                                 <th
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('streakValue')}
                                 >
-                                    <div className="flex justify-end items-center">Streak <SortIcon column="streakValue" /></div>
+                                    <div className="flex justify-end items-center">Streak {renderSortIcon('streakValue')}</div>
                                 </th>
                                 <th
                                     className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right"
                                     onClick={() => requestSort('scoreDiff')}
                                 >
-                                    <div className="flex justify-end items-center">Score Diff <SortIcon column="scoreDiff" /></div>
+                                    <div className="flex justify-end items-center">Score Diff {renderSortIcon('scoreDiff')}</div>
                                 </th>
                             </tr>
                         </thead>

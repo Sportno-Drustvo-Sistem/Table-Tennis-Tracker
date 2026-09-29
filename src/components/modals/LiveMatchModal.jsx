@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { applyMatchResultToStats, recalculatePlayerStats, getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, calculateEloChange, getKFactor, buildEloHistory, getAvatarFallback } from '../../utils'
-import { useToast } from '../../contexts/ToastContext'
+import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, getAvatarFallback } from '../../utils'
+import { recordPingPongMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
 const WINNING_SCORE = 11
 const MIN_LEAD = 2
@@ -32,7 +33,7 @@ const playBlip = () => {
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
         osc.start(ctx.currentTime)
         osc.stop(ctx.currentTime + 0.12)
-    } catch (e) { /* silent fail */ }
+    } catch { /* silent fail */ }
 }
 
 const playWinSound = () => {
@@ -51,7 +52,7 @@ const playWinSound = () => {
             osc.start(ctx.currentTime + i * 0.15)
             osc.stop(ctx.currentTime + i * 0.15 + 0.3)
         })
-    } catch (e) { /* silent fail */ }
+    } catch { /* silent fail */ }
 }
 
 let cachedVoices = []
@@ -184,7 +185,7 @@ const playAudioSequence = async (paths, fallbackText) => {
                 hasError = true
                 resolve() // skip on error
             }
-            sharedVoicesAudio.play().catch((e) => {
+            sharedVoicesAudio.play().catch(() => {
                 hasError = true
                 resolve()
             })
@@ -195,7 +196,7 @@ const playAudioSequence = async (paths, fallbackText) => {
     }
 }
 
-const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs }) => {
+const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, adminToken }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
@@ -205,7 +206,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const [initialServer, setInitialServer] = useState(null) // 1 | 2
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
-    const [showWinAnimation, setShowWinAnimation] = useState(false)
     const [refusedRules, setRefusedRules] = useState(new Set())
 
     // Multi-set state
@@ -230,7 +230,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setGameWinner(null)
             setMatchWinner(null)
             setSaving(false)
-            setShowWinAnimation(false)
             setCompletedSets([])
             setBestOf(1)
             setMatchStarted(false)
@@ -297,7 +296,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const gamesWon1 = completedSets.filter(s => s.s1 > s.s2).length
     const gamesWon2 = completedSets.filter(s => s.s2 > s.s1).length
 
-    const scorePoint = (playerNum) => {
+    const scorePoint = useCallback((playerNum) => {
         unlockAudioAndSpeech()
         if (gameWinner || matchWinner) return
 
@@ -329,7 +328,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 const mw = newGamesWon1 >= gamesNeeded ? 1 : 2
                 setGameWinner(w)
                 setMatchWinner(mw)
-                setShowWinAnimation(true)
                 if (soundEnabled) {
                     playWinSound()
                     const winnerName = mw === 1 ? 'Blue' : 'Red'
@@ -381,9 +379,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 }
             }
         }
-    }
+    }, [checkGameWin, completedSets, gameWinner, gamesNeeded, initialServer, matchStarted, matchWinner, score1, score2, soundEnabled])
 
-    const undoLast = () => {
+    const undoLast = useCallback(() => {
         unlockAudioAndSpeech()
         if (history.length === 0 || gameWinner || matchWinner) return
 
@@ -392,39 +390,25 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         if (lastScorer === 1) setScore1(prev => prev - 1)
         else setScore2(prev => prev - 1)
-    }
+    }, [gameWinner, history, matchWinner])
 
     const handleSave = async () => {
         if (!matchWinner) return
         setSaving(true)
         try {
             const allSets = completedSets
-            let lastSavedMatch = null
-            for (const setScore of allSets) {
-                const { data: savedMatch, error: matchError } = await supabase
-                    .from('matches')
-                    .insert([{
-                        player1_id: player1.id,
-                        player2_id: player2.id,
-                        score1: setScore.s1,
-                        score2: setScore.s2,
-                        handicap_rule: activeRules.filter((_, idx) => !refusedRules.has(idx)).length > 0 ? activeRules.filter((_, idx) => !refusedRules.has(idx)) : null,
-                        tournament_id: tournamentId || null,
-                    }])
-                    .select()
-                    .single()
-                if (matchError) throw matchError
-                lastSavedMatch = savedMatch
-            }
+            const acceptedRules = activeRules.filter((_, idx) => !refusedRules.has(idx))
+            const { match: lastSavedMatch, changes } = await recordPingPongMatch(supabase, {
+                adminToken,
+                player1Id: player1.id,
+                player2Id: player2.id,
+                sets: allSets,
+                handicapRule: acceptedRules.length > 0 ? acceptedRules : null,
+                tournamentId: tournamentId || null,
+            })
+            const p1Change = changes[player1.id] || 0
+            const p2Change = changes[player2.id] || 0
 
-            // 2. Incremental ELO Update
-            const { p1Change, p2Change } = await applyMatchResultToStats(
-                player1.id, 
-                player2.id, 
-                allSets, 
-                activeRules.filter((_, idx) => !refusedRules.has(idx))
-            )
-            
             setEloChange({ p1: Math.round(p1Change), p2: Math.round(p2Change) })
             setTimeout(() => setEloChange(null), 3000)
 
@@ -456,7 +440,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         setHistory([])
         setGameWinner(null)
         setMatchWinner(null)
-        setShowWinAnimation(false)
         setCompletedSets([])
         setMatchStarted(false)
         setEloChange(null)
@@ -485,15 +468,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         return () => window.removeEventListener('keydown', onKey)
     }, [isOpen, gameWinner, matchWinner, scorePoint, undoLast])
 
-    if (!isOpen || !player1 || !player2) return null
-
     const isDeuce = score1 >= 10 && score2 >= 10
-    const winnerPlayer = matchWinner === 1 ? player1 : matchWinner === 2 ? player2 : null
     const matchPoint1 = !gameWinner && !matchWinner && score1 >= 10 && score1 > score2 && score1 - score2 >= 1
     const matchPoint2 = !gameWinner && !matchWinner && score2 >= 10 && score2 > score1 && score2 - score1 >= 1
-
-    // Is this the potentially match-deciding game?
-    const isMatchPoint = (gamesWon1 === gamesNeeded - 1 || gamesWon2 === gamesNeeded - 1) && bestOf > 1
 
     // Serve Tracking Logic
     const currentServer = useMemo(() => {
@@ -517,6 +494,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         const p1Expected = calculateExpectedScore(p1Elo, p2Elo)
         return { p1: Math.round(p1Expected * 100), p2: Math.round((1 - p1Expected) * 100) }
     }, [player1, player2])
+
+    if (!isOpen || !player1 || !player2) return null
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">

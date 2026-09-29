@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { X, Shuffle, Check, AlertCircle, Scale } from 'lucide-react'
 import { getHeadToHeadStreak, getHandicapRule } from '../../utils'
 import { calculateExpectedScore } from '../../utils'
@@ -11,42 +11,10 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
     const [error, setError] = useState(null)
     const [isGenerating, setIsGenerating] = useState(false)
 
-    // Reset state when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            // Load from localStorage or default to all users
-            const savedPool = localStorage.getItem('matchGeneratorPool')
-            if (savedPool) {
-                try {
-                    const parsedPool = JSON.parse(savedPool)
-                    // Ensure saved IDs still exist in current users list
-                    const validIds = parsedPool.filter(id => users.some(u => u.id === id))
-                    setSelectedPool(validIds)
-                } catch (e) {
-                    setSelectedPool(users.map(u => u.id))
-                }
-            } else {
-                setSelectedPool(users.map(u => u.id))
-            }
-
-            setGeneratedMatch(null)
-            setHandicapRule(null)
-            setError(null)
-            identifyExcludedPlayers()
-        }
-    }, [isOpen, users, matches])
-
-    // Save selected pool when it changes
-    const updateSelectedPool = (newPool) => {
-        setSelectedPool(newPool)
-        localStorage.setItem('matchGeneratorPool', JSON.stringify(newPool))
-    }
-
-    const identifyExcludedPlayers = () => {
+    const identifyExcludedPlayers = useCallback(() => {
         // Find players who played the last 2 consecutive matches
         // matches are assumed to be sorted by date desc (newest first)
 
-        const consecutiveMatches = {} // map of userId -> consecutive count
         const excluded = new Set()
 
         // We only care about the most recent matches to determine "streak"
@@ -70,6 +38,41 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
         }
 
         setExcludedPlayers(Array.from(excluded))
+    }, [matches])
+
+    // Reset state when modal opens
+    useEffect(() => {
+        if (!isOpen) return undefined
+
+        const timer = setTimeout(() => {
+            // Load from localStorage or default to all users
+            const savedPool = localStorage.getItem('matchGeneratorPool')
+            if (savedPool) {
+                try {
+                    const parsedPool = JSON.parse(savedPool)
+                    // Ensure saved IDs still exist in current users list
+                    const validIds = parsedPool.filter(id => users.some(u => u.id === id))
+                    setSelectedPool(validIds)
+                } catch {
+                    setSelectedPool(users.map(u => u.id))
+                }
+            } else {
+                setSelectedPool(users.map(u => u.id))
+            }
+
+            setGeneratedMatch(null)
+            setHandicapRule(null)
+            setError(null)
+            identifyExcludedPlayers()
+        }, 0)
+
+        return () => clearTimeout(timer)
+    }, [identifyExcludedPlayers, isOpen, users])
+
+    // Save selected pool when it changes
+    const updateSelectedPool = (newPool) => {
+        setSelectedPool(newPool)
+        localStorage.setItem('matchGeneratorPool', JSON.stringify(newPool))
     }
 
     const togglePlayer = (userId) => {

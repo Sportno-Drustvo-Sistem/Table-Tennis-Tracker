@@ -1,7 +1,33 @@
 import React, { useState, useEffect } from 'react'
 import { X, Shuffle, Check, AlertCircle } from 'lucide-react'
 
-const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats, onMatchGenerated }) => {
+const TeamCard = ({ team, label, padelStatsMap }) => (
+    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex-1">
+        <div className="text-xs font-bold text-green-600 dark:text-green-400 uppercase mb-3 text-center">{label}</div>
+        <div className="space-y-3">
+            {team.map(player => {
+                const ps = padelStatsMap[player.id]
+                return (
+                    <div key={player.id} className="flex items-center gap-3">
+                        <img
+                            src={player.avatar_url || 'https://via.placeholder.com/40'}
+                            className="w-12 h-12 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
+                            alt={player.name}
+                        />
+                        <div>
+                            <div className="font-bold text-gray-900 dark:text-white">{player.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                ELO: {ps?.elo_rating || 1200}
+                            </div>
+                        </div>
+                    </div>
+                )
+            })}
+        </div>
+    </div>
+)
+
+const PadelMatchGeneratorModal = ({ isOpen, onClose, users, padelStats, onMatchGenerated }) => {
     const [excludedPlayers, setExcludedPlayers] = useState(new Set())
     const [selectedPlayers, setSelectedPlayers] = useState([])
     const [generatedTeams, setGeneratedTeams] = useState(null)
@@ -14,11 +40,15 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats,
         })
 
     useEffect(() => {
-        if (isOpen) {
+        if (!isOpen) return undefined
+
+        const timer = setTimeout(() => {
             setSelectedPlayers([])
             setGeneratedTeams(null)
             setMode('select')
-        }
+        }, 0)
+
+        return () => clearTimeout(timer)
     }, [isOpen])
 
     if (!isOpen) return null
@@ -75,32 +105,6 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats,
         setSelectedPlayers([])
         setMode('select')
     }
-
-    const TeamCard = ({ team, label }) => (
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex-1">
-            <div className="text-xs font-bold text-green-600 dark:text-green-400 uppercase mb-3 text-center">{label}</div>
-            <div className="space-y-3">
-                {team.map(player => {
-                    const ps = padelStatsMap[player.id]
-                    return (
-                        <div key={player.id} className="flex items-center gap-3">
-                            <img
-                                src={player.avatar_url || 'https://via.placeholder.com/40'}
-                                className="w-12 h-12 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
-                                alt={player.name}
-                            />
-                            <div>
-                                <div className="font-bold text-gray-900 dark:text-white">{player.name}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    ELO: {ps?.elo_rating || 1200}
-                                </div>
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-        </div>
-    )
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -182,9 +186,9 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, matches, padelStats,
                         generatedTeams && (
                             <div className="space-y-6">
                                 <div className="flex gap-4 items-center">
-                                    <TeamCard team={generatedTeams.team1} label="Team 1" />
+                                    <TeamCard team={generatedTeams.team1} label="Team 1" padelStatsMap={padelStatsMap} />
                                     <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">VS</div>
-                                    <TeamCard team={generatedTeams.team2} label="Team 2" />
+                                    <TeamCard team={generatedTeams.team2} label="Team 2" padelStatsMap={padelStatsMap} />
                                 </div>
                             </div>
                         )

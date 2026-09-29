@@ -12,6 +12,37 @@ dist
 dist-ssr
 *.local
 
+# Environment and local deployment metadata
+.env
+.env.*
+!.env.example
+.vercel
+
+# Test, coverage, and generated reports
+coverage
+.nyc_output
+playwright-report
+test-results
+*.lcov
+*.tap
+*.junit.xml
+
+# Tool caches
+.vite
+.vitest
+.eslintcache
+.turbo
+.cache
+
+# Local scratch artifacts
+tmp
+temp
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,5 +53,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env
 db_setup.sql

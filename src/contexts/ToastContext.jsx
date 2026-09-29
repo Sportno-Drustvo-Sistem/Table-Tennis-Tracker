@@ -1,13 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import React, { useState, useCallback } from 'react'
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react'
-
-const ToastContext = createContext(null)
-
-export const useToast = () => {
-    const context = useContext(ToastContext)
-    if (!context) throw new Error('useToast must be used within ToastProvider')
-    return context
-}
+import { ToastContextValue } from './ToastContextValue'
 
 export const ToastProvider = ({ children }) => {
     const [toasts, setToasts] = useState([])
@@ -35,7 +28,7 @@ export const ToastProvider = ({ children }) => {
     }
 
     return (
-        <ToastContext.Provider value={{ showToast, showConfirm }}>
+        <ToastContextValue.Provider value={{ showToast, showConfirm }}>
             {children}
 
             {/* Toasts Overlay */}
@@ -93,6 +86,6 @@ export const ToastProvider = ({ children }) => {
                     </div>
                 </div>
             )}
-        </ToastContext.Provider>
+        </ToastContextValue.Provider>
     )
 }

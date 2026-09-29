@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
 import PadelAchievements from './PadelAchievements'
-import { getMatchWinner, buildPadelEloHistory } from '../padelUtils'
+import { getMatchWinner, buildPadelEloHistory, getPadelScoreSummary } from '../padelUtils'
 import { getEloRank, getAvatarFallback } from '../utils'
 
 const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
@@ -87,27 +87,11 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
         relevantMatches.forEach(match => {
             const isTeam1 = [match.team1_player1_id, match.team1_player2_id].includes(selectedPlayerId)
 
-            let myGames = isTeam1 ? match.score1 : match.score2
-            let opponentGames = isTeam1 ? match.score2 : match.score1
-
-            let mySets = 0
-            let opponentSets = 0
-
-            if (match.sets_data && match.sets_data.length > 0) {
-                match.sets_data.forEach(s => {
-                    if (isTeam1) {
-                        if (s.team1Games > s.team2Games) mySets++;
-                        else if (s.team2Games > s.team1Games) opponentSets++;
-                    } else {
-                        if (s.team2Games > s.team1Games) mySets++;
-                        else if (s.team1Games > s.team2Games) opponentSets++;
-                    }
-                })
-            } else {
-                // legacy match fallback
-                if (myGames > opponentGames) mySets++;
-                else if (opponentGames > myGames) opponentSets++;
-            }
+            const summary = getPadelScoreSummary(match)
+            const myGames = isTeam1 ? summary.team1Games : summary.team2Games
+            const opponentGames = isTeam1 ? summary.team2Games : summary.team1Games
+            const mySets = isTeam1 ? summary.team1Sets : summary.team2Sets
+            const opponentSets = isTeam1 ? summary.team2Sets : summary.team1Sets
 
             const winner = getMatchWinner(match)
             const isWin = (winner === 1 && isTeam1) || (winner === 2 && !isTeam1)
@@ -188,9 +172,11 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
             timeline,
             streak: streakType ? `${currentStreak}${streakType}` : '-',
             streakType,
-            eloHistory
+            eloHistory,
+            maxElo: Math.round(maxElo),
+            minElo: Math.round(minElo)
         }
-    }, [selectedPlayerId, matches, startDate, endDate, users, eloData])
+    }, [selectedPlayerId, selectedPlayer, matches, startDate, endDate, users, eloData])
 
     if (!selectedPlayer) return <div>Select a player</div>
 
@@ -268,6 +254,16 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                         <div className="text-2xl font-bold text-gray-400">{stats?.totalGamesLost}L</div>
                     </div>
                     <div className="text-xs font-bold text-purple-600/80 dark:text-purple-400/80 mt-1">{stats?.totalGamesWon - stats?.totalGamesLost > 0 ? '+' : ''}{stats?.totalGamesWon - stats?.totalGamesLost} Diff</div>
+                </div>
+
+                <div className="col-span-2 bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                    <div className="text-emerald-800 dark:text-emerald-400 text-sm font-bold uppercase tracking-wider">Max ELO</div>
+                    <div className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-2">{stats?.maxElo}</div>
+                </div>
+
+                <div className="col-span-2 bg-rose-50 dark:bg-rose-900/10 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
+                    <div className="text-rose-800 dark:text-rose-400 text-sm font-bold uppercase tracking-wider">Min ELO</div>
+                    <div className="text-4xl font-extrabold text-rose-600 dark:text-rose-400 mt-2">{stats?.minElo}</div>
                 </div>
             </div>
 

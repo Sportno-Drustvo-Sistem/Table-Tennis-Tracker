@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { ArrowLeftRight, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePadelStats } from '../../padelUtils'
-import { useToast } from '../../contexts/ToastContext'
+import { validatePadelSets } from '../../padelUtils'
+import { recordPadelMatch } from '../../matchPersistence'
+import { useToast } from '../../contexts/useToast'
 
-const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved }) => {
+const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
     const [matchFormat, setMatchFormat] = useState('best_of_3') // 'best_of_1', 'best_of_3', 'best_of_5'
     const [setsData, setSetsData] = useState([{ team1Games: '', team2Games: '' }])
@@ -70,64 +71,26 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved })
             team2Games: s.team2Games === '' ? 0 : s.team2Games
         }))
 
-        // Ensure at least one game is played or one set is valid
-        if (cleanSets.length === 0) {
-            showToast('Please enter at least one set score.', 'error')
+        const validation = validatePadelSets(cleanSets)
+        if (!validation.valid) {
+            showToast(validation.message, 'error')
             return
         }
 
-        // Calculate Sets won to determine match winner
-        let team1SetsWon = 0
-        let team2SetsWon = 0
-        let team1TotalGames = 0
-        let team2TotalGames = 0
-
-        cleanSets.forEach(s => {
-            team1TotalGames += s.team1Games
-            team2TotalGames += s.team2Games
-            if (s.team1Games > s.team2Games) team1SetsWon++
-            else if (s.team2Games > s.team1Games) team2SetsWon++
-        })
-
-        // Require a clear winner in terms of sets won for normal scenarios
-        if (team1SetsWon === team2SetsWon) {
-            // We'll allow taking the match even if tied sets but warn if it feels wrong, 
-            // but technically allow it.
-        }
+        const validSets = validation.sets
+        const { team1Games: team1TotalGames, team2Games: team2TotalGames } = validation.summary
 
         setSaving(true)
         try {
-            const { error: matchError } = await supabase
-                .from('padel_matches')
-                .insert([
-                    {
-                        team1_player1_id: localTeam1[0].id,
-                        team1_player2_id: localTeam1[1].id,
-                        team2_player1_id: localTeam2[0].id,
-                        team2_player2_id: localTeam2[1].id,
-                        // We store total games won into score1/score2 for Elo calculations backwards compatibility!
-                        score1: team1TotalGames,
-                        score2: team2TotalGames,
-                        match_format: matchFormat,
-                        sets_data: cleanSets
-                    }
-                ])
-
-            if (matchError) {
-                console.error("Match saving error:", matchError)
-                throw matchError
-            }
-
-            // Incremental Update
-            const builtMatch = {
-                team1_player1_id: localTeam1[0].id,
-                team1_player2_id: localTeam1[1].id,
-                team2_player1_id: localTeam2[0].id,
-                team2_player2_id: localTeam2[1].id,
+            await recordPadelMatch(supabase, {
+                adminToken,
+                team1: [localTeam1[0].id, localTeam1[1].id],
+                team2: [localTeam2[0].id, localTeam2[1].id],
                 score1: team1TotalGames,
-                score2: team2TotalGames
-            }
-            await applyPadelMatchResultToStats(builtMatch)
+                score2: team2TotalGames,
+                matchFormat,
+                setsData: validSets,
+            })
 
             onMatchSaved()
 

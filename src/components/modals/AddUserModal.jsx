@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { useToast } from '../../contexts/ToastContext'
+import { useToast } from '../../contexts/useToast'
 
 const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     const { showToast } = useToast()

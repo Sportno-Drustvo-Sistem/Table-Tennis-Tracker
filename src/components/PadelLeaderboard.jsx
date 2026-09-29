@@ -123,6 +123,11 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
     const sortedStats = useMemo(() => {
         const sorted = [...stats]
         sorted.sort((a, b) => {
+            if (sortConfig.key === 'elo_rating') {
+                if (a.totalGames === 0 && b.totalGames > 0) return 1
+                if (b.totalGames === 0 && a.totalGames > 0) return -1
+            }
+
             if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1
             if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1
             return 0
@@ -130,13 +135,19 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
         return sorted
     }, [stats, sortConfig])
 
+    const championId = useMemo(() => {
+        const activePlayers = sortedStats.filter(player => player.totalGames > 0)
+        if (activePlayers.length === 0) return null
+        return activePlayers.reduce((best, player) => (player.elo_rating > best.elo_rating ? player : best), activePlayers[0]).id
+    }, [sortedStats])
+
     const requestSort = (key) => {
         let direction = 'desc'
         if (sortConfig.key === key && sortConfig.direction === 'desc') direction = 'asc'
         setSortConfig({ key, direction })
     }
 
-    const SortIcon = ({ column }) => {
+    const renderSortIcon = (column) => {
         if (sortConfig.key !== column) return <div className="w-4 h-4 ml-1 opacity-0"></div>
         return sortConfig.direction === 'asc'
             ? <ArrowUp size={16} className="ml-1" />
@@ -166,22 +177,22 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                                 <th className="px-6 py-4">Rank</th>
                                 <th className="px-6 py-4">Player</th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('elo_rating')}>
-                                    <div className="flex justify-end items-center">ELO <SortIcon column="elo_rating" /></div>
+                                    <div className="flex justify-end items-center">ELO {renderSortIcon('elo_rating')}</div>
                                 </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('wins')}>
-                                    <div className="flex justify-end items-center">Wins <SortIcon column="wins" /></div>
+                                    <div className="flex justify-end items-center">Wins {renderSortIcon('wins')}</div>
                                 </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('losses')}>
-                                    <div className="flex justify-end items-center">Losses <SortIcon column="losses" /></div>
+                                    <div className="flex justify-end items-center">Losses {renderSortIcon('losses')}</div>
                                 </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('winRate')}>
-                                    <div className="flex justify-end items-center">Win % <SortIcon column="winRate" /></div>
+                                    <div className="flex justify-end items-center">Win % {renderSortIcon('winRate')}</div>
                                 </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('streakValue')}>
-                                    <div className="flex justify-end items-center">Streak <SortIcon column="streakValue" /></div>
+                                    <div className="flex justify-end items-center">Streak {renderSortIcon('streakValue')}</div>
                                 </th>
                                 <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('scoreDiff')}>
-                                    <div className="flex justify-end items-center">Games Diff <SortIcon column="scoreDiff" /></div>
+                                    <div className="flex justify-end items-center">Games Diff {renderSortIcon('scoreDiff')}</div>
                                 </th>
                             </tr>
                         </thead>
@@ -199,7 +210,7 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                                         <div className="flex justify-end items-center gap-1.5">
                                             <span className="font-bold text-green-600 dark:text-green-400">{player.elo_rating}</span>
                                             {(() => {
-                                                const rank = getEloRank(player.elo_rating); return (
+                                                const rank = getEloRank(player.elo_rating, player.id === championId); return (
                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: rank.color, backgroundColor: `${rank.color}22` }}>{rank.label}</span>
                                                 )
                                             })()}

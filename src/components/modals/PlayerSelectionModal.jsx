@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import UserCard from '../UserCard'
 
-const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiveMatchSelected }) => {
+const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiveMatchSelected, sport = 'pingpong', sportStatsMap, title = 'Select Players for Match', accent = 'blue' }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
 
     if (!isOpen) return null
@@ -35,7 +35,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Players for Match</h2>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
                         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                             Choose 2 players ({selectedPlayers.length}/2 selected)
                         </p>
@@ -50,9 +50,9 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
 
                 {/* Selection Banner */}
                 {selectedPlayers.length > 0 && (
-                    <div className="bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800 px-6 py-3">
+                    <div className={`${accent === 'emerald' ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'} border-b px-6 py-3`}>
                         <div className="flex items-center justify-between">
-                            <span className="text-blue-800 dark:text-blue-200 font-medium">
+                            <span className={`${accent === 'emerald' ? 'text-emerald-800 dark:text-emerald-200' : 'text-blue-800 dark:text-blue-200'} font-medium`}>
                                 Selected: {selectedPlayers.map(p => p.name).join(' vs ')}
                             </span>
                             <div className="flex items-center gap-4">
@@ -73,7 +73,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                                 onPlayersSelected(selectedPlayers[0], selectedPlayers[1])
                                                 setSelectedPlayers([])
                                             }}
-                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded shadow-sm transition-colors"
+                                            className={`${accent === 'emerald' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} px-3 py-1.5 text-white text-sm font-bold rounded shadow-sm transition-colors`}
                                         >
                                             Record Score
                                         </button>
@@ -125,6 +125,8 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                     onClick={() => handlePlayerClick(user)}
                                     onEdit={() => { }} // Disable edit in this modal
                                     compact={true}
+                                    sport={sport}
+                                    tennisStats={sportStatsMap?.[user.id]}
                                 />
                             ))}
                         </div>
