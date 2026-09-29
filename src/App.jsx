@@ -675,6 +675,7 @@ function App() {
                 onMatchDeleted={fetchData}
                 onGenerateMatch={() => setIsGeneratorOpen(true)}
                 isAdmin={isAdmin}
+                adminToken={adminToken}
               />
             ) : isPadel ? (
               <PadelMatches
@@ -684,6 +685,7 @@ function App() {
                 onEditMatch={setEditingPadelMatch}
                 onMatchDeleted={fetchData}
                 isAdmin={isAdmin}
+                adminToken={adminToken}
               />
             ) : (
               <TennisMatches
@@ -693,6 +695,7 @@ function App() {
                 onEditMatch={setEditingTennisMatch}
                 onMatchDeleted={fetchData}
                 isAdmin={isAdmin}
+                adminToken={adminToken}
               />
             )
           )

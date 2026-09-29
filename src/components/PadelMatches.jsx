@@ -6,7 +6,7 @@ import { getAvatarFallback } from '../utils'
 import { useToast } from '../contexts/useToast'
 import { TennisIcon } from './Icons'
 
-const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
+const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
@@ -65,10 +65,12 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
         setLoading(true)
         setBulkDeleteConfirm(false)
         try {
-            const { error } = await supabase.from('padel_matches').delete().in('id', selectedFilteredIds)
+            const { error } = await supabase.rpc('delete_padel_matches', {
+                p_admin_token: adminToken,
+                p_match_ids: selectedFilteredIds,
+            })
             if (error) throw error
 
-            await recalculatePadelStats()
             setSelectedIds(new Set())
             setIsBulkMode(false)
             if (onMatchDeleted) onMatchDeleted()
@@ -100,7 +102,6 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
     const handleRecalculate = async () => {
         setRecalculating(true)
         try {
-            await recalculatePadelStats()
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
             console.error(error)
@@ -118,7 +119,10 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) 
         setLoading(true)
         setConfirmDeleteId(null)
         try {
-            const { error } = await supabase.from('padel_matches').delete().eq('id', match.id)
+            const { error } = await supabase.rpc('delete_padel_matches', {
+                p_admin_token: adminToken,
+                p_match_ids: [match.id],
+            })
             if (error) throw error
 
             await recalculatePadelStats()

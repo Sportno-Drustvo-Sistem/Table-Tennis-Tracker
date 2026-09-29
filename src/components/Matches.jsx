@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../utils'
 import { PingPongIcon } from './Icons'
 
-const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
+const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -38,10 +38,12 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
         setBulkDeleteConfirm(false)
         try {
             const ids = [...selectedIds]
-            const { error } = await supabase.from('matches').delete().in('id', ids)
+            const { error } = await supabase.rpc('delete_pingpong_matches', {
+                p_admin_token: adminToken,
+                p_match_ids: ids,
+            })
             if (error) throw error
 
-            await recalculatePlayerStats()
             setSelectedIds(new Set())
             setIsBulkMode(false)
             if (onMatchDeleted) onMatchDeleted()
@@ -89,10 +91,11 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
         setLoading(true)
         setConfirmDeleteId(null)
         try {
-            const { error } = await supabase.from('matches').delete().eq('id', match.id)
+            const { error } = await supabase.rpc('delete_pingpong_matches', {
+                p_admin_token: adminToken,
+                p_match_ids: [match.id],
+            })
             if (error) throw error
-
-            await recalculatePlayerStats()
 
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {

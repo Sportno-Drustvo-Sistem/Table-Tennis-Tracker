@@ -5,7 +5,7 @@ import { buildTennisEloHistory, getTennisScoreSummary, recalculateTennisStats } 
 import { getAvatarFallback } from '../utils'
 import { useToast } from '../contexts/useToast'
 
-const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin }) => {
+const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
@@ -73,9 +73,11 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin })
         setLoading(true)
         setBulkDeleteConfirm(false)
         try {
-            const { error } = await supabase.from('tennis_matches').delete().in('id', selectedFilteredIds)
+            const { error } = await supabase.rpc('delete_tennis_matches', {
+                p_admin_token: adminToken,
+                p_match_ids: selectedFilteredIds,
+            })
             if (error) throw error
-            await recalculateTennisStats()
             setSelectedIds(new Set())
             setIsBulkMode(false)
             onMatchDeleted?.()
@@ -89,7 +91,6 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin })
     const handleRecalculate = async () => {
         setRecalculating(true)
         try {
-            await recalculateTennisStats()
             onMatchDeleted?.()
         } catch (error) {
             console.error(error)
@@ -103,7 +104,10 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin })
         setLoading(true)
         setConfirmDeleteId(null)
         try {
-            const { error } = await supabase.from('tennis_matches').delete().eq('id', match.id)
+            const { error } = await supabase.rpc('delete_tennis_matches', {
+                p_admin_token: adminToken,
+                p_match_ids: [match.id],
+            })
             if (error) throw error
             await recalculateTennisStats()
             onMatchDeleted?.()
