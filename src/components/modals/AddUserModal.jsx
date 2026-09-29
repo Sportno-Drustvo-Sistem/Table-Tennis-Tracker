@@ -13,25 +13,31 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!name || !file) return showToast('Please provide name and image', 'error')
+        const trimmedName = name.trim()
+        if (!trimmedName) return showToast('Please provide a name', 'error')
 
         setUploading(true)
         try {
-            const fileExt = file.name.split('.').pop()
-            const fileName = `${Date.now()}.${fileExt}`
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(fileName, file)
+            // Picture is optional; players without one get a generated avatar.
+            let avatarUrl = null
+            if (file) {
+                const fileExt = file.name.split('.').pop()
+                const fileName = `${Date.now()}.${fileExt}`
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(fileName, file)
 
-            if (uploadError) throw uploadError
+                if (uploadError) throw uploadError
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(fileName)
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(fileName)
+                avatarUrl = publicUrl
+            }
 
             const { error: insertError } = await supabase
                 .from('users')
-                .insert([{ name, avatar_url: publicUrl }])
+                .insert([{ name: trimmedName, avatar_url: avatarUrl }])
 
             if (insertError) throw insertError
 
@@ -63,7 +69,9 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Profile Picture</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Profile Picture <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                        </label>
                         <input
                             type="file"
                             accept="image/*"

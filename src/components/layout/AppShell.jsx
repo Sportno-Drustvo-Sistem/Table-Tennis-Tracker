@@ -20,7 +20,7 @@ const SportSwitcherList = ({ sports, activeSport, onSportChange }) => (
                             : 'text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/60 dark:hover:text-gray-100'
                     )}
                 >
-                    <Icon size={18} />
+                    <Icon size={18} className={active ? 'text-accent-fg' : 'text-gray-400 dark:text-gray-500'} />
                     <span className="flex-1 text-left">{label}</span>
                     {active && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
                 </button>
@@ -43,7 +43,7 @@ const Sidebar = ({ sports, activeSport, onSportChange, navItems, activeTab, onTa
         <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
             <div className="flex items-center gap-3 px-5 h-16 border-b border-gray-100 dark:border-gray-800/80">
                 <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-accent/10 ring-1 ring-accent/20">
-                    <SportIcon size={20} />
+                    <SportIcon size={20} className="text-accent-fg" />
                 </div>
                 <div className="leading-tight">
                     <div className="text-sm font-bold tracking-tight text-gray-900 dark:text-white">Sport Tracker</div>

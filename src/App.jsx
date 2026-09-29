@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap } from 'lucide-react'
-import { PingPongIcon, TennisIcon } from './components/Icons'
+import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { recalculatePlayerStats } from './utils'
 import {
@@ -44,7 +44,7 @@ import { useToast } from './contexts/useToast'
 
 const SPORTS = [
   { id: 'pingpong', label: 'Ping Pong', shortLabel: 'Ping Pong', Icon: PingPongIcon, tagline: 'Track your garage glory.' },
-  { id: 'padel', label: 'Padel', shortLabel: 'Padel', Icon: TennisIcon, tagline: 'Track your doubles domination.' },
+  { id: 'padel', label: 'Padel', shortLabel: 'Padel', Icon: PadelIcon, tagline: 'Track your doubles domination.' },
   { id: 'tennis', label: 'Tennis', shortLabel: 'Tennis', Icon: TennisIcon, tagline: 'Track your court command.' },
 ]
 
@@ -78,7 +78,7 @@ function App() {
   })
 
   // Dark Mode State
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light')
 
   // Admin State
   const [adminToken, setAdminToken] = useState(null)

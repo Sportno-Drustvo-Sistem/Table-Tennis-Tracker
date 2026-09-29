@@ -219,7 +219,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                         {matches.length === 0 ? (
                             <>
-                                <div className="mb-4 flex justify-center text-blue-500"><PingPongIcon size={64} /></div>
+                                <div className="mb-4 flex justify-center text-blue-500"><PingPongIcon size={64} strokeWidth={1.5} /></div>
                                 <h3 className="text-xl font-bold text-gray-800 dark:text-white">No matches recorded yet</h3>
                                 <p className="text-gray-500 dark:text-gray-400 mb-6">Click &quot;New Match&quot; to get started!</p>
                             </>

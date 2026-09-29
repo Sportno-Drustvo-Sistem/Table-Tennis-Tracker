@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient'
 import { buildPadelEloHistory, getPadelScoreSummary } from '../padelUtils'
 import { getAvatarFallback } from '../utils'
 import { useToast } from '../contexts/useToast'
-import { TennisIcon } from './Icons'
+import { PadelIcon } from './Icons'
 
 const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const { showToast } = useToast()
@@ -254,7 +254,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                         {matches.length === 0 ? (
                             <>
-                                <div className="mb-4 flex justify-center text-green-500"><TennisIcon size={64} /></div>
+                                <div className="mb-4 flex justify-center text-green-500"><PadelIcon size={64} strokeWidth={1.5} /></div>
                                 <h3 className="text-xl font-bold text-gray-800 dark:text-white">No padel matches recorded yet</h3>
                                 <p className="text-gray-500 dark:text-gray-400 mb-6">Record a match to get started.</p>
                             </>

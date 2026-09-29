@@ -9,15 +9,9 @@ export const getKFactor = (_matchesPlayed) => 32
  * Replaces the deprecated via.placeholder.com service.
  */
 export const getAvatarFallback = (name = '?') => {
-    const initials = name
-        .split(' ')
-        .map(w => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    // Deterministic hue from name characters
+    // Generic player silhouette on a deterministic, muted per-name tint
     const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${hue},50%,55%)"/><text x="50" y="50" dominant-baseline="central" text-anchor="middle" font-size="42" font-family="sans-serif" fill="white">${initials}</text></svg>`
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${hue},30%,42%)"/><circle cx="50" cy="38" r="17" fill="hsl(${hue},35%,82%)"/><path d="M16 100c0-21 15.2-35 34-35s34 14 34 35z" fill="hsl(${hue},35%,82%)"/></svg>`
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
