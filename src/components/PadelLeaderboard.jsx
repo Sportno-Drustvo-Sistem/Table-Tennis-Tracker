@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { ArrowUp, ArrowDown, Trophy } from 'lucide-react'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
 import { getEloRank, getAvatarFallback } from '../utils'
 
@@ -156,11 +156,6 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end">
-                <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
-                    <Trophy className="mr-2 text-green-500" /> Padel Leaderboard
-                </h2>
-            </div>
 
             <DateRangePicker
                 startDate={startDate}

@@ -1,3 +1,66 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Sport accents as RGB triplets so Tailwind opacity modifiers work (bg-accent/10). */
+  :root,
+  :root[data-sport='pingpong'] {
+    --accent: 37 99 235;        /* blue-600 */
+    --accent-strong: 29 78 216; /* blue-700 */
+    --accent-soft: 219 234 254; /* blue-100 */
+    --accent-fg: 29 78 216;
+  }
+  :root[data-sport='padel'] {
+    --accent: 22 163 74;        /* green-600 */
+    --accent-strong: 21 128 61;
+    --accent-soft: 220 252 231;
+    --accent-fg: 21 128 61;
+  }
+  :root[data-sport='tennis'] {
+    --accent: 5 150 105;        /* emerald-600 */
+    --accent-strong: 4 120 87;
+    --accent-soft: 209 250 229;
+    --accent-fg: 4 120 87;
+  }
+  :root.dark {
+    --accent-soft: 30 58 138;   /* blue-900 */
+    --accent-fg: 147 197 253;   /* blue-300 */
+  }
+  :root.dark[data-sport='padel'] {
+    --accent-soft: 20 83 45;
+    --accent-fg: 134 239 172;
+  }
+  :root.dark[data-sport='tennis'] {
+    --accent-soft: 6 78 59;
+    --accent-fg: 110 231 183;
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-900 dark:text-gray-100;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    @apply bg-accent/20;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

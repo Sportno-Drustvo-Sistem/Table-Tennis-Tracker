@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search, Skull } from 'lucide-react'
+import { Edit2, Trash2, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search, Skull } from 'lucide-react'
 import { useToast } from '../contexts/useToast'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../utils'
@@ -146,9 +146,6 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-end gap-3 flex-wrap">
-                <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
-                    <Calendar className="mr-2 text-blue-500" /> Matches
-                </h2>
                 {/* Search bar */}
                 <div className="relative flex-1 min-w-[180px] max-w-xs">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />

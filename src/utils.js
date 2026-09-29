@@ -129,6 +129,16 @@ export const buildEloHistory = (users, matches) => {
     }
 }
 
+export const getSportStats = (user, sport, padelStats, tennisStats) => {
+    // Use separate sport stats for padel/tennis, otherwise ping pong stats from user object.
+    const defaultSportStats = { elo_rating: 1200, total_wins: 0, matches_played: 0 }
+    const sportStats = sport === 'padel' ? (padelStats || defaultSportStats) : sport === 'tennis' ? (tennisStats || defaultSportStats) : null
+    const elo = sportStats ? (sportStats.elo_rating || 1200) : (user.elo_rating || 1200)
+    const wins = sportStats ? (sportStats.total_wins || 0) : (user.total_wins || 0)
+    const gamesPlayed = sportStats ? (sportStats.matches_played || 0) : (user.matches_played || 0)
+    return { elo, wins, gamesPlayed, losses: Math.max(gamesPlayed - wins, 0) }
+}
+
 export const getEloRank = (elo, isChampion = false) => {
     if (isChampion) return { label: 'Champion', color: '#FF6B35', bg: 'bg-orange-100 dark:bg-orange-900/30' }
     if (elo >= 1675) return { label: 'Master', color: '#EF4444', bg: 'bg-red-100 dark:bg-red-900/30' }

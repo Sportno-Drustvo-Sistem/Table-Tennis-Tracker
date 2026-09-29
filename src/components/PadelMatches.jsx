@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { Edit2, Trash2, Calendar, RefreshCw, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search } from 'lucide-react'
+import { Edit2, Trash2, RefreshCw, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { buildPadelEloHistory, getPadelScoreSummary } from '../padelUtils'
 import { getAvatarFallback } from '../utils'
@@ -186,9 +186,6 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-end gap-3 flex-wrap">
-                <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
-                    <Calendar className="mr-2 text-green-500" /> Padel Matches
-                </h2>
                 <div className="relative flex-1 min-w-[180px] max-w-xs">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
