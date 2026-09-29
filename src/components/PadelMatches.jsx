@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Edit2, Trash2, Calendar, RefreshCw, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search } from 'lucide-react'
 import { supabase } from '../supabaseClient'
-import { buildPadelEloHistory, getPadelScoreSummary, recalculatePadelStats } from '../padelUtils'
+import { buildPadelEloHistory, getPadelScoreSummary } from '../padelUtils'
 import { getAvatarFallback } from '../utils'
 import { useToast } from '../contexts/useToast'
 import { TennisIcon } from './Icons'
@@ -102,6 +102,10 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
     const handleRecalculate = async () => {
         setRecalculating(true)
         try {
+            const { error } = await supabase.rpc('admin_recalculate_padel_stats', {
+                p_admin_token: adminToken,
+            })
+            if (error) throw error
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
             console.error(error)
@@ -125,7 +129,6 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
             })
             if (error) throw error
 
-            await recalculatePadelStats()
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
             showToast('Error deleting match: ' + error.message, 'error')
