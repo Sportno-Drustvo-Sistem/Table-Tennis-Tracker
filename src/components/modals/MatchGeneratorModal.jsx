@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { X, Shuffle, Check, AlertCircle, Scale } from 'lucide-react'
-import { getHeadToHeadStreak, getHandicapRule } from '../../utils'
+import { getHeadToHeadStreak, getHandicapRule, getAvatarFallback } from '../../utils'
 import { calculateExpectedScore } from '../../utils'
 
 const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated }) => {
@@ -193,7 +193,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                             <div className="flex items-center justify-center gap-4 mb-8">
                                 <div className="flex flex-col items-center">
                                     <img
-                                        src={generatedMatch[0].avatar_url}
+                                        src={generatedMatch[0].avatar_url || getAvatarFallback(generatedMatch[0].name)}
                                         alt={generatedMatch[0].name}
                                         className="w-20 h-20 rounded-full border-4 border-blue-500 shadow-lg object-cover"
                                     />
@@ -202,7 +202,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                 <div className="text-2xl font-bold text-gray-300">VS</div>
                                 <div className="flex flex-col items-center">
                                     <img
-                                        src={generatedMatch[1].avatar_url}
+                                        src={generatedMatch[1].avatar_url || getAvatarFallback(generatedMatch[1].name)}
                                         alt={generatedMatch[1].name}
                                         className="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg object-cover"
                                     />

@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { validatePadelSets } from '../../padelUtils'
 import { recordPadelMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
+import { getAvatarFallback } from '../../utils'
 
 const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
@@ -131,7 +132,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
             <div className="flex flex-col items-center group relative">
                 <div className="relative">
                     <img
-                        src={player.avatar_url || 'https://via.placeholder.com/150'}
+                        src={player.avatar_url || getAvatarFallback(player.name)}
                         className="w-14 h-14 rounded-full border-2 border-white dark:border-gray-800 object-cover bg-gray-200"
                         alt={player.name}
                     />

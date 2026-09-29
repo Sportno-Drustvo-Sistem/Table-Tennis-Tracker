@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import UserCard from '../UserCard'
+import { getAvatarFallback } from '../../utils'
 
 const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiveMatchSelected, sport = 'pingpong', sportStatsMap, title = 'Select Players for Match', accent = 'blue' }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
@@ -60,7 +61,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                     {selectedPlayers.map(p => (
                                         <img
                                             key={p.id}
-                                            src={p.avatar_url || 'https://via.placeholder.com/150'}
+                                            src={p.avatar_url || getAvatarFallback(p.name)}
                                             className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover"
                                             alt={p.name}
                                         />

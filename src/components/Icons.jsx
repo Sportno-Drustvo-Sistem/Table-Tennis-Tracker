@@ -21,10 +21,9 @@ const SportIcon = ({ size = 24, className = '', strokeWidth = 2, children }) => 
 
 export const PingPongIcon = (props) => (
     <SportIcon {...props}>
-        <circle cx="9.5" cy="9.5" r="6.5" />
-        <path d="m14.1 14.1 1.4 1.4" />
-        <path d="m15.5 15.5 3.3 3.3a1.4 1.4 0 0 1-2 2l-3.3-3.3" />
-        <circle cx="19" cy="5" r="2" />
+        <circle cx="10" cy="9" r="7" fill="currentColor" fillOpacity="0.2" />
+        <path d="M8.5 16v4.5a1.5 1.5 0 0 0 3 0V16" />
+        <circle cx="20" cy="18.5" r="2" fill="currentColor" />
     </SportIcon>
 )
 

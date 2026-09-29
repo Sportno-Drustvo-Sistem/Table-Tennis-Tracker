@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Shuffle, Check, AlertCircle } from 'lucide-react'
+import { getAvatarFallback } from '../../utils'
 
 const TeamCard = ({ team, label, padelStatsMap }) => (
     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 flex-1">
@@ -10,7 +11,7 @@ const TeamCard = ({ team, label, padelStatsMap }) => (
                 return (
                     <div key={player.id} className="flex items-center gap-3">
                         <img
-                            src={player.avatar_url || 'https://via.placeholder.com/40'}
+                            src={player.avatar_url || getAvatarFallback(player.name)}
                             className="w-12 h-12 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
                             alt={player.name}
                         />
@@ -158,7 +159,7 @@ const PadelMatchGeneratorModal = ({ isOpen, onClose, users, padelStats, onMatchG
                                         >
                                             <div className="flex items-center gap-3">
                                                 <img
-                                                    src={user.avatar_url || 'https://via.placeholder.com/40'}
+                                                    src={user.avatar_url || getAvatarFallback(user.name)}
                                                     className="w-10 h-10 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
                                                     alt={user.name}
                                                 />

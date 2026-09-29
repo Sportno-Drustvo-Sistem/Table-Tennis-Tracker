@@ -311,7 +311,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                                 return (
                                     <div key={partnerId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={partner.avatar_url || 'https://via.placeholder.com/30'} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img src={partner.avatar_url || getAvatarFallback(partner.name)} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt={partner.name} />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{partner.name}</span>
                                         </div>
                                         <div className="text-right">
