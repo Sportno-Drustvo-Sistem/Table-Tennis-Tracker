@@ -2,11 +2,13 @@
 /* exported onLoad, onEvent, evaluate, getUserInterface, getSummaryOutputs */
 var match;
 var pointHistory;
+var completedMatches;
 
 function onLoad(_input, output) {
     var format = localStorage.getItem('matchFormat');
     match = { points: [0, 0], games: [0, 0], sets: [], winner: 0, format: format === '0' ? 1 : 3 };
     pointHistory = [];
+    completedMatches = [];
     updateOutput(output);
 }
 
@@ -31,6 +33,8 @@ var updateOutput = function (output) {
     output.g1 = match.games[0];
     output.g2 = match.games[1];
     output.w = match.winner;
+    output.m = completedMatches.length + 1;
+    output.h = match.winner ? (completedMatches.length === 7 ? 2 : 1) : 0;
     output.n1 = 0;
     output.n2 = 0;
     for (var i = 0; i < match.sets.length; i++) {
@@ -68,9 +72,33 @@ var scorePoint = function (team) {
     else match.games = [0, 0];
 };
 
+// A set has fourteen legal outcomes. Base-15 digits encode up to three sets
+// in twelve bits. Two complete matches fit exactly in one float32 integer.
+var encodeMatch = function () {
+    var code = 0;
+    var place = 1;
+    for (var i = 0; i < match.sets.length; i++) {
+        var first = Math.floor(match.sets[i] / 10);
+        var second = match.sets[i] % 10;
+        var low = Math.min(first, second);
+        var digit = low + 1 + (second > first ? 7 : 0);
+        code += digit * place;
+        place *= 15;
+    }
+    return code;
+};
+
+var startNextMatch = function () {
+    if (!match.winner || completedMatches.length === 7) return;
+    completedMatches.push(encodeMatch());
+    match = { points: [0, 0], games: [0, 0], sets: [], winner: 0, format: match.format };
+    pointHistory = [];
+};
+
 function onEvent(_input, output, eventId) {
     if (eventId === 1) scorePoint(0);
     else if (eventId === 3) scorePoint(1);
+    else if (eventId === 4 && match.winner) startNextMatch();
     else if ((eventId === 2 || eventId === 4) && pointHistory.length) match = pointHistory.pop();
     updateOutput(output);
 }
@@ -84,12 +112,14 @@ function getUserInterface() {
 }
 
 function getSummaryOutputs() {
-    // Four float32-safe integer fields; protocol embeds version, format, winner,
-    // and set count. A zero winner means the match was stopped before completion.
-    return [
-        { id: 'v', name: 'Result code', format: 'Count_Fourdigits', value: 1000 + match.format * 100 + match.winner * 10 + match.sets.length },
-        { id: 'a', name: 'Set 1 code', format: 'Count_Twodigits', value: match.sets[0] || 0 },
-        { id: 'b', name: 'Set 2 code', format: 'Count_Twodigits', value: match.sets[1] || 0 },
-        { id: 'c', name: 'Set 3 code', format: 'Count_Twodigits', value: match.sets[2] || 0 }
-    ];
+    var results = completedMatches.slice();
+    if (match.winner) results.push(encodeMatch());
+    var summary = [];
+    for (var i = 0; i < 4; i++) {
+        summary.push({
+            id: 'q' + (i + 1), name: 'Matches ' + (i * 2 + 1) + '-' + (i * 2 + 2),
+            format: 'Count_Fourdigits', value: (results[i * 2] || 0) + 4096 * (results[i * 2 + 1] || 0)
+        });
+    }
+    return summary;
 }

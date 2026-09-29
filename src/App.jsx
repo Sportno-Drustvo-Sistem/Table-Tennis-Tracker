@@ -344,9 +344,11 @@ function App() {
     setIsPadelLiveMatchOpen(true)
   }
 
-  const handlePadelMatchSaved = () => {
-    setIsPadelMatchModalOpen(false)
-    setPadelTeams({ team1: null, team2: null })
+  const handlePadelMatchSaved = ({ keepOpen = false } = {}) => {
+    if (!keepOpen) {
+      setIsPadelMatchModalOpen(false)
+      setPadelTeams({ team1: null, team2: null })
+    }
     fetchData()
   }
 

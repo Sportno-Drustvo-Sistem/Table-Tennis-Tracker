@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { createContext, runInContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
-import { decodeSuuntoPadelSummary, parseSuuntoPadelWorkout } from './suuntoPadelImport'
+import { decodeSuuntoPadelMatches, decodeSuuntoPadelSummary, parseSuuntoPadelWorkout, parseSuuntoPadelWorkoutMatches } from './suuntoPadelImport'
 
 const watchSource = readFileSync(new URL('../integrations/suunto-padel/main.js', import.meta.url), 'utf8')
 const manifest = JSON.parse(readFileSync(new URL('../integrations/suunto-padel/manifest.json', import.meta.url), 'utf8'))
@@ -15,6 +15,7 @@ const watch = (single = false) => {
         output,
         point: team => context.onEvent({}, output, team === 1 ? 1 : 3),
         undo: () => context.onEvent({}, output, 2),
+        next: () => context.onEvent({}, output, 4),
         summary: () => JSON.parse(JSON.stringify(context.getSummaryOutputs())).map(field => ({ Id: field.id, SummaryValue: field.value })),
     }
 }
@@ -68,7 +69,7 @@ describe('Suunto padel watch and import', () => {
         app.point(2)
         expect(app.output).toMatchObject({ p1: 6, p2: 7, w: 0 })
         app.point(2)
-        expect(decodeSuuntoPadelSummary(app.summary())).toEqual({ matchFormat: 'best_of_1', setsData: [{ team1Games: 6, team2Games: 7 }] })
+        expect(decodeSuuntoPadelMatches(app.summary())).toEqual([{ matchFormat: 'best_of_1', setsData: [{ team1Games: 6, team2Games: 7 }] }])
     })
 
     it('undoes a match-winning point, rejects the unfinished export, and allows correction', () => {
@@ -79,7 +80,7 @@ describe('Suunto padel watch and import', () => {
         expect(app.summary()).toEqual(finished)
         app.undo()
         expect(app.output).toMatchObject({ w: 0, g1: 5, p1: 40 })
-        expect(() => decodeSuuntoPadelSummary(app.summary())).toThrow('before the padel match')
+        expect(() => decodeSuuntoPadelMatches(app.summary())).toThrow('no completed')
         app.point(1)
         expect(app.summary()).toEqual(finished)
     })
@@ -130,5 +131,112 @@ describe('Suunto padel watch and import', () => {
         expect(app.summary()).toHaveLength(4)
         expect(app.summary().every(field => Math.fround(field.SummaryValue) === field.SummaryValue)).toBe(true)
         expect(Object.keys(app.output).sort()).toEqual(manifest.out.map(field => field.name).sort())
+    })
+
+    it('preserves consecutive matches in order, including the final match without pressing next', () => {
+        const app = watch(true)
+        straightSet(app, 1)
+        const firstExport = app.summary()
+        app.next()
+        expect(app.output).toMatchObject({ m: 2, w: 0, g1: 0, g2: 0, p1: 0, p2: 0 })
+        expect(app.summary()).toEqual(firstExport)
+        straightSet(app, 2)
+        expect(parseSuuntoPadelWorkoutMatches(container(app.summary()))).toEqual([
+            { matchFormat: 'best_of_1', setsData: [{ team1Games: 6, team2Games: 0 }] },
+            { matchFormat: 'best_of_1', setsData: [{ team1Games: 0, team2Games: 6 }] },
+        ])
+        expect(() => parseSuuntoPadelWorkout(container(app.summary()))).toThrow('multiple-match importer')
+    })
+
+    it('imports completed matches when the final match is unfinished or its winner is undone', () => {
+        const app = watch(true)
+        straightSet(app, 1)
+        app.next()
+        const committed = app.summary()
+        straightSet(app, 2)
+        app.undo()
+        expect(app.summary()).toEqual(committed)
+        expect(parseSuuntoPadelWorkoutMatches(container(app.summary()))).toHaveLength(1)
+    })
+
+    it('makes committed matches immutable and refuses to start a ninth match', () => {
+        const app = watch(true)
+        for (let i = 0; i < 8; i++) {
+            straightSet(app, i % 2 + 1)
+            if (i < 7) {
+                app.next()
+                const saved = app.summary()
+                app.undo()
+                expect(app.summary()).toEqual(saved)
+            }
+        }
+        expect(app.output).toMatchObject({ m: 8, h: 2, w: 2 })
+        const full = app.summary()
+        app.next(); app.point(1)
+        expect(app.summary()).toEqual(full)
+        expect(parseSuuntoPadelWorkoutMatches(container(full))).toHaveLength(8)
+        app.undo()
+        expect(parseSuuntoPadelWorkoutMatches(container(app.summary()))).toHaveLength(7)
+        app.point(2)
+        expect(app.summary()).toEqual(full)
+    })
+
+    it('keeps all eight three-set results exactly representable in float32', () => {
+        const app = watch()
+        for (let match = 0; match < 8; match++) {
+            straightSet(app, 1); straightSet(app, 2); straightSet(app, 2)
+            if (match < 7) app.next()
+        }
+        const exported = app.summary()
+        expect(exported.every(field => Math.fround(field.SummaryValue) === field.SummaryValue)).toBe(true)
+        const matches = parseSuuntoPadelWorkoutMatches(container(exported))
+        expect(matches).toHaveLength(8)
+        expect(matches.every(match => match.matchFormat === 'best_of_3' && match.setsData.length === 3)).toBe(true)
+    })
+
+    it('rejects empty workouts and corrupt, missing, or mixed queue fields', () => {
+        const app = watch(true)
+        expect(() => parseSuuntoPadelWorkoutMatches(container(app.summary()))).toThrow('no completed')
+        straightSet(app, 1)
+        const fields = app.summary()
+        expect(() => decodeSuuntoPadelMatches(fields.slice(0, 3))).toThrow('incomplete')
+        expect(() => decodeSuuntoPadelMatches([...fields, fields[0]])).toThrow('duplicate')
+        expect(() => decodeSuuntoPadelMatches([...fields, { Id: 'q5', SummaryValue: 1 }])).toThrow('Unsupported')
+        expect(() => decodeSuuntoPadelMatches([...fields, ...summary(1111, 60)])).toThrow('Mixed')
+        for (const invalid of [-1, 0.1, 16777216, NaN, Infinity]) {
+            expect(() => decodeSuuntoPadelMatches([{ Id: 'q1', SummaryValue: invalid }, ...fields.slice(1)])).toThrow('Invalid')
+        }
+        expect(() => decodeSuuntoPadelMatches([{ Id: 'q1', SummaryValue: 4096 }, ...fields.slice(1)])).toThrow('Missing match')
+        expect(() => decodeSuuntoPadelMatches([{ Id: 'q1', SummaryValue: 3375 }, ...fields.slice(1)])).toThrow('Invalid packed')
+        expect(() => decodeSuuntoPadelMatches([{ Id: 'q1', SummaryValue: 15 }, ...fields.slice(1)])).toThrow('Missing set')
+        expect(() => decodeSuuntoPadelMatches([{ Id: 'q1', SummaryValue: 1 + 8 * 15 }, ...fields.slice(1)])).toThrow('recorded winner')
+        expect(() => decodeSuuntoPadelMatches([{ Id: 'q1', SummaryValue: 1 + 15 + 225 }, ...fields.slice(1)])).toThrow('Extra sets')
+    })
+
+    it('decodes every possible legal single-set and best-of-three result', () => {
+        let checked = 0
+        const all = Array.from({ length: 14 }, (_, i) => i + 1)
+        const outcome = digit => {
+            const low = (digit - 1) % 7
+            const high = low < 5 ? 6 : 7
+            return digit <= 7 ? { team1Games: high, team2Games: low } : { team1Games: low, team2Games: high }
+        }
+        const check = digits => {
+            const encoded = digits.reduce((code, digit, i) => code + digit * 15 ** i, 0)
+            const packed = encoded + 4096 * encoded
+            expect(Math.fround(packed)).toBe(packed)
+            const fields = ['q1', 'q2', 'q3', 'q4'].map((Id, i) => ({ Id, SummaryValue: i === 0 ? packed : 0 }))
+            const expected = { matchFormat: digits.length === 1 ? 'best_of_1' : 'best_of_3', setsData: digits.map(outcome) }
+            expect(decodeSuuntoPadelMatches(fields)).toEqual([expected, expected])
+            checked++
+        }
+        for (const first of all) {
+            check([first])
+            for (const second of all) {
+                if ((first <= 7) === (second <= 7)) check([first, second])
+                else for (const third of all) check([first, second, third])
+            }
+        }
+        expect(checked).toBe(1484)
     })
 })
