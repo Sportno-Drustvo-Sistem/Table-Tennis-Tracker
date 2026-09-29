@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { ArrowLeftRight, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { validatePadelSets } from '../../padelUtils'
 import { recordPadelMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
+import { MAX_SUUNTO_IMPORT_BYTES, parseSuuntoPadelWorkout } from '../../suuntoPadelImport'
 
 const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, adminToken }) => {
     const { showToast } = useToast()
@@ -13,8 +14,14 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     const [localTeam1, setLocalTeam1] = useState(team1)
     const [localTeam2, setLocalTeam2] = useState(team2)
     const [saving, setSaving] = useState(false)
+    const [importing, setImporting] = useState(false)
+    const [imported, setImported] = useState(false)
+    const importVersion = useRef(0)
 
     useEffect(() => {
+        importVersion.current++
+        setImporting(false)
+        setImported(false)
         if (team1) setLocalTeam1(team1)
         if (team2) setLocalTeam2(team2)
         if (isOpen) {
@@ -22,6 +29,27 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
             setSetsData([{ team1Games: '', team2Games: '' }])
         }
     }, [team1, team2, isOpen])
+
+    const handleWatchImport = async (event) => {
+        const file = event.target.files?.[0]
+        event.target.value = ''
+        if (!file || importing || saving) return
+        const version = ++importVersion.current
+        setImporting(true)
+        try {
+            if (file.size > MAX_SUUNTO_IMPORT_BYTES) throw new Error('Workout JSON must be smaller than 10 MB.')
+            const result = parseSuuntoPadelWorkout(await file.text())
+            if (version !== importVersion.current) return
+            setMatchFormat(result.matchFormat)
+            setSetsData(result.setsData)
+            setImported(true)
+            showToast('Watch scores loaded. Check the teams and scores before saving.', 'success')
+        } catch (error) {
+            if (version === importVersion.current) showToast('Could not import workout: ' + error.message, 'error')
+        } finally {
+            if (version === importVersion.current) setImporting(false)
+        }
+    }
 
     if (!isOpen || !team1 || !team2 || team1.length !== 2 || team2.length !== 2) return null
 
@@ -65,6 +93,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     }
 
     const handleSave = async () => {
+        if (saving || importing) return
         // Validation
         const cleanSets = setsData.map(s => ({
             team1Games: s.team1Games === '' ? 0 : s.team1Games,
@@ -202,6 +231,14 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                     </div>
                 </div>
 
+                <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-600 p-3 text-sm">
+                    <label className="block font-bold text-gray-900 dark:text-white mb-2" htmlFor="suunto-padel-workout">Import Suunto padel scores</label>
+                    <p className="text-gray-500 dark:text-gray-400 mb-2">Use workout JSON exported from SuuntoPlus Editor with the Tracker Padel watch app. Team 1 is the top button; Team 2 is the bottom button.</p>
+                    <input id="suunto-padel-workout" type="file" accept=".json,application/json" disabled={saving || importing} onChange={handleWatchImport} className="block w-full text-gray-700 dark:text-gray-300" />
+                    {importing && <p role="status" className="mt-2 text-gray-500">Reading workout…</p>}
+                    {imported && <p role="status" className="mt-2 text-green-600 dark:text-green-400">Scores loaded. Check the four players and team order. Saving adds a new match; import each workout once.</p>}
+                </div>
+
                 {/* Match Format */}
                 <div className="mb-6 flex justify-center">
                     <div className="bg-gray-50 dark:bg-gray-700/50 p-1 rounded-lg inline-flex">
@@ -285,7 +322,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={saving}
+                        disabled={saving || importing}
                         className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
                     >
                         {saving ? 'Saving...' : 'Finish Match'}

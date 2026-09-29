@@ -1,0 +1,18 @@
+{
+  "name": "Tracker Padel",
+  "version": "0.1",
+  "author": "PingpongTracker",
+  "description": "Point-by-point padel scoring. Hold either scoring button to undo.",
+  "type": "feature",
+  "usage": "workout",
+  "modificationTime": 1790640000,
+  "template": [{ "name": "t.html" }],
+  "out": [
+    { "name": "p1" }, { "name": "p2" },
+    { "name": "g1" }, { "name": "g2" },
+    { "name": "n1" }, { "name": "n2" }, { "name": "w" }
+  ],
+  "settings": [
+    { "shownName": "Match format", "path": "matchFormat", "type": "enum", "values": ["Single set", "Best of three"] }
+  ]
+}

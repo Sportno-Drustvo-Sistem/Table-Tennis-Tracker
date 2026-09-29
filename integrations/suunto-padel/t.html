@@ -1,0 +1,24 @@
+<uiView>
+  <div id="suuntoplus">
+    <div class="cm-fg sp-t-m p-hc" style="top:12%">PADEL</div>
+    <div class="cm-mid sp-t-s p-hc" style="top:25%">TEAM 1 / TEAM 2</div>
+    <div class="cm-fg sp-d-m f-num p-hc" style="top:39%">
+      <eval input="Zapp/{zapp_index}/Output/p1" outputFormat="script x =&gt; x === -1 ? 'AD' : x" />
+      -
+      <eval input="Zapp/{zapp_index}/Output/p2" outputFormat="script x =&gt; x === -1 ? 'AD' : x" />
+    </div>
+    <div class="cm-mid sp-t-s p-hc" style="top:63%">
+      GAMES <eval input="Zapp/{zapp_index}/Output/g1" outputFormat="Count_Twodigits" />-<eval input="Zapp/{zapp_index}/Output/g2" outputFormat="Count_Twodigits" />
+    </div>
+    <div class="cm-mid sp-t-s p-hc" style="top:76%">
+      SETS <eval input="Zapp/{zapp_index}/Output/n1" outputFormat="Count_Twodigits" />-<eval input="Zapp/{zapp_index}/Output/n2" outputFormat="Count_Twodigits" />
+    </div>
+    <div class="cm-fg sp-t-s p-hc" style="top:87%">
+      <eval input="Zapp/{zapp_index}/Output/w" outputFormat="keyValue 0=HOLD: UNDO|1=TEAM 1 WINS|2=TEAM 2 WINS" />
+    </div>
+    <userInput>
+      <pushButton name="up" onClick="$.put('/Zapp/{zapp_index}/Event', 1, null, 'int32');" onLongPressStart="$.put('/Zapp/{zapp_index}/Event', 2, null, 'int32');" />
+      <pushButton name="down" onClick="$.put('/Zapp/{zapp_index}/Event', 3, null, 'int32');" onLongPressStart="$.put('/Zapp/{zapp_index}/Event', 4, null, 'int32');" />
+    </userInput>
+  </div>
+</uiView>

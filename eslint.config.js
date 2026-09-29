@@ -26,4 +26,8 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['integrations/suunto-padel/main.js'],
+    languageOptions: { sourceType: 'script' },
+  },
 ])
