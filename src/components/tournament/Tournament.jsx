@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { createTournament, completeTournament, deleteTournament } from '../../tournamentPersistence'
 import TournamentSetup from './TournamentSetup'
 import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
@@ -80,12 +81,15 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         const debuffsPool = await getActiveDebuffs()
         setCachedDebuffs(debuffsPool)
 
-        const { data: tourneyData, error: tourneyError } = await supabase
-            .from('tournaments')
-            .insert({ name, format, status: 'active', config: { mayhemMode, useGroupStage } })
-            .select().single()
-
-        if (tourneyError) { showToast('Error starting tournament: ' + tourneyError.message, 'error'); return }
+        let tourneyData
+        try {
+            tourneyData = await createTournament(supabase, adminToken, {
+                name, format, config: { mayhemMode, useGroupStage },
+            })
+        } catch (error) {
+            showToast('Error starting tournament: ' + error.message, 'error')
+            return
+        }
 
         const tournamentId = tourneyData.id
         // For groups, we can shuffle first so groups are random.
@@ -318,10 +322,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     // ─── Finish Tournament ─────────────────────────
 
     const finishTournament = async (tournament) => {
-        await supabase.from('tournaments')
-            .update({ status: 'completed', winner_id: tournament.winner.id })
-            .eq('id', tournament.id)
-
         const results = []
         const rounds = tournament.rounds
         const format = tournament.format
@@ -382,9 +382,13 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             }
         }
 
-        if (results.length > 0) {
-            const { error } = await supabase.from('tournament_results').insert(results)
-            if (error) console.error("Error saving results", error)
+        try {
+            await completeTournament(supabase, adminToken, tournament.id, tournament.winner.id, results)
+            setActiveTournament({ ...tournament, status: 'completed' })
+        } catch (error) {
+            setActiveTournament({ ...tournament, status: 'active' })
+            showToast('Error finishing tournament: ' + error.message, 'error')
+            return
         }
 
         showToast(`🏆 Tournament Complete! ${tournament.winner.name} is the champion!`, 'success') // Replaced alert
@@ -400,16 +404,12 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         showConfirm("Are you sure you want to cancel this tournament? The tournament and all its matches will be permanently deleted.", async () => {
             const tournamentId = activeTournament.id
             try {
-                // Delete all matches associated with this tournament
-                await supabase.from('matches').delete().eq('tournament_id', tournamentId)
-                // Delete tournament results
-                await supabase.from('tournament_results').delete().eq('tournament_id', tournamentId)
-                // Delete the tournament itself
-                await supabase.from('tournaments').delete().eq('id', tournamentId)
+                await deleteTournament(supabase, adminToken, tournamentId, true)
                 showToast('Tournament cancelled and deleted.', 'success')
             } catch (err) {
                 console.error('Error deleting cancelled tournament:', err)
-                showToast('Tournament cancelled locally, but failed to delete from database.', 'error')
+                showToast('Failed to cancel tournament: ' + err.message, 'error')
+                return
             }
             setActiveTournament(null)
             localStorage.removeItem(STORAGE_KEY)
@@ -433,7 +433,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             }
 
             finishTournament(t)
-            setActiveTournament(t)
         })
     }
 
@@ -496,7 +495,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     // ─── Render ────────────────────────────────────
 
     if (!activeTournament) {
-        return <TournamentSetup users={users} onStart={handleStartTournament} isAdmin={isAdmin} />
+        return <TournamentSetup users={users} onStart={handleStartTournament} isAdmin={isAdmin} adminToken={adminToken} fetchData={fetchData} />
     }
 
     // Find selected match info for Modal

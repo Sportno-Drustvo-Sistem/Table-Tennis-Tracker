@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Users, ArrowRight, Dices, Trophy, Shield, Settings, Trash2 } from 'lucide-react'
 import { generateTournamentName } from '../../utils'
 import { supabase } from '../../supabaseClient'
+import { deleteTournament } from '../../tournamentPersistence'
 import { useToast } from '../../contexts/useToast'
 
-const TournamentSetup = ({ users, onStart, isAdmin }) => {
+const TournamentSetup = ({ users, onStart, isAdmin, adminToken, fetchData }) => {
     const [name, setName] = useState(generateTournamentName())
     const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
     const [format, setFormat] = useState('single_elim') // 'single_elim', 'double_elim'
@@ -55,35 +56,12 @@ const TournamentSetup = ({ users, onStart, isAdmin }) => {
         const { id, name: tName } = deleteModal
 
         try {
-            if (deleteMatches) {
-                // Delete all matches associated with this tournament
-                const { error: matchErr } = await supabase
-                    .from('matches')
-                    .delete()
-                    .eq('tournament_id', id)
-                if (matchErr) throw matchErr
-            } else {
-                // Dissociate matches: set tournament_id to null
-                const { error: unlinkErr } = await supabase
-                    .from('matches')
-                    .update({ tournament_id: null })
-                    .eq('tournament_id', id)
-                if (unlinkErr) throw unlinkErr
-            }
-
-            // Delete tournament results (cascade should handle this, but be explicit)
-            await supabase.from('tournament_results').delete().eq('tournament_id', id)
-
-            // Delete the tournament itself
-            const { error: delErr } = await supabase
-                .from('tournaments')
-                .delete()
-                .eq('id', id)
-            if (delErr) throw delErr
+            await deleteTournament(supabase, adminToken, id, deleteMatches)
 
             showToast(`Tournament "${tName}" deleted.`, 'success')
             fetchPastTournaments()
             fetchActiveTournaments()
+            if (fetchData) fetchData()
         } catch (err) {
             showToast(`Failed to delete tournament: ${err.message}`, 'error')
         } finally {
