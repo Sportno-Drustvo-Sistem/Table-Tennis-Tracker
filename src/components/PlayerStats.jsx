@@ -6,7 +6,7 @@ import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
 import { buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
 
-const PlayerStats = ({ users, matches, initialPlayerId }) => {
+const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -281,7 +281,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 </div>
             )}
 
-            <TrophyCase playerId={selectedPlayerId} />
+            <TrophyCase playerId={selectedPlayerId} seasonId={seasonId} />
 
             <Achievements playerId={selectedPlayerId} users={users} matches={matches} />
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Trophy, Medal, Award } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
-const TrophyCase = ({ playerId }) => {
+const TrophyCase = ({ playerId, seasonId }) => {
     const [results, setResults] = useState([])
     const [loading, setLoading] = useState(true)
 
@@ -18,7 +18,8 @@ const TrophyCase = ({ playerId }) => {
                   tournaments (
                       name,
                       format,
-                      created_at
+                      created_at,
+                      season_id
                   )
               `)
                 .eq('user_id', playerId)
@@ -27,13 +28,13 @@ const TrophyCase = ({ playerId }) => {
             if (error) {
                 console.error("Error fetching trophies", error)
             } else {
-                setResults(data || [])
+                setResults((data || []).filter(result => !seasonId || seasonId === 'all' || String(result.tournaments?.season_id) === String(seasonId)))
             }
             setLoading(false)
         }
 
         fetchResults()
-    }, [playerId])
+    }, [playerId, seasonId])
 
     if (loading) return <div className="text-center text-sm ml-2">Loading trophies...</div>
 

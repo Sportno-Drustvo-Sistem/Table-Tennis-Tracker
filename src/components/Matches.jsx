@@ -73,7 +73,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
     const handleRecalculate = async () => {
         setRecalculating(true)
         try {
-            await recalculatePlayerStats()
+            await recalculatePlayerStats(adminToken)
             if (onMatchDeleted) onMatchDeleted()
         } catch (error) {
             console.error('Error recalculating stats:', error)

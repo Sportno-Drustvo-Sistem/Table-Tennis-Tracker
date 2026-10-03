@@ -35,6 +35,7 @@ test-results
 .cache
 
 # Local scratch artifacts
+.tmp
 tmp
 temp
 *.tmp

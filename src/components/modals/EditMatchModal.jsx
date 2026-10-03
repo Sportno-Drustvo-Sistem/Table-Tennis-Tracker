@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculatePlayerStats } from '../../utils'
 import { useToast } from '../../contexts/useToast'
 
-const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated }) => {
+const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated, adminToken }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState('')
     const [score2, setScore2] = useState(0)
@@ -23,15 +22,12 @@ const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated }) => {
         setSaving(true)
         try {
             // 1. Update match
-            const { error: updateError } = await supabase
-                .from('matches')
-                .update({ score1: parseInt(score1), score2: parseInt(score2) })
-                .eq('id', match.id)
+            const { error: updateError } = await supabase.rpc('update_pingpong_match', {
+                p_admin_token: adminToken, p_match_id: match.id,
+                p_score1: Number(score1), p_score2: Number(score2),
+            })
 
             if (updateError) throw updateError
-
-            // 2. Recalculate stats
-            await recalculatePlayerStats()
 
             onMatchUpdated()
             onClose()

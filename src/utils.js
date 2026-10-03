@@ -30,7 +30,7 @@ export const calculateEloChange = (ratingA, ratingB, scoreA, scoreB, kFactor) =>
 }
 
 export const buildEloHistory = (users, matches) => {
-    const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at) || String(a.id).localeCompare(String(b.id)))
     const ratings = {}
     const mpc = {}
     const playerEloTimelines = {}
@@ -144,141 +144,9 @@ export const getEloRank = (elo, isChampion = false) => {
     return { label: 'Iron', color: '#4b5563', bg: 'bg-gray-100 dark:bg-gray-800/30' }
 }
 
-export const recalculatePlayerStats = async () => {
-    // 1. Fetch all users
-    const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-
-    if (usersError) {
-        console.error('Error fetching users:', usersError)
-        return
-    }
-
-    // 2. Fetch all matches ordered by date (Optimization: Select only needed columns)
-    const { data: matches, error: matchesError } = await supabase
-        .from('matches')
-        .select('player1_id, player2_id, score1, score2, handicap_rule, created_at')
-        .order('created_at', { ascending: true })
-
-    if (matchesError) {
-        console.error('Error fetching matches:', matchesError)
-        return
-    }
-
-    // 3. Initialize player stats
-    // We keep a separate map for calculated stats to compare against original
-    const calculatedStats = {}
-    users.forEach(user => {
-        calculatedStats[user.id] = {
-            id: user.id,
-            name: user.name,
-            avatar_url: user.avatar_url,
-            elo_rating: 1200,
-            matches_played: 0,
-            total_wins: 0
-        }
-    })
-
-    // 4. Process matches
-    matches.forEach(match => {
-        const p1Id = match.player1_id
-        const p2Id = match.player2_id
-
-        // Skip if player doesn't exist (e.g. deleted user)
-        if (!calculatedStats[p1Id] || !calculatedStats[p2Id]) return
-
-        const p1 = calculatedStats[p1Id]
-        const p2 = calculatedStats[p2Id]
-
-        // Update matches played
-        p1.matches_played += 1
-        p2.matches_played += 1
-
-        // Update wins
-        if (match.score1 > match.score2) {
-            p1.total_wins += 1
-        } else if (match.score2 > match.score1) {
-            p2.total_wins += 1
-        }
-
-        // Calculate ELO Change
-        // Dynamic K-Factor
-        const k1 = getKFactor(p1.matches_played)
-        const k2 = getKFactor(p2.matches_played)
-
-        const p1Rating = p1.elo_rating
-        const p2Rating = p2.elo_rating
-
-        const p1Change = calculateEloChange(p1Rating, p2Rating, match.score1, match.score2, k1)
-        const p2Change = calculateEloChange(p2Rating, p1Rating, match.score2, match.score1, k2)
-
-        const p1Won = match.score1 > match.score2
-        const p2Won = match.score2 > match.score1
-
-        let bonusP1 = 0
-        let bonusP2 = 0
-
-        if (match.handicap_rule) {
-            const rules = Array.isArray(match.handicap_rule) ? match.handicap_rule : [match.handicap_rule]
-            rules.forEach(rule => {
-                const bonus = 2 * (rule.trigger_value || 0)
-                if (bonus > 0 && rule.type === 'streak') {
-                    if (rule.targetPlayerId === p1Id && p1Won) {
-                        bonusP1 += bonus
-                    } else if (rule.targetPlayerId === p2Id && p2Won) {
-                        bonusP2 += bonus
-                    }
-                }
-            })
-        }
-
-        p1.elo_rating += p1Change + bonusP1
-        p2.elo_rating += p2Change + bonusP2
-    })
-
-    // 5. Update users in Supabase
-    // Optimization: Only update users whose stats have CHANGED
-    const updates = []
-
-    users.forEach(originalUser => {
-        const calculated = calculatedStats[originalUser.id]
-        if (!calculated) return
-
-        const isRanked = calculated.matches_played >= 10
-
-        // Check for differences
-        if (
-            originalUser.elo_rating !== calculated.elo_rating ||
-            originalUser.matches_played !== calculated.matches_played ||
-            originalUser.total_wins !== calculated.total_wins ||
-            originalUser.is_ranked !== isRanked
-        ) {
-            updates.push({
-                id: calculated.id,
-                name: calculated.name,
-                avatar_url: calculated.avatar_url,
-                elo_rating: calculated.elo_rating,
-                matches_played: calculated.matches_played,
-                total_wins: calculated.total_wins,
-                is_ranked: isRanked
-            })
-        }
-    })
-
-    if (updates.length === 0) {
-        console.log('No stats updates needed.')
-        return
-    }
-
-    const { error: updateError } = await supabase
-        .from('users')
-        .upsert(updates)
-
-    if (updateError) {
-        console.error('Error updating player stats:', updateError)
-        throw updateError
-    }
+export const recalculatePlayerStats = async (adminToken) => {
+    const { error } = await supabase.rpc('refresh_pingpong_stats', { p_admin_token: adminToken })
+    if (error) throw error
 }
 
 export const applyMatchResultToStats = async (p1Id, p2Id, sets, activeRules = []) => {

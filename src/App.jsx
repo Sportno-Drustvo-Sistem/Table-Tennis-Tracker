@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
-import { recalculatePlayerStats } from './utils'
+import { filterSeasonMatches, getSeasonUsers, fetchAllPingpongMatches } from './seasonUtils'
 import {
   ADMIN_SESSION_STORAGE_KEY,
   createAdminSession,
@@ -69,8 +69,9 @@ function App() {
   const [tennisMatches, setTennisMatches] = useState([])
   const [tennisStats, setTennisStats] = useState([])
   const [loading, setLoading] = useState(true)
-  const [migrating, setMigrating] = useState(false)
-  const migrationAttempted = useRef(false)
+  const [seasons, setSeasons] = useState([])
+  const [seasonSnapshots, setSeasonSnapshots] = useState([])
+  const [seasonScope, setSeasonScope] = useState('current')
 
   // Sport Switcher State
   const [activeSport, setActiveSport] = useState(() => {
@@ -201,13 +202,17 @@ function App() {
       { data: padelStatsData, error: padelStatsError },
       { data: tennisMatchData, error: tennisMatchError },
       { data: tennisStatsData, error: tennisStatsError },
+      { data: seasonData, error: seasonError },
+      { data: snapshotData, error: snapshotError },
     ] = await Promise.all([
       supabase.from('users').select('*').order('total_wins', { ascending: false }),
-      supabase.from('matches').select('*').order('created_at', { ascending: false }).limit(2000),
+      fetchAllPingpongMatches(supabase),
       supabase.from('padel_matches').select('*').order('created_at', { ascending: false }).limit(2000),
       supabase.from('padel_stats').select('*'),
       supabase.from('tennis_matches').select('*').order('created_at', { ascending: false }).limit(2000),
       supabase.from('tennis_stats').select('*'),
+      supabase.from('pingpong_seasons').select('*').order('id'),
+      supabase.from('pingpong_season_snapshots').select('*'),
     ])
 
     if (userError) console.error('Error fetching users:', userError)
@@ -228,8 +233,15 @@ function App() {
     if (tennisStatsError) console.error('Error fetching tennis stats:', tennisStatsError)
     else setTennisStats(tennisStatsData || [])
 
+    if (seasonError || snapshotError) {
+      console.error('Error fetching seasons:', seasonError || snapshotError)
+      showToast('Season history could not be loaded. Please refresh and try again.', 'error')
+    } else {
+      setSeasons(seasonData || [])
+      setSeasonSnapshots(snapshotData || [])
+    }
     setLoading(false)
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     const initialFetchTimer = setTimeout(fetchData, 0)
@@ -278,33 +290,6 @@ function App() {
       if (debounceTimer) clearTimeout(debounceTimer)
     }
   }, [fetchData])
-
-  // Automatic Migration Check: Recalculate stats if matches exist but stats are empty
-  useEffect(() => {
-    if (!loading && matches.length > 0 && users.length > 0 && !migrationAttempted.current) {
-      const totalMatchesPlayed = users.reduce((acc, user) => acc + (user.matches_played || 0), 0)
-
-      if (totalMatchesPlayed === 0) {
-        console.log('Detected uninitialized stats. Running recalculation...')
-        migrationAttempted.current = true
-        queueMicrotask(() => {
-          setMigrating(true)
-          recalculatePlayerStats()
-            .then(() => {
-              console.log('Recalculation complete.')
-              fetchData()
-            })
-            .catch(err => {
-              console.error('Migration failed:', err)
-              if (err.message && err.message.includes('column')) {
-                showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
-              }
-            })
-            .finally(() => setMigrating(false))
-          })
-      }
-    }
-  }, [loading, matches.length, users, fetchData, showToast])
 
   const handleUserClick = (user) => {
     setStatsPlayerId(user.id)
@@ -397,6 +382,13 @@ function App() {
     fetchData()
   }
 
+  const activeSeason = seasons.find(s => s.is_active)
+  const selectedSeasonId = seasonScope === 'current' ? activeSeason?.id : seasonScope
+  const currentMatches = useMemo(() => activeSeason ? filterSeasonMatches(matches, activeSeason.id) : matches, [matches, activeSeason])
+  const scopedMatches = useMemo(() => activeSeason ? filterSeasonMatches(matches, selectedSeasonId) : matches, [matches, activeSeason, selectedSeasonId])
+  const scopedUsers = useMemo(() => activeSeason ? getSeasonUsers(users, matches, seasonSnapshots, selectedSeasonId, activeSeason.id) : users, [users, matches, seasonSnapshots, selectedSeasonId, activeSeason])
+  const canManageSeason = !activeSeason || String(selectedSeasonId) === String(activeSeason.id)
+
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
   const sport = SPORTS.find(s => s.id === activeSport) || SPORTS[0]
@@ -474,20 +466,29 @@ function App() {
         subtitle={
           <>
             {sport.label} · {sport.tagline}
-            {migrating && (
-              <span className="ml-2 inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
-                <Settings size={14} className="animate-spin" /> Updating historical stats…
-              </span>
-            )}
+
           </>
         }
       >
         {pageActions}
       </PageHeader>
 
+      {isPingPong && activeSeason && ['grid', 'leaderboard', 'stats', 'matches'].includes(currentTab) && (
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <label htmlFor="pingpong-season" className="font-medium text-gray-700 dark:text-gray-200">Stats for</label>
+          <select id="pingpong-season" value={seasonScope} onChange={e => setSeasonScope(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+            <option value="current">{activeSeason.name} (current)</option>
+            {seasons.filter(s => !s.is_active).map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            <option value="all">All-time</option>
+          </select>
+          <p className="text-sm text-gray-500 dark:text-gray-400">New games count toward {activeSeason.name}. All-time ratings continue across seasons.</p>
+        </div>
+      )}
+
       {currentTab === 'grid' && (
         <PlayersView
-          users={users}
+          users={isPingPong ? scopedUsers : users}
           loading={loading}
           sport={activeSport}
           padelStatsMap={padelStatsMap}
@@ -501,7 +502,7 @@ function App() {
 
       {currentTab === 'leaderboard' && (
         isPingPong ? (
-          <Leaderboard users={users} matches={matches} isAdmin={isAdmin} />
+          <Leaderboard key={seasonScope} users={scopedUsers} matches={scopedMatches} isAdmin={isAdmin} />
         ) : isPadel ? (
           <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} isAdmin={isAdmin} />
         ) : (
@@ -511,7 +512,7 @@ function App() {
 
       {currentTab === 'stats' && (
         isPingPong ? (
-          <PlayerStats users={users} matches={matches} initialPlayerId={statsPlayerId} />
+          <PlayerStats key={seasonScope} users={scopedUsers} matches={scopedMatches} initialPlayerId={statsPlayerId} seasonId={selectedSeasonId} />
         ) : isPadel ? (
           <PadelPlayerStats users={users} matches={padelMatches} padelStats={padelStats} initialPlayerId={statsPlayerId} />
         ) : (
@@ -522,12 +523,13 @@ function App() {
       {currentTab === 'matches' && (
         isPingPong ? (
           <Matches
-            matches={matches}
-            users={users}
+            key={seasonScope}
+            matches={scopedMatches}
+            users={scopedUsers}
             onEditMatch={setEditingMatch}
             onMatchDeleted={fetchData}
             onGenerateMatch={() => setIsGeneratorOpen(true)}
-            isAdmin={isAdmin}
+            isAdmin={isAdmin && canManageSeason}
             adminToken={adminToken}
           />
         ) : isPadel ? (
@@ -556,7 +558,7 @@ function App() {
       {currentTab === 'tournament' && (
         <Tournament
           users={users}
-          matches={matches}
+          matches={currentMatches}
           fetchData={fetchData}
           isAdmin={isAdmin}
           adminToken={adminToken}
@@ -605,7 +607,7 @@ function App() {
         isOpen={isGeneratorOpen}
         onClose={() => setIsGeneratorOpen(false)}
         users={users}
-        matches={matches}
+        matches={currentMatches}
         onMatchGenerated={handleMatchGenerated}
       />
 
@@ -615,6 +617,7 @@ function App() {
         onClose={() => setEditingMatch(null)}
         onMatchUpdated={fetchData}
         isAdmin={isAdmin}
+        adminToken={adminToken}
       />
 
       {selectedPlayers[0] && selectedPlayers[1] && (
@@ -627,7 +630,7 @@ function App() {
           player1={selectedPlayers[0]}
           player2={selectedPlayers[1]}
           onMatchSaved={handleMatchSaved}
-          matches={matches}
+          matches={currentMatches}
           adminToken={adminToken}
         />
       )}
@@ -642,7 +645,7 @@ function App() {
           player1={liveMatchPlayers[0]}
           player2={liveMatchPlayers[1]}
           onMatchSaved={handleLiveMatchSaved}
-          matches={matches}
+          matches={currentMatches}
           adminToken={adminToken}
         />
       )}

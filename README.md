@@ -37,6 +37,8 @@ A modern, high-performance web application for tracking sports leagues, tourname
 
 ### 📊 Player Statistics
 
+* **Ping Pong Seasons**: Choose the current season, Season 1, or All-time on Players, Leaderboard, Stats, and Matches. Existing games and final standings are archived as Season 1; Season 2 starts at 1200 ELO with zero games and wins. New games always belong to the active season, and handicap streaks use that season only. All-time ratings replay the full history without resetting between seasons. Archived matches are read-only.
+
 * **Achievements**: Track goals like "Clutch Master" (win % at match point) and debuff challenges.
 * **Head-to-Head**: Deep historic analysis of your performance against every opponent.
 * **ELO Timeline**: Interactive charts showing your rise (or fall) through the ranks.
