@@ -1,3 +1,5 @@
+import { getMatchWinner } from '../padelUtils'
+import { inLocalDateRange } from '../dateRange'
 import React, { useState, useMemo } from 'react'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
@@ -20,11 +22,7 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
     const stats = useMemo(() => {
         // 1. Filter matches by date
         const filteredMatches = matches.filter(match => {
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         // Sort matches newest first for streak calculation
@@ -63,10 +61,10 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                 p.pointsFor += match.score1
                 p.pointsAgainst += match.score2
                 p.totalGames += 1
-                if (match.score1 > match.score2) {
+                if (getMatchWinner(match) === 1) {
                     p.wins += 1
                     p.results.push('W')
-                } else {
+                } else if (getMatchWinner(match) !== 0) {
                     p.losses += 1
                     p.results.push('L')
                 }
@@ -77,10 +75,10 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                 p.pointsFor += match.score2
                 p.pointsAgainst += match.score1
                 p.totalGames += 1
-                if (match.score2 > match.score1) {
+                if (getMatchWinner(match) === 2) {
                     p.wins += 1
                     p.results.push('W')
-                } else {
+                } else if (getMatchWinner(match) !== 0) {
                     p.losses += 1
                     p.results.push('L')
                 }

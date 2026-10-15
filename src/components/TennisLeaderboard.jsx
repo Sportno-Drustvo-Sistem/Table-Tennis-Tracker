@@ -1,3 +1,4 @@
+import { inLocalDateRange } from '../dateRange'
 import React, { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
@@ -39,13 +40,9 @@ const TennisLeaderboard = ({ users, matches, tennisStats }) => {
     }, [tennisStats])
 
     const stats = useMemo(() => {
-        const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-        const end = endDate ? new Date(endDate) : new Date()
-        end.setHours(23, 59, 59, 999)
         const filteredMatches = [...matches]
             .filter(match => {
-                const matchDate = new Date(match.created_at)
-                return matchDate >= start && matchDate <= end
+                return inLocalDateRange(match.created_at, startDate, endDate)
             })
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 

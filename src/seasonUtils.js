@@ -25,15 +25,28 @@ export const getSeasonUsers = (users, matches, snapshots, seasonId, activeSeason
     }))
 }
 
-// Supabase caps a single response; fetch every page so old seasons remain complete.
-export const fetchAllPingpongMatches = async (client) => {
+// Keyset pagination tolerates server response caps below the requested page size.
+// Stop only on an empty page; failures discard the partial result.
+export const fetchAllMatches = async (client, table, { select = '*', start, end } = {}) => {
     const matches = []
-    for (let offset = 0; ; offset += 1000) {
-        const { data, error } = await client.from('matches').select('*')
-            .order('created_at', { ascending: false }).order('id', { ascending: false })
-            .range(offset, offset + 999)
-        if (error) return { data: null, error }
-        matches.push(...data)
-        if (data.length < 1000) return { data: matches, error: null }
-    }
+    let cursor = null
+    try {
+        for (;;) {
+            let query = client.from(table).select(select)
+                .order('created_at', { ascending: false }).order('id', { ascending: false })
+            if (start) query = query.gte('created_at', start.toISOString())
+            if (end) query = query.lt('created_at', end.toISOString())
+            if (cursor) query = query.or('created_at.lt.' + cursor.created_at + ',and(created_at.eq.' + cursor.created_at + ',id.lt.' + cursor.id + ')')
+            const { data, error } = await query.range(0, 999)
+            if (error) return { data: null, error }
+            if (!Array.isArray(data)) throw new Error('Incomplete match history response')
+            if (!data.length) return { data: matches, error: null }
+            const next = data[data.length - 1]
+            if (!next.id || !next.created_at || (cursor && next.id === cursor.id)) throw new Error('Match history cursor did not advance')
+            matches.push(...data)
+            cursor = next
+        }
+    } catch (error) { return { data: null, error } }
 }
+
+export const fetchAllPingpongMatches = client => fetchAllMatches(client, 'matches')

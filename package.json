@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
-    "db:keepalive": "node scripts/keep-supabase-alive.mjs"
+    "db:keepalive": "node scripts/keep-supabase-alive.mjs",
+    "test:db": "node scripts/test-database.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1",

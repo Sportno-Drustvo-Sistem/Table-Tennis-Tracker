@@ -4,7 +4,7 @@ import { Plus, Trash2, Edit2, AlertTriangle, Save, X, Settings } from 'lucide-re
 import { supabase } from '../supabaseClient'
 import { useToast } from '../contexts/useToast'
 
-const DebuffSettings = ({ isAdmin }) => {
+const DebuffSettings = ({ isAdmin, adminToken }) => {
     const { showToast, showConfirm } = useToast()
     const [debuffs, setDebuffs] = useState([])
     const [loading, setLoading] = useState(true)
@@ -61,20 +61,8 @@ const DebuffSettings = ({ isAdmin }) => {
             is_active: formData.is_active
         }
 
-        if (editingId) {
-            const { error } = await supabase
-                .from('debuffs')
-                .update(debuffData)
-                .eq('id', editingId)
-
-            if (error) showToast('Error updating debuff: ' + error.message, 'error')
-        } else {
-            const { error } = await supabase
-                .from('debuffs')
-                .insert([debuffData])
-
-            if (error) showToast('Error creating debuff: ' + error.message, 'error')
-        }
+        const { error } = await supabase.rpc('save_debuff', { p_admin_token: adminToken, p_id: editingId, p_debuff: debuffData })
+        if (error) { showToast('Error saving debuff: ' + error.message, 'error'); return }
 
         setEditingId(null)
         setFormData({ title: '', description: '', severity: 5, trigger_types: ['mayhem'], trigger_value: null, is_active: true })
@@ -95,10 +83,7 @@ const DebuffSettings = ({ isAdmin }) => {
 
     const handleDelete = async (id) => {
         showConfirm('Are you sure you want to delete this debuff?', async () => {
-            const { error } = await supabase
-                .from('debuffs')
-                .delete()
-                .eq('id', id)
+            const { error } = await supabase.rpc('delete_debuff', { p_admin_token: adminToken, p_id: id })
 
             if (error) {
                 showToast('Error deleting debuff: ' + error.message, 'error')

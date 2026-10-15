@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { RotateCcw, Save, Undo2, Volume2, VolumeX, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { validateTennisSets } from '../../tennisUtils'
+import { tiebreakServer, validateTennisSets } from '../../tennisUtils'
 import { getAvatarFallback } from '../../utils'
 import { recordTennisMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
@@ -22,6 +22,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
     const [p2Points, setP2Points] = useState(0)
     const [isTiebreak, setIsTiebreak] = useState(false)
     const [server, setServer] = useState(1)
+    const [tiebreakInitialServer, setTiebreakInitialServer] = useState(1)
     const [history, setHistory] = useState([])
     const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('liveMatchSound') !== 'off')
 
@@ -46,6 +47,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
         setP2Points(0)
         setIsTiebreak(false)
         setServer(1)
+        setTiebreakInitialServer(1)
         setHistory([])
     }
 
@@ -75,7 +77,10 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
         if (nextP2Games === 7 && nextP1Games === 6) setWinner = 2
 
         if (!setWinner) {
-            if (nextP1Games === 6 && nextP2Games === 6) setIsTiebreak(true)
+            if (nextP1Games === 6 && nextP2Games === 6) {
+                setIsTiebreak(true)
+                setTiebreakInitialServer(server === 1 ? 2 : 1)
+            }
             return
         }
 
@@ -98,12 +103,12 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
         const setsToWin = matchFormat === 'best_of_1' ? 1 : 2
         if (p1Sets >= setsToWin) setMatchWinner(1)
         if (p2Sets >= setsToWin) setMatchWinner(2)
-    }, [matchFormat])
+    }, [matchFormat, server])
 
     const scorePoint = useCallback((playerNumber) => {
         if (matchWinner) return
         setMatchStarted(true)
-        setHistory(prev => [...prev, { p1Games, p2Games, p1Points, p2Points, isTiebreak, server, completedSets, matchWinner }])
+        setHistory(prev => [...prev, { p1Games, p2Games, p1Points, p2Points, isTiebreak, server, tiebreakInitialServer, completedSets, matchWinner }])
 
         const nextP1Points = p1Points + (playerNumber === 1 ? 1 : 0)
         const nextP2Points = p2Points + (playerNumber === 2 ? 1 : 0)
@@ -112,6 +117,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
         if (!pointWinner) {
             setP1Points(nextP1Points)
             setP2Points(nextP2Points)
+            if (isTiebreak) setServer(tiebreakServer(tiebreakInitialServer, nextP1Points + nextP2Points))
             return
         }
 
@@ -121,9 +127,9 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
         setP2Points(0)
         setP1Games(nextP1Games)
         setP2Games(nextP2Games)
-        setServer(prev => prev === 1 ? 2 : 1)
+        setServer(isTiebreak ? (tiebreakInitialServer === 1 ? 2 : 1) : (server === 1 ? 2 : 1))
         completeSetIfNeeded(nextP1Games, nextP2Games, completedSets, nextP1Points, nextP2Points)
-    }, [checkPointWinner, completeSetIfNeeded, completedSets, isTiebreak, matchWinner, p1Games, p1Points, p2Games, p2Points, server])
+    }, [checkPointWinner, completeSetIfNeeded, completedSets, isTiebreak, matchWinner, p1Games, p1Points, p2Games, p2Points, server, tiebreakInitialServer])
 
     const undoLast = useCallback(() => {
         if (!history.length || matchWinner) return
@@ -134,6 +140,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
         setP2Points(prev.p2Points)
         setIsTiebreak(prev.isTiebreak)
         setServer(prev.server)
+        setTiebreakInitialServer(prev.tiebreakInitialServer)
         setCompletedSets(prev.completedSets)
         setMatchWinner(prev.matchWinner)
         setHistory(h => h.slice(0, -1))

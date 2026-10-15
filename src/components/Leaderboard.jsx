@@ -1,3 +1,4 @@
+import { inLocalDateRange } from '../dateRange'
 import React, { useState, useMemo } from 'react'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
@@ -18,12 +19,7 @@ const Leaderboard = ({ users, matches }) => {
     const stats = useMemo(() => {
         // 1. Filter matches by date
         const filteredMatches = matches.filter(match => {
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            // Set end date to end of day
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         // Sort matches by date descending (newest first) for correct streak calculation

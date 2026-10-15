@@ -105,3 +105,7 @@ The app will be available at `http://localhost:8080`.
 * `/src/utils.js`: Core logic for ELO, Ranks, and Match calculations.
 * `/src/discordUtils.js`: Logic for Discord Webhook formatting and delivery.
 * `/supabase`: Database migrations and configuration.
+
+### October 2026 remediation
+
+See [completion and verification status](docs/code-review-remediation-completion.md) and [migration/deployment steps](docs/remediation-deployment.md). Run npm run test:db with a local Docker engine to execute fresh/upgrade authorization and transaction checks.

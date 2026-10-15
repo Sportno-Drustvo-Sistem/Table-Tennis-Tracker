@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { X, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/useToast'
-import { recalculatePadelStats } from '../../padelUtils'
+import { validatePadelSets } from '../../padelUtils'
 
-const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) => {
+const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users, adminToken }) => {
     const { showToast } = useToast()
 
     const [matchFormat, setMatchFormat] = useState('best_of_3')
@@ -42,7 +42,7 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
 
     const handleSetChange = (index, field, value) => {
         const newSets = [...setsData]
-        newSets[index][field] = value === '' ? '' : parseInt(value)
+        newSets[index][field] = value === '' ? '' : Number(value)
         setSetsData(newSets)
     }
 
@@ -62,40 +62,20 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
     }
 
     const handleSave = async () => {
-        // Validation
-        const cleanSets = setsData.map(s => ({
-            team1Games: s.team1Games === '' ? 0 : s.team1Games,
-            team2Games: s.team2Games === '' ? 0 : s.team2Games
-        }))
-
-        if (cleanSets.length === 0) {
-            showToast('Please enter at least one set score.', 'error')
-            return
-        }
-
-        let team1TotalGames = 0
-        let team2TotalGames = 0
-
-        cleanSets.forEach(s => {
-            team1TotalGames += s.team1Games
-            team2TotalGames += s.team2Games
-        })
-
+        const validation = validatePadelSets(setsData)
+        if (!validation.valid) { showToast(validation.message, 'error'); return }
         setSaving(true)
         try {
-            const { error } = await supabase
-                .from('padel_matches')
-                .update({
-                    score1: team1TotalGames,
-                    score2: team2TotalGames,
-                    match_format: matchFormat,
-                    sets_data: cleanSets
-                })
-                .eq('id', match.id)
+            const { error } = await supabase.rpc('update_padel_match', {
+                p_admin_token: adminToken,
+                p_match_id: match.id,
+                p_score1: validation.summary.team1Games,
+                p_score2: validation.summary.team2Games,
+                p_match_format: matchFormat,
+                p_sets_data: validation.sets,
+            })
 
             if (error) throw error
-
-            await recalculatePadelStats()
 
             onMatchUpdated()
             onClose()

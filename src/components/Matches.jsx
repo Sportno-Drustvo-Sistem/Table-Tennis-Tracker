@@ -15,6 +15,12 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
     const [searchQuery, setSearchQuery] = useState('')
     const { showToast } = useToast()
 
+    const handleSearchChange = query => {
+        setSearchQuery(query)
+        setSelectedIds(new Set())
+        setBulkDeleteConfirm(false)
+    }
+
     const toggleSelect = (id) => {
         setSelectedIds(prev => {
             const next = new Set(prev)
@@ -25,19 +31,19 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
     }
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === matches.length) {
+        if (visibleSelectedIds.size === filteredMatches.length) {
             setSelectedIds(new Set())
         } else {
-            setSelectedIds(new Set(matches.map(m => m.id)))
+            setSelectedIds(new Set(filteredMatches.map(m => m.id)))
         }
     }
 
     const handleBulkDelete = async () => {
-        if (selectedIds.size === 0) return
+        if (visibleSelectedIds.size === 0) return
         setLoading(true)
         setBulkDeleteConfirm(false)
         try {
-            const ids = [...selectedIds]
+            const ids = [...visibleSelectedIds]
             const { error } = await supabase.rpc('delete_pingpong_matches', {
                 p_admin_token: adminToken,
                 p_match_ids: ids,
@@ -125,6 +131,9 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
         })
     }, [matches, users, searchQuery])
 
+    const visibleSelectedIds = new Set(filteredMatches.filter(m => selectedIds.has(m.id)).map(m => m.id))
+    if (visibleSelectedIds.size !== selectedIds.size) setSelectedIds(visibleSelectedIds)
+
     const EloChangeDisplay = ({ elo, change }) => {
         const isPositive = change > 0
         const changeColor = isPositive
@@ -153,7 +162,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                         type="text"
                         placeholder="Search by player…"
                         value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
+                        onChange={e => handleSearchChange(e.target.value)}
                         className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-gray-700 dark:text-gray-200"
                     />
                 </div>
@@ -187,7 +196,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                 <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-red-700 dark:text-red-300">
-                            {selectedIds.size} match{selectedIds.size > 1 ? 'es' : ''} selected
+                            {visibleSelectedIds.size} match{visibleSelectedIds.size > 1 ? 'es' : ''} selected
                         </span>
                         <button onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">
                             Clear selection
@@ -239,7 +248,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                                     {isAdmin && isBulkMode && (
                                         <th className="px-2 sm:px-3 py-3 sm:py-4 w-8 sm:w-10">
                                             <button onClick={toggleSelectAll} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                                {selectedIds.size === filteredMatches.length && filteredMatches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : selectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                                                {visibleSelectedIds.size === filteredMatches.length && filteredMatches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : visibleSelectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
                                             </button>
                                         </th>
                                     )}
@@ -257,7 +266,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                                     const matchDate = new Date(match.created_at)
                                     const eloData = matchEloData[match.id]
 
-                                    const isSelected = selectedIds.has(match.id)
+                                    const isSelected = visibleSelectedIds.has(match.id)
                                     return (
                                         <tr key={match.id} className={`transition-colors text-sm ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}>
                                             {isAdmin && isBulkMode && (

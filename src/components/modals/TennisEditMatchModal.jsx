@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { recalculateTennisStats, validateTennisSets } from '../../tennisUtils'
+import { validateTennisSets } from '../../tennisUtils'
 import { useToast } from '../../contexts/useToast'
 
-const TennisEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) => {
+const TennisEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users, adminToken }) => {
     const { showToast } = useToast()
     const [sets, setSets] = useState([])
     const [saving, setSaving] = useState(false)
@@ -38,17 +38,16 @@ const TennisEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users })
 
         setSaving(true)
         try {
-            const { error } = await supabase
-                .from('tennis_matches')
-                .update({
-                    score1: validation.summary.player1Games,
-                    score2: validation.summary.player2Games,
-                    sets_data: validation.sets,
-                })
-                .eq('id', match.id)
+            const { error } = await supabase.rpc('update_tennis_match', {
+                p_admin_token: adminToken,
+                p_match_id: match.id,
+                p_score1: validation.summary.player1Games,
+                p_score2: validation.summary.player2Games,
+                p_match_format: match.match_format || 'best_of_3',
+                p_sets_data: validation.sets,
+            })
 
             if (error) throw error
-            await recalculateTennisStats()
             showToast('Tennis match updated!', 'success')
             onMatchUpdated?.()
             onClose()

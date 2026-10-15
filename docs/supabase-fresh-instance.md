@@ -58,3 +58,7 @@ After the app is pointed at the new project:
 2. Upload or change an avatar.
 3. Record one ping pong, padel, and tennis match.
 4. Confirm the match row and player stats update together.
+
+## Security and remediation rollout
+
+Apply the complete migration chain, including the October 2026 forward migrations. Public player creation uses the narrow create_player RPC; other application table writes require custom admin-session RPCs. See [remediation deployment instructions](remediation-deployment.md) for Discord Edge Function configuration, avatar upload policies, PIN throttle behavior, database tests and the controlled historical Padel/Tennis rating rebuild. Run the documented verification before pointing users at the new instance.

@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Scale, Skull, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, getAvatarFallback } from '../../utils'
-import { recordPingPongMatch } from '../../matchPersistence'
+import { recordPingPongMatch, validPingPongScores } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, isAdmin, adminToken, availablePlayers, onOverridePlayers }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState('')
-    const [score2, setScore2] = useState(0)
+    const [score2, setScore2] = useState('')
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
     const [refusedRules, setRefusedRules] = useState(new Set())
@@ -53,6 +53,10 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
     const handleSave = async () => {
         if (!p1 || !p2) { showToast('Please select both players', 'error'); return }
+        if (!validPingPongScores(score1, score2)) {
+            showToast('Enter non-negative whole-number scores with a winner.', 'error')
+            return
+        }
         setSaving(true)
         try {
             // If players were changed/assigned via override, update the bracket first
@@ -65,14 +69,14 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                 adminToken,
                 player1Id: p1.id,
                 player2Id: p2.id,
-                sets: [{ s1: parseInt(score1), s2: parseInt(score2) }],
+                sets: [{ s1: Number(score1), s2: Number(score2) }],
                 handicapRule: acceptedRules.length > 0 ? acceptedRules : null,
                 tournamentId: tournamentId || null,
             })
 
             onMatchSaved?.(savedMatch)
             setScore1('')
-            setScore2(0)
+            setScore2('')
         } catch (error) {
             console.error(error)
             showToast('Error saving match: ' + error.message, 'error')

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
-import { filterSeasonMatches, getSeasonUsers, fetchAllPingpongMatches } from './seasonUtils'
+import { fetchAllMatches, filterSeasonMatches, getSeasonUsers, fetchAllPingpongMatches } from './seasonUtils'
 import {
   ADMIN_SESSION_STORAGE_KEY,
   createAdminSession,
@@ -60,6 +60,7 @@ const NAV_ITEMS = [
 // --- Main App ---
 
 function App() {
+  const [historyError, setHistoryError] = useState('')
   const { showToast } = useToast()
 
   const [users, setUsers] = useState([])
@@ -207,13 +208,18 @@ function App() {
     ] = await Promise.all([
       supabase.from('users').select('*').order('total_wins', { ascending: false }),
       fetchAllPingpongMatches(supabase),
-      supabase.from('padel_matches').select('*').order('created_at', { ascending: false }).limit(2000),
+      fetchAllMatches(supabase, 'padel_matches'),
       supabase.from('padel_stats').select('*'),
-      supabase.from('tennis_matches').select('*').order('created_at', { ascending: false }).limit(2000),
+      fetchAllMatches(supabase, 'tennis_matches'),
       supabase.from('tennis_stats').select('*'),
       supabase.from('pingpong_seasons').select('*').order('id'),
       supabase.from('pingpong_season_snapshots').select('*'),
     ])
+
+    if (matchError || padelMatchError || tennisMatchError) {
+      setHistoryError('Complete match history could not be loaded. Refresh to retry; statistics may be out of date.')
+      showToast('Match history load failed. No partial history was accepted.', 'error')
+    } else setHistoryError('')
 
     if (userError) console.error('Error fetching users:', userError)
     else setUsers(userData || [])
@@ -473,6 +479,8 @@ function App() {
         {pageActions}
       </PageHeader>
 
+      {historyError && <div role="alert" className="mb-6 rounded-lg bg-red-100 p-4 text-red-800">{historyError}</div>}
+
       {isPingPong && activeSeason && ['grid', 'leaderboard', 'stats', 'matches'].includes(currentTab) && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <label htmlFor="pingpong-season" className="font-medium text-gray-700 dark:text-gray-200">Stats for</label>
@@ -567,8 +575,8 @@ function App() {
 
       {currentTab === 'settings' && (
         <div className="space-y-6">
-          <DebuffSettings isAdmin={isAdmin} />
-          <DiscordSettings />
+          <DebuffSettings isAdmin={isAdmin} adminToken={adminToken} />
+          <DiscordSettings adminToken={adminToken} />
         </div>
       )}
 
@@ -664,6 +672,8 @@ function App() {
       <PadelEditMatchModal
         isOpen={!!editingPadelMatch}
         match={editingPadelMatch}
+        users={users}
+        adminToken={adminToken}
         onClose={() => setEditingPadelMatch(null)}
         onMatchUpdated={fetchData}
         isAdmin={isAdmin}
@@ -715,6 +725,7 @@ function App() {
       <TennisEditMatchModal
         isOpen={!!editingTennisMatch}
         match={editingTennisMatch}
+        adminToken={adminToken}
         onClose={() => setEditingTennisMatch(null)}
         onMatchUpdated={fetchData}
         users={users}

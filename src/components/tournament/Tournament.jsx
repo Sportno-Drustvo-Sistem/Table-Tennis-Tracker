@@ -160,10 +160,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     const handleGroupMatchSaved = async (savedMatch) => {
         if (!savedMatch) { setSelectedMatchId(null); return }
 
-        // Link to tournament
-        if (!savedMatch.tournament_id && savedMatch.id) {
-            await supabase.from('matches').update({ tournament_id: activeTournament.id }).eq('id', savedMatch.id)
-        }
+        // Recording RPCs attach the tournament in the same transaction.
 
         const t = { ...activeTournament }
         const groupIndex = selectedMatchId.groupIndex
@@ -287,9 +284,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         match.winner = winner
         match.dbMatchId = dbMatch.id
 
-        if (!dbMatch.tournament_id) {
-            await supabase.from('matches').update({ tournament_id: newTournament.id }).eq('id', dbMatch.id)
-        }
 
         let debuffsPool = cachedDebuffs
         if (!debuffsPool || debuffsPool.length === 0) {
@@ -308,7 +302,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             isComplete = handleSingleElimAdvancement(newTournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         }
 
-        // Run robust propagation (isInitialSetup=false: don't auto-assign byes)
+        // Propagate only resolved sources; waiting for an opponent is never a bye.
         propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
 
         setActiveTournament(newTournament)
@@ -480,7 +474,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             isComplete = handleSingleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, targetMatch, lonePlayer, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         }
 
-        // Propagate but don't auto-assign new byes
+        // Propagate resolved sources, including proven empty branches.
         propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
 
         setActiveTournament(newTournament)

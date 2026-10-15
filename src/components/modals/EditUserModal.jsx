@@ -26,11 +26,11 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
             let publicUrl = user.avatar_url
 
             if (file) {
-                const fileExt = file.name.split('.').pop()
-                const fileName = `${user.id}-${Date.now()}.${fileExt}`
+                const fileExt = file.name.split('.').pop().toLowerCase()
+                const fileName = `create/${crypto.randomUUID()}.${fileExt}`
                 const { error: uploadError } = await supabase.storage
                     .from('avatars')
-                    .upload(fileName, file)
+                    .upload(fileName, file, { upsert: false })
 
                 if (uploadError) throw uploadError
 
@@ -77,7 +77,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">New Profile Picture (Optional)</label>
                         <input
                             type="file"
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                             onChange={e => setFile(e.target.files[0])}
                             className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-200"
                         />

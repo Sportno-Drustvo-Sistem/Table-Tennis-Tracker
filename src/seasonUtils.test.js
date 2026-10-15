@@ -26,10 +26,11 @@ describe('ping pong season scopes', () => {
     })
     it('loads history beyond the API row cap and propagates errors', async () => {
         const range = vi.fn().mockResolvedValueOnce({ data: Array(1000).fill(matches[0]), error: null }).mockResolvedValueOnce({ data: [matches[1]], error: null })
-        const query = { select: () => query, order: () => query, range }
+        range.mockResolvedValueOnce({ data: [], error: null })
+        const query = { select: () => query, order: () => query, or: () => query, range }
         const client = { from: () => query }
         expect((await fetchAllPingpongMatches(client)).data).toHaveLength(1001)
-        expect(range).toHaveBeenLastCalledWith(1000, 1999)
+        expect(range).toHaveBeenLastCalledWith(0, 999)
         range.mockResolvedValueOnce({ data: null, error: { message: 'offline' } })
         expect((await fetchAllPingpongMatches(client)).error.message).toBe('offline')
     })

@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import { usePlayerSelection } from '../usePlayerSelection'
+import { inLocalDateRange } from '../dateRange'
+import React, { useState, useMemo } from 'react'
 import { Activity, Users, Calendar } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import DateRangePicker from './DateRangePicker'
@@ -8,13 +10,10 @@ import { getMatchWinner, buildPadelEloHistory, getPadelScoreSummary } from '../p
 import { getEloRank, getAvatarFallback } from '../utils'
 
 const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
-    const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
+    const [selectedPlayerId, setSelectedPlayerId] = usePlayerSelection(users, initialPlayerId)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
 
-    useEffect(() => {
-        if (initialPlayerId) setSelectedPlayerId(initialPlayerId)
-    }, [initialPlayerId])
 
     const selectedPlayer = users.find(u => u.id === selectedPlayerId)
 
@@ -37,12 +36,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                 match.team2_player2_id
             ].includes(selectedPlayerId)
             if (!isParticipant) return false
-
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         let matchWins = 0
@@ -178,7 +172,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
         }
     }, [selectedPlayerId, selectedPlayer, matches, startDate, endDate, users, eloData])
 
-    if (!selectedPlayer) return <div>Select a player</div>
+    if (!selectedPlayer) return <div>No players available for this season. Add a player or choose another season.</div>
 
     return (
         <div className="space-y-6">

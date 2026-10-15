@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { getKFactor, calculateEloChange } from './utils'
+import { getKFactor, calculateSetEloChange } from './utils'
 
 /**
  * Determine the winner of a padel match by sets won, or games won if no sets exist.
@@ -48,6 +48,9 @@ export const getPadelScoreSummary = (match) => {
 
 export const validatePadelSets = (setsData = []) => {
     const sets = normalizePadelSets(setsData)
+    if (sets.some(set => [set.team1Games, set.team2Games].some(value => !Number.isInteger(value) || value < 0))) {
+        return { valid: false, message: 'Enter non-negative whole-number set scores.' }
+    }
     const playedSets = sets.filter(set => set.team1Games > 0 || set.team2Games > 0)
 
     if (playedSets.length === 0) {
@@ -70,206 +73,13 @@ export const getMatchWinner = (match) => {
     return getPadelScoreSummary(match).winner
 }
 
-/**
- * Ensure a padel_stats row exists for a given user.
- * If no row exists, insert one with default values.
- */
-export const ensurePadelStats = async (userId) => {
-    const { data } = await supabase
-        .from('padel_stats')
-        .select('id')
-        .eq('user_id', userId)
-        .single()
-
-    if (!data) {
-        await supabase.from('padel_stats').insert({ user_id: userId })
-    }
-}
-
-/**
- * Recalculate all padel stats from scratch (same approach as ping pong).
- * Each player has individual ELO. For the match calculation:
- * - Team ELO = average of both teammates' current ELO
- * - ELO change is computed for each player using team ELO vs opposing team ELO
- */
-export const recalculatePadelStats = async () => {
-    // 1. Fetch all users
-    const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, name, avatar_url')
-
-    if (usersError) {
-        console.error('Error fetching users:', usersError)
-        return
-    }
-
-    // 2. Fetch all padel matches ordered by date
-    const { data: matches, error: matchesError } = await supabase
-        .from('padel_matches')
-        .select('*')
-        .order('created_at', { ascending: true })
-
-    if (matchesError) {
-        console.error('Error fetching padel matches:', matchesError)
-        return
-    }
-
-    // 3. Initialize per-player padel stats
-    const stats = {}
-    users.forEach(user => {
-        stats[user.id] = {
-            user_id: user.id,
-            elo_rating: 1200,
-            matches_played: 0,
-            total_wins: 0
-        }
-    })
-
-    // 4. Process matches chronologically
-    matches.forEach(match => {
-        const t1p1 = match.team1_player1_id
-        const t1p2 = match.team1_player2_id
-        const t2p1 = match.team2_player1_id
-        const t2p2 = match.team2_player2_id
-
-        // Skip if any player doesn't exist
-        if (!stats[t1p1] || !stats[t1p2] || !stats[t2p1] || !stats[t2p2]) return
-
-            // Update matches played
-            ;[t1p1, t1p2, t2p1, t2p2].forEach(pid => {
-                stats[pid].matches_played += 1
-            })
-
-        // Update wins based on Sets (or games fallback)
-        const winner = getMatchWinner(match)
-        if (winner === 1) {
-            stats[t1p1].total_wins += 1
-            stats[t1p2].total_wins += 1
-        } else if (winner === 2) {
-            stats[t2p1].total_wins += 1
-            stats[t2p2].total_wins += 1
-        }
-
-        // Calculate ELO: team ELO = average of both players
-        const team1Elo = (stats[t1p1].elo_rating + stats[t1p2].elo_rating) / 2
-        const team2Elo = (stats[t2p1].elo_rating + stats[t2p2].elo_rating) / 2
-
-            // Each player gets the same ELO change based on team performance
-            ;[t1p1, t1p2].forEach(pid => {
-                const k = getKFactor(stats[pid].matches_played)
-                const change = calculateEloChange(team1Elo, team2Elo, match.score1, match.score2, k)
-                stats[pid].elo_rating += change
-            })
-
-            ;[t2p1, t2p2].forEach(pid => {
-                const k = getKFactor(stats[pid].matches_played)
-                const change = calculateEloChange(team2Elo, team1Elo, match.score2, match.score1, k)
-                stats[pid].elo_rating += change
-            })
-    })
-
-    // 5. Upsert stats into padel_stats
-    const upserts = Object.values(stats)
-        .filter(s => s.matches_played > 0 || true) // Include all users
-        .map(s => ({
-            user_id: s.user_id,
-            elo_rating: s.elo_rating,
-            matches_played: s.matches_played,
-            total_wins: s.total_wins
-        }))
-
-    if (upserts.length > 0) {
-        const { error: upsertError } = await supabase
-            .from('padel_stats')
-            .upsert(upserts, { onConflict: 'user_id' })
-
-        if (upsertError) {
-            console.error('Error upserting padel stats:', upsertError)
-            throw upsertError
-        }
-    }
-}
-
-export const applyPadelMatchResultToStats = async (match) => {
-    const t1p1 = match.team1_player1_id
-    const t1p2 = match.team1_player2_id
-    const t2p1 = match.team2_player1_id
-    const t2p2 = match.team2_player2_id
-
-    // 1. Fetch exact current stats for these 4 players
-    const { data: currentStats, error: fetchError } = await supabase
-        .from('padel_stats')
-        .select('*')
-        .in('user_id', [t1p1, t1p2, t2p1, t2p2])
-
-    if (fetchError) {
-        console.error('Error fetching padel stats for incremental update:', fetchError)
-        throw new Error('Failed to load padel stats for update')
-    }
-
-    // Initialize missing stats if players haven't played padel before
-    const statsMap = {}
-    ;[t1p1, t1p2, t2p1, t2p2].forEach(id => {
-        const existing = currentStats?.find(s => s.user_id === id)
-        statsMap[id] = existing ? { ...existing } : { user_id: id, elo_rating: 1200, matches_played: 0, total_wins: 0 }
-    })
-
-    // 2. Process the match
-    ;[t1p1, t1p2, t2p1, t2p2].forEach(pid => {
-        statsMap[pid].matches_played += 1
-    })
-
-    const winner = getMatchWinner(match)
-    if (winner === 1) {
-        statsMap[t1p1].total_wins += 1
-        statsMap[t1p2].total_wins += 1
-    } else if (winner === 2) {
-        statsMap[t2p1].total_wins += 1
-        statsMap[t2p2].total_wins += 1
-    }
-
-    const team1Elo = (statsMap[t1p1].elo_rating + statsMap[t1p2].elo_rating) / 2
-    const team2Elo = (statsMap[t2p1].elo_rating + statsMap[t2p2].elo_rating) / 2
-
-    const changes = {}
-
-    // Calculate ELO changes
-    ;[t1p1, t1p2].forEach(pid => {
-        const k = getKFactor(statsMap[pid].matches_played)
-        const change = calculateEloChange(team1Elo, team2Elo, match.score1, match.score2, k)
-        statsMap[pid].elo_rating += change
-        changes[pid] = change
-    })
-
-    ;[t2p1, t2p2].forEach(pid => {
-        const k = getKFactor(statsMap[pid].matches_played)
-        const change = calculateEloChange(team2Elo, team1Elo, match.score2, match.score1, k)
-        statsMap[pid].elo_rating += change
-        changes[pid] = change
-    })
-
-    // 3. Upsert ONLY these 4 specific rows
-    const upserts = Object.values(statsMap).map(s => ({
-        user_id: s.user_id,
-        elo_rating: s.elo_rating,
-        matches_played: s.matches_played,
-        total_wins: s.total_wins
-    }))
-
-    const { error: upsertError } = await supabase
-        .from('padel_stats')
-        .upsert(upserts, { onConflict: 'user_id' })
-
-    if (upsertError) {
-        console.error('Error in incremental padel update:', upsertError)
-        throw upsertError
-    }
-
-    return changes
+export const recalculatePadelStats = async (adminToken) => {
+    const { error } = await supabase.rpc('admin_recalculate_padel_stats', { p_admin_token: adminToken })
+    if (error) throw error
 }
 
 export const buildPadelEloHistory = (users, padelMatches) => {
-    const sortedMatches = [...padelMatches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const sortedMatches = [...padelMatches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at) || String(a.id).localeCompare(String(b.id)))
     const ratings = {}
     const mpc = {}
     const playerEloTimelines = {}
@@ -296,11 +106,11 @@ export const buildPadelEloHistory = (users, padelMatches) => {
         const t1EloBefore = (ratings[t1p1] + ratings[t1p2]) / 2
         const t2EloBefore = (ratings[t2p1] + ratings[t2p2]) / 2
 
-        const c1_t1p1 = calculateEloChange(t1EloBefore, t2EloBefore, m.score1, m.score2, getKFactor(mpc[t1p1]))
-        const c1_t1p2 = calculateEloChange(t1EloBefore, t2EloBefore, m.score1, m.score2, getKFactor(mpc[t1p2]))
+        const c1_t1p1 = calculateSetEloChange(t1EloBefore, t2EloBefore, getMatchWinner(m), 1, getKFactor(mpc[t1p1]))
+        const c1_t1p2 = calculateSetEloChange(t1EloBefore, t2EloBefore, getMatchWinner(m), 1, getKFactor(mpc[t1p2]))
 
-        const c2_t2p1 = calculateEloChange(t2EloBefore, t1EloBefore, m.score2, m.score1, getKFactor(mpc[t2p1]))
-        const c2_t2p2 = calculateEloChange(t2EloBefore, t1EloBefore, m.score2, m.score1, getKFactor(mpc[t2p2]))
+        const c2_t2p1 = calculateSetEloChange(t2EloBefore, t1EloBefore, getMatchWinner(m), 2, getKFactor(mpc[t2p1]))
+        const c2_t2p2 = calculateSetEloChange(t2EloBefore, t1EloBefore, getMatchWinner(m), 2, getKFactor(mpc[t2p2]))
 
         ratings[t1p1] += c1_t1p1
         ratings[t1p2] += c1_t1p2

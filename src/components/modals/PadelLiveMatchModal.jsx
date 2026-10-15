@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Undo2, Trophy, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { validatePadelSets } from '../../padelUtils'
@@ -158,6 +158,10 @@ const playAudioSequence = async (paths, fallbackText) => {
 const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, padelStats, adminToken }) => {
     const { showToast } = useToast()
 
+    const [setTransition, setSetTransition] = useState(null)
+    const transitionActive = useRef(false)
+    const matchIdentity = [isOpen, team1?.[0]?.id, team1?.[1]?.id, team2?.[0]?.id, team2?.[1]?.id].join(':')
+
     // --- Match state ---
     const [matchFormat, setMatchFormat] = useState(3) // 1 (single set) or 3 (best of 3)
     const [matchStarted, setMatchStarted] = useState(false)
@@ -198,6 +202,8 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // Reset everything when modal opens
     useEffect(() => {
+        transitionActive.current = false
+        setSetTransition(null)
         if (isOpen) {
             setT1Points(0)
             setT2Points(0)
@@ -218,7 +224,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             setTiebreakPointCount(0)
             setTiebreakServingTeam(1)
         }
-    }, [isOpen])
+    }, [isOpen, matchIdentity])
 
     useEffect(() => {
         localStorage.setItem('liveMatchSound', soundEnabled ? 'on' : 'off')
@@ -302,16 +308,26 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
         setT1Points(0)
         setT2Points(0)
         setIsTiebreak(false)
-        setHistory([])
         setTotalGamesInSet(0)
         // At the start of a new set, the team that didn't serve first last set gets to serve
         // Players within a team can re-choose who serves first (we auto-advance)
     }, [])
 
+    useEffect(() => {
+        if (!setTransition || !isOpen) return
+        const timer = setTimeout(() => {
+            startNewSet()
+            setServingTeam(setTransition.nextServer)
+            transitionActive.current = false
+            setSetTransition(null)
+        }, 1800)
+        return () => clearTimeout(timer)
+    }, [setTransition, isOpen, matchIdentity, startNewSet])
+
     // --- Score a point ---
     const scorePoint = useCallback((teamNum) => {
         unlockAudioAndSpeech()
-        if (matchWinner) return
+        if (!isOpen || matchWinner || transitionActive.current) return
 
         if (!matchStarted) setMatchStarted(true)
 
@@ -428,11 +444,8 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 setT1Points(newT1Pts)
                 setT2Points(newT2Pts)
 
-                setTimeout(() => {
-                    startNewSet()
-                    // Serve alternation: the team that received in the last game of the set serves first
-                    setServingTeam(servingTeam === 1 ? 2 : 1)
-                }, 1800)
+                transitionActive.current = true
+                setSetTransition({ nextServer: servingTeam === 1 ? 2 : 1 })
                 return
             }
 
@@ -474,12 +487,14 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
     }, [t1Points, t2Points, t1Games, t2Games, completedSets, isTiebreak,
         servingTeam, t1ServeIndex, t2ServeIndex, totalGamesInSet,
         tiebreakPointCount, tiebreakServingTeam, matchWinner, matchStarted,
-        soundEnabled, setsNeeded, advanceServe, startNewSet, getScoreAnnouncement])
+        isOpen, soundEnabled, setsNeeded, advanceServe, getScoreAnnouncement])
 
     // --- Undo last point ---
     const undoLast = useCallback(() => {
         unlockAudioAndSpeech()
         if (history.length === 0 || matchWinner) return
+        transitionActive.current = false
+        setSetTransition(null)
         const prev = history[history.length - 1]
         setT1Points(prev.t1Points)
         setT2Points(prev.t2Points)
@@ -546,6 +561,8 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // --- Rematch ---
     const handleRematch = () => {
+        transitionActive.current = false
+        setSetTransition(null)
         unlockAudioAndSpeech()
         setT1Points(0)
         setT2Points(0)
@@ -702,7 +719,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                     {/* Team 1 Side */}
                     <button
                         onClick={() => scorePoint(1)}
-                        disabled={!!matchWinner}
+                        disabled={!!matchWinner || !!setTransition}
                         className={`
                             flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 1
@@ -756,7 +773,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                     {/* Team 2 Side */}
                     <button
                         onClick={() => scorePoint(2)}
-                        disabled={!!matchWinner}
+                        disabled={!!matchWinner || !!setTransition}
                         className={`
                             flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 2

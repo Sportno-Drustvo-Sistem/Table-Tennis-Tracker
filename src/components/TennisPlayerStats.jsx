@@ -1,3 +1,5 @@
+import { usePlayerSelection } from '../usePlayerSelection'
+import { inLocalDateRange } from '../dateRange'
 import React, { useMemo, useState } from 'react'
 import { Activity, Calendar, Users } from 'lucide-react'
 import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -7,10 +9,9 @@ import { buildTennisEloHistory, getTennisMatchWinner, getTennisScoreSummary } fr
 import { getAvatarFallback, getEloRank } from '../utils'
 
 const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => {
-    const [selectedPlayerId, setSelectedPlayerId] = useState('')
+    const [activePlayerId, setSelectedPlayerId] = usePlayerSelection(users, initialPlayerId)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
-    const activePlayerId = selectedPlayerId || initialPlayerId || (users[0]?.id || '')
 
     const selectedPlayer = users.find(user => user.id === activePlayerId)
     const playerTennisStats = useMemo(() => {
@@ -25,12 +26,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
         const relevantMatches = matches.filter(match => {
             const isParticipant = match.player1_id === activePlayerId || match.player2_id === activePlayerId
             if (!isParticipant) return false
-
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         let matchWins = 0
@@ -144,7 +140,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
     if (!users.length) {
         return <div className="text-center py-20 text-gray-500 dark:text-gray-400">No players available.</div>
     }
-    if (!selectedPlayer) return <div>Select a player</div>
+    if (!selectedPlayer) return <div>No players available for this season. Add a player or choose another season.</div>
 
     const elo = Math.round(playerTennisStats?.elo_rating || 1200)
     const playerRank = getEloRank(elo)

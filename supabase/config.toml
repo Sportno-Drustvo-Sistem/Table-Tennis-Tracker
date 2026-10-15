@@ -1,0 +1,5 @@
+project_id = "table-tennis-tracker"
+
+[functions.discord-admin]
+# The app uses a custom opaque admin session, validated in SQL on EVERY action.
+verify_jwt = false

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { calculateEloChange, getKFactor } from './utils'
+import { calculateSetEloChange, getKFactor } from './utils'
 
 export const normalizeTennisSets = (setsData = []) => {
     if (!Array.isArray(setsData)) return []
@@ -131,133 +131,13 @@ export const validateTennisSets = (setsData = [], matchFormat = 'best_of_3') => 
 
 export const getTennisMatchWinner = (match) => getTennisScoreSummary(match).winner
 
-export const recalculateTennisStats = async () => {
-    const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, name, avatar_url')
-
-    if (usersError) {
-        console.error('Error fetching users:', usersError)
-        throw usersError
-    }
-
-    const { data: matches, error: matchesError } = await supabase
-        .from('tennis_matches')
-        .select('*')
-        .order('created_at', { ascending: true })
-
-    if (matchesError) {
-        console.error('Error fetching tennis matches:', matchesError)
-        throw matchesError
-    }
-
-    const stats = {}
-    users.forEach(user => {
-        stats[user.id] = {
-            user_id: user.id,
-            elo_rating: 1200,
-            matches_played: 0,
-            total_wins: 0,
-        }
-    })
-
-    matches.forEach(match => {
-        const p1 = match.player1_id
-        const p2 = match.player2_id
-        if (!stats[p1] || !stats[p2]) return
-
-        stats[p1].matches_played += 1
-        stats[p2].matches_played += 1
-
-        const winner = getTennisMatchWinner(match)
-        if (winner === 1) stats[p1].total_wins += 1
-        else if (winner === 2) stats[p2].total_wins += 1
-
-        const p1Elo = stats[p1].elo_rating
-        const p2Elo = stats[p2].elo_rating
-        const p1Change = calculateEloChange(p1Elo, p2Elo, match.score1, match.score2, getKFactor(stats[p1].matches_played))
-        const p2Change = calculateEloChange(p2Elo, p1Elo, match.score2, match.score1, getKFactor(stats[p2].matches_played))
-        stats[p1].elo_rating += p1Change
-        stats[p2].elo_rating += p2Change
-    })
-
-    const upserts = Object.values(stats).map(s => ({
-        user_id: s.user_id,
-        elo_rating: s.elo_rating,
-        matches_played: s.matches_played,
-        total_wins: s.total_wins,
-        is_ranked: s.matches_played >= 10,
-    }))
-
-    if (upserts.length === 0) return
-
-    const { error: upsertError } = await supabase
-        .from('tennis_stats')
-        .upsert(upserts, { onConflict: 'user_id' })
-
-    if (upsertError) {
-        console.error('Error upserting tennis stats:', upsertError)
-        throw upsertError
-    }
-}
-
-export const applyTennisMatchResultToStats = async (match) => {
-    const p1 = match.player1_id
-    const p2 = match.player2_id
-
-    const { data: currentStats, error: fetchError } = await supabase
-        .from('tennis_stats')
-        .select('*')
-        .in('user_id', [p1, p2])
-
-    if (fetchError) {
-        console.error('Error fetching tennis stats for incremental update:', fetchError)
-        throw new Error('Failed to load tennis stats for update')
-    }
-
-    const statsMap = {}
-    ;[p1, p2].forEach(id => {
-        const existing = currentStats?.find(s => s.user_id === id)
-        statsMap[id] = existing ? { ...existing } : { user_id: id, elo_rating: 1200, matches_played: 0, total_wins: 0 }
-    })
-
-    statsMap[p1].matches_played += 1
-    statsMap[p2].matches_played += 1
-
-    const winner = getTennisMatchWinner(match)
-    if (winner === 1) statsMap[p1].total_wins += 1
-    else if (winner === 2) statsMap[p2].total_wins += 1
-
-    const p1Elo = statsMap[p1].elo_rating
-    const p2Elo = statsMap[p2].elo_rating
-    const p1Change = calculateEloChange(p1Elo, p2Elo, match.score1, match.score2, getKFactor(statsMap[p1].matches_played))
-    const p2Change = calculateEloChange(p2Elo, p1Elo, match.score2, match.score1, getKFactor(statsMap[p2].matches_played))
-
-    statsMap[p1].elo_rating += p1Change
-    statsMap[p2].elo_rating += p2Change
-
-    const upserts = Object.values(statsMap).map(s => ({
-        user_id: s.user_id,
-        elo_rating: s.elo_rating,
-        matches_played: s.matches_played,
-        total_wins: s.total_wins,
-        is_ranked: s.matches_played >= 10,
-    }))
-
-    const { error: upsertError } = await supabase
-        .from('tennis_stats')
-        .upsert(upserts, { onConflict: 'user_id' })
-
-    if (upsertError) {
-        console.error('Error in incremental tennis update:', upsertError)
-        throw upsertError
-    }
-
-    return { [p1]: p1Change, [p2]: p2Change }
+export const recalculateTennisStats = async (adminToken) => {
+    const { error } = await supabase.rpc('admin_recalculate_tennis_stats', { p_admin_token: adminToken })
+    if (error) throw error
 }
 
 export const buildTennisEloHistory = (users, tennisMatches) => {
-    const sortedMatches = [...tennisMatches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const sortedMatches = [...tennisMatches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at) || String(a.id).localeCompare(String(b.id)))
     const ratings = {}
     const mpc = {}
     const playerEloTimelines = {}
@@ -279,8 +159,8 @@ export const buildTennisEloHistory = (users, tennisMatches) => {
 
         const p1EloBefore = ratings[p1]
         const p2EloBefore = ratings[p2]
-        const p1Change = calculateEloChange(p1EloBefore, p2EloBefore, match.score1, match.score2, getKFactor(mpc[p1]))
-        const p2Change = calculateEloChange(p2EloBefore, p1EloBefore, match.score2, match.score1, getKFactor(mpc[p2]))
+        const p1Change = calculateSetEloChange(p1EloBefore, p2EloBefore, getTennisMatchWinner(match), 1, getKFactor(mpc[p1]))
+        const p2Change = calculateSetEloChange(p2EloBefore, p1EloBefore, getTennisMatchWinner(match), 2, getKFactor(mpc[p2]))
 
         ratings[p1] += p1Change
         ratings[p2] += p2Change
@@ -333,3 +213,6 @@ export const buildTennisEloHistory = (users, tennisMatches) => {
         matchHistory,
     }
 }
+
+// totalPoints is the number already played; return the next point's server.
+export const tiebreakServer = (initialServer, totalPoints) => Math.ceil(totalPoints / 2) % 2 === 0 ? initialServer : (initialServer === 1 ? 2 : 1)

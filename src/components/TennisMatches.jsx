@@ -109,7 +109,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
                 p_match_ids: [match.id],
             })
             if (error) throw error
-            await recalculateTennisStats()
+            await recalculateTennisStats(adminToken)
             onMatchDeleted?.()
         } catch (error) {
             showToast('Error deleting tennis match: ' + error.message, 'error')
