@@ -46,21 +46,51 @@ const normalizeRecordResponse = (data) => ({
     changes: data?.changes || {},
 })
 
-const callRecordRpc = async (client, functionName, params) => {
+// Every successful save is announced so the app can merge the returned rows
+// into its cached history instead of refetching it, whichever screen saved.
+const recordedListeners = new Set()
+
+export const onMatchRecorded = (listener) => {
+    recordedListeners.add(listener)
+    return () => recordedListeners.delete(listener)
+}
+
+const callRecordRpc = async (client, sport, functionName, params) => {
     if (functionName === 'record_pingpong_match' && (!params.p_sets?.length || params.p_sets.some(s => !validPingPongScores(s.s1, s.s2)))) throw new Error('Invalid Ping Pong scores')
     const { data, error } = await client.rpc(functionName, params)
     if (error) throw error
-    return normalizeRecordResponse(data)
+    const result = normalizeRecordResponse(data)
+    recordedListeners.forEach(listener => {
+        try { listener({ sport, ...result }) } catch (listenerError) { console.error(listenerError) }
+    })
+    return result
 }
 
 export const recordPingPongMatch = (client, payload) => (
-    callRecordRpc(client, 'record_pingpong_match', buildPingPongRecordParams(payload))
+    callRecordRpc(client, 'pingpong', 'record_pingpong_match', buildPingPongRecordParams(payload))
 )
 
 export const recordPadelMatch = (client, payload) => (
-    callRecordRpc(client, 'record_padel_match', buildPadelRecordParams(payload))
+    callRecordRpc(client, 'padel', 'record_padel_match', buildPadelRecordParams(payload))
 )
 
 export const recordTennisMatch = (client, payload) => (
-    callRecordRpc(client, 'record_tennis_match', buildTennisRecordParams(payload))
+    callRecordRpc(client, 'tennis', 'record_tennis_match', buildTennisRecordParams(payload))
 )
+
+const formatChange = change => (change > 0 ? `+${change}` : String(change))
+
+// "Match saved · Alice +12 · Bob -12" (padel lists each team once).
+export const describeRecordedMatch = ({ sport, match, changes }, usersById) => {
+    if (!match) return 'Match saved'
+    const name = id => usersById[id]?.name || 'Unknown'
+    const sides = sport === 'padel'
+        ? [[match.team1_player1_id, match.team1_player2_id], [match.team2_player1_id, match.team2_player2_id]]
+        : [[match.player1_id], [match.player2_id]]
+    const parts = sides.map(ids => {
+        const change = changes?.[ids[0]]
+        const label = ids.map(name).join(' & ')
+        return Number.isFinite(change) ? `${label} ${formatChange(Math.round(change))}` : label
+    })
+    return ['Match saved', ...parts].join(' · ')
+}

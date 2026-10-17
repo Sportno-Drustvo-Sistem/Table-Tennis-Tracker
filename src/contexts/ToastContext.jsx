@@ -2,12 +2,16 @@ import React, { useState, useCallback } from 'react'
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react'
 import { ToastContextValue } from './ToastContextValue'
 
+// Date.now() ids collided when two toasts fired in the same millisecond, so
+// dismissing one removed both and React warned about duplicate keys.
+let nextToastId = 0
+
 export const ToastProvider = ({ children }) => {
     const [toasts, setToasts] = useState([])
     const [confirmDialog, setConfirmDialog] = useState(null)
 
     const showToast = useCallback((message, type = 'info') => {
-        const id = Date.now()
+        const id = ++nextToastId
         setToasts(prev => [...prev, { id, message, type }])
         setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== id))
@@ -32,7 +36,8 @@ export const ToastProvider = ({ children }) => {
             {children}
 
             {/* Toasts Overlay */}
-            <div className="fixed bottom-20 lg:bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none">
+            {/* On phones, stack above the bottom nav and the floating Record button. */}
+            <div aria-live="polite" className="fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] lg:bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none">
                 {toasts.map(toast => (
                     <div
                         key={toast.id}

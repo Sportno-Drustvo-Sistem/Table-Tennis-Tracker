@@ -172,7 +172,15 @@ const unlockAudioAndSpeech = () => {
     audioUnlocked = true
 }
 
+// Once a clip fails to load, the voice pack is missing: speak directly instead
+// of requesting (and waiting on) a missing file before every announcement.
+let voiceClipsUnavailable = false
+
 const playAudioSequence = async (paths, fallbackText) => {
+    if (voiceClipsUnavailable) {
+        if (fallbackText) speak(fallbackText)
+        return
+    }
     let hasError = false
     if (!sharedVoicesAudio) sharedVoicesAudio = new Audio()
 
@@ -183,10 +191,12 @@ const playAudioSequence = async (paths, fallbackText) => {
             sharedVoicesAudio.onended = resolve
             sharedVoicesAudio.onerror = () => {
                 hasError = true
+                voiceClipsUnavailable = true
                 resolve() // skip on error
             }
-            sharedVoicesAudio.play().catch(() => {
+            sharedVoicesAudio.play().catch((error) => {
                 hasError = true
+                if (error?.name === 'NotSupportedError') voiceClipsUnavailable = true
                 resolve()
             })
         })
@@ -412,7 +422,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setEloChange({ p1: Math.round(p1Change), p2: Math.round(p2Change) })
             setTimeout(() => setEloChange(null), 3000)
 
-            showToast('Match saved!', 'success')
             if (onMatchSaved) {
                 const setsWon1 = allSets.filter(set => set.s1 > set.s2).length
                 const setsWon2 = allSets.filter(set => set.s2 > set.s1).length
@@ -499,13 +508,13 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95vh]">
 
                 {/* Close button */}
                 {!matchWinner && (
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-2"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-1.5 sm:p-2"
                     >
                         <X size={20} />
                     </button>
@@ -652,7 +661,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {player1.name}
                         </div>
-                        <div className={`text-6xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
+                        <div className={`text-7xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {score1}
                         </div>
                         {matchWinner === 1 && (
@@ -705,7 +714,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {player2.name}
                         </div>
-                        <div className={`text-6xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
+                        <div className={`text-7xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {score2}
                         </div>
                         {matchWinner === 2 && (
@@ -731,7 +740,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </button>
                             <div className="flex items-center gap-2">
                                 <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                    Tap or use ← → keys to score
+                                    <span className="sm:hidden">Tap a side to score</span>
+                                    <span className="hidden sm:inline">Tap or use ← → keys to score</span>
                                 </div>
                                 <button
                                     onClick={() => setSoundEnabled(!soundEnabled)}

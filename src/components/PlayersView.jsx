@@ -44,7 +44,7 @@ const PlayersView = ({ users, loading, sport, padelStatsMap, tennisStatsMap, isA
 
     if (loading && users.length === 0) {
         return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
                 {Array.from({ length: 8 }, (_, i) => <SkeletonCard key={i} />)}
             </div>
         )
@@ -79,7 +79,7 @@ const PlayersView = ({ users, loading, sport, padelStatsMap, tennisStatsMap, isA
             {visible.length === 0 ? (
                 <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">No players match “{query}”.</p>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
                     {visible.map(({ user, position }) => (
                         <UserCard
                             key={user.id}

@@ -231,9 +231,9 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             t.phase = 'bracket'
         }
 
+        // The saved match is already merged into the app's history; no reload needed.
         setActiveTournament(t)
         setSelectedMatchId(null)
-        if (fetchData) fetchData()
     }
 
     // ─── Bracket Match Click ───────────────────────
@@ -260,7 +260,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             updateBracketWithResult(selectedMatchId.roundIndex, selectedMatchId.matchId, savedMatch)
         }
         setSelectedMatchId(null)
-        if (fetchData) fetchData()
     }
 
     const updateBracketWithResult = async (roundIdx, matchId, dbMatch) => {
@@ -543,7 +542,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                     {activeTournament.groups.map((group, gIdx) => (
                         <div key={gIdx} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Standings */}
-                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                                 <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white flex items-center justify-between">
                                     <span>{group.name} Standings</span>
                                     <Users size={20} className="text-blue-500" />
@@ -577,7 +576,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                             </div>
 
                             {/* Pairings */}
-                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                                 <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white flex items-center justify-between">
                                     <span>{group.name} Matches</span>
                                     <Swords size={20} className="text-red-500" />

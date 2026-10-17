@@ -4,8 +4,19 @@ import { useToast } from '../contexts/useToast'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../utils'
 import { PingPongIcon } from './Icons'
+import { LIST_PAGE_SIZE, ShowMore, Spinner } from './layout/AppShell'
 
-const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
+const EloChangeDisplay = ({ elo, change }) => (
+    <div className="text-xs mt-0.5">
+        <span className="text-gray-500 dark:text-gray-400">{elo}</span>
+        {' '}
+        <span className={change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}>
+            ({change > 0 ? '+' : ''}{change})
+        </span>
+    </div>
+)
+
+const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -13,12 +24,14 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
     const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
     const [isBulkMode, setIsBulkMode] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE)
     const { showToast } = useToast()
 
     const handleSearchChange = query => {
         setSearchQuery(query)
         setSelectedIds(new Set())
         setBulkDeleteConfirm(false)
+        setVisibleCount(LIST_PAGE_SIZE)
     }
 
     const toggleSelect = (id) => {
@@ -30,11 +43,12 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
         })
     }
 
+    // Select-all covers the rows on screen, never matches hidden behind "Show more".
     const toggleSelectAll = () => {
-        if (visibleSelectedIds.size === filteredMatches.length) {
+        if (visibleSelectedIds.size === shownMatches.length) {
             setSelectedIds(new Set())
         } else {
-            setSelectedIds(new Set(filteredMatches.map(m => m.id)))
+            setSelectedIds(new Set(shownMatches.map(m => m.id)))
         }
     }
 
@@ -115,48 +129,26 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
         setConfirmDeleteId(null)
     }
 
-    const getPlayerInfo = (playerId) => {
-        const user = users.find(u => u.id === playerId)
-        return user || { name: 'Unknown', avatar_url: null }
-    }
+    const usersById = useMemo(() => new Map(users.map(u => [u.id, u])), [users])
+    const getPlayerInfo = (playerId) => usersById.get(playerId) || { name: 'Unknown', avatar_url: null }
 
     // Filter matches by search query (player name)
     const filteredMatches = useMemo(() => {
         if (!searchQuery.trim()) return matches
         const q = searchQuery.toLowerCase()
-        return matches.filter(m => {
-            const p1 = users.find(u => u.id === m.player1_id)
-            const p2 = users.find(u => u.id === m.player2_id)
-            return (p1?.name?.toLowerCase().includes(q)) || (p2?.name?.toLowerCase().includes(q))
-        })
-    }, [matches, users, searchQuery])
+        return matches.filter(m => [m.player1_id, m.player2_id].some(id => usersById.get(id)?.name?.toLowerCase().includes(q)))
+    }, [matches, usersById, searchQuery])
+    const shownMatches = filteredMatches.slice(0, visibleCount)
 
     const visibleSelectedIds = new Set(filteredMatches.filter(m => selectedIds.has(m.id)).map(m => m.id))
     if (visibleSelectedIds.size !== selectedIds.size) setSelectedIds(visibleSelectedIds)
-
-    const EloChangeDisplay = ({ elo, change }) => {
-        const isPositive = change > 0
-        const changeColor = isPositive
-            ? 'text-green-600 dark:text-green-400'
-            : 'text-red-500 dark:text-red-400'
-        const sign = isPositive ? '+' : ''
-
-        return (
-            <div className="text-xs mt-0.5">
-                <span className="text-gray-500 dark:text-gray-400">{elo}</span>
-                {' '}
-                <span className={changeColor}>
-                    ({sign}{change})
-                </span>
-            </div>
-        )
-    }
+    const allShownSelected = shownMatches.length > 0 && shownMatches.every(m => visibleSelectedIds.has(m.id))
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end gap-3 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3">
                 {/* Search bar */}
-                <div className="relative flex-1 min-w-[180px] max-w-xs">
+                <div className="relative flex-1 min-w-0 sm:max-w-xs">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
                         type="text"
@@ -166,34 +158,35 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                         className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-gray-700 dark:text-gray-200"
                     />
                 </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3">
+                <div className="flex shrink-0 gap-2 sm:gap-3">
                     {isAdmin && (
-                        <button
-                            onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
-                            className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-blue-600 text-white shadow-inner' : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30'}`}
-                            title="Toggle Bulk Actions"
-                        >
-                            <ListChecks size={16} className="mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Bulk Actions</span>
-                            <span className="sm:hidden">Bulk</span>
-                        </button>
+                        <>
+                            <button
+                                aria-label="Bulk actions" onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
+                                className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-blue-600 text-white shadow-inner' : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30'}`}
+                                title="Toggle Bulk Actions"
+                            >
+                                <ListChecks size={16} className="sm:mr-2" />
+                                <span className="hidden sm:inline">Bulk Actions</span>
+                            </button>
+                            {/* Recalculation is an admin RPC; viewers only ever got an error from it. */}
+                            <button
+                                aria-label="Recalculate Elo and stats" onClick={handleRecalculate}
+                                disabled={recalculating}
+                                className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
+                                title="Recalculate ELO and Stats"
+                            >
+                                <RefreshCw size={16} className={`sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
+                            </button>
+                        </>
                     )}
-                    <button
-                        onClick={handleRecalculate}
-                        disabled={recalculating}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
-                        title="Recalculate ELO and Stats"
-                    >
-                        <RefreshCw size={16} className={`mr-1 sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
-                        <span className="sm:hidden">{recalculating ? '...' : 'Sync'}</span>
-                    </button>
                 </div>
             </div>
 
             {/* Bulk Delete Action Bar */}
             {isBulkMode && isAdmin && (
-                <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-red-700 dark:text-red-300">
                             {visibleSelectedIds.size} match{visibleSelectedIds.size > 1 ? 'es' : ''} selected
@@ -224,13 +217,13 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
             )}
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {filteredMatches.length === 0 ? (
+                {historyLoading && matches.length === 0 ? <Spinner className="py-20" /> : filteredMatches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                         {matches.length === 0 ? (
                             <>
                                 <div className="mb-4 flex justify-center text-blue-500"><PingPongIcon size={64} strokeWidth={1.5} /></div>
                                 <h3 className="text-xl font-bold text-gray-800 dark:text-white">No matches recorded yet</h3>
-                                <p className="text-gray-500 dark:text-gray-400 mb-6">Click &quot;New Match&quot; to get started!</p>
+                                <p className="text-gray-500 dark:text-gray-400 mb-6">Record a match to get started.</p>
                             </>
                         ) : (
                             <>
@@ -248,7 +241,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                                     {isAdmin && isBulkMode && (
                                         <th className="px-2 sm:px-3 py-3 sm:py-4 w-8 sm:w-10">
                                             <button onClick={toggleSelectAll} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                                {visibleSelectedIds.size === filteredMatches.length && filteredMatches.length > 0 ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : visibleSelectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                                                {allShownSelected ? <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : visibleSelectedIds.size > 0 ? <MinusSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Square size={16} className="sm:w-[18px] sm:h-[18px]" />}
                                             </button>
                                         </th>
                                     )}
@@ -260,7 +253,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {filteredMatches.map(match => {
+                                {shownMatches.map(match => {
                                     const player1 = getPlayerInfo(match.player1_id)
                                     const player2 = getPlayerInfo(match.player2_id)
                                     const matchDate = new Date(match.created_at)
@@ -291,6 +284,8 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                                             </td>
                                             <td className="px-1 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col items-center">
+                                                    {/* The date column is hidden on phones; show it under the score instead. */}
+                                                    <span className="order-last sm:hidden mt-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{matchDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
                                                     <div className="flex items-center justify-center space-x-1 sm:space-x-2 font-mono font-bold text-lg sm:text-xl text-gray-900 dark:text-white whitespace-nowrap">
                                                         <span className={match.score1 > match.score2 ? 'text-green-600 dark:text-green-400' : ''}>{match.score1}</span>
                                                         <span className="text-gray-400">-</span>
@@ -387,6 +382,7 @@ const Matches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminTo
                         </table>
                     </div>
                 )}
+                <ShowMore shown={shownMatches.length} total={filteredMatches.length} onShowMore={() => setVisibleCount(count => count + LIST_PAGE_SIZE)} />
             </div>
         </div>
     )

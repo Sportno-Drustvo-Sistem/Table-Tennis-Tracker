@@ -226,7 +226,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
             </div>
 
             {stats?.eloHistory?.length > 1 && (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Activity className="mr-2 text-blue-500" size={20} /> ELO History
                     </h3>
@@ -251,8 +251,8 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
 
             <TrophyCase playerId={activePlayerId} />
 
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white"><Users className="mr-2 text-blue-500" size={20} /> Head to Head</h3>
                     <div className="space-y-3">
                         {Object.entries(stats?.headToHead || {}).length === 0 && <div className="text-gray-400 dark:text-gray-500">No data in this period</div>}
@@ -278,7 +278,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Calendar className="mr-2 text-emerald-500" size={20} />
                         Match History

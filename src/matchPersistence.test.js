@@ -3,6 +3,9 @@ import {
     buildPadelRecordParams,
     buildPingPongRecordParams,
     buildTennisRecordParams,
+    describeRecordedMatch,
+    onMatchRecorded,
+    recordPadelMatch,
     recordPingPongMatch,
 } from './matchPersistence'
 
@@ -103,5 +106,31 @@ describe('match persistence RPC helpers', () => {
             player2Id: 'p2',
             sets: [{ s1: 11, s2: 8 }],
         })).toThrow('Admin mode is required to save matches')
+    })
+
+    it('announces successful saves with the sport, and never failed ones', async () => {
+        const heard = []
+        const stop = onMatchRecorded(event => heard.push(event))
+        const match = { id: 'p-1', team1_player1_id: 'a', team1_player2_id: 'b', team2_player1_id: 'c', team2_player2_id: 'd' }
+        const ok = { rpc: async () => ({ data: { match, changes: { a: 9 } }, error: null }) }
+        const failing = { rpc: async () => ({ data: null, error: new Error('Rejected') }) }
+
+        await recordPadelMatch(ok, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })
+        await expect(recordPadelMatch(failing, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })).rejects.toThrow('Rejected')
+        stop()
+        await recordPadelMatch(ok, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })
+
+        expect(heard).toEqual([{ sport: 'padel', match, matches: [match], changes: { a: 9 } }])
+    })
+
+    it('describes saved matches with Elo changes', () => {
+        const usersById = { p1: { name: 'Alice' }, p2: { name: 'Bob' }, a: { name: 'Ann' }, b: { name: 'Ben' }, c: { name: 'Cy' }, d: { name: 'Di' } }
+        expect(describeRecordedMatch({ sport: 'pingpong', match: { player1_id: 'p1', player2_id: 'p2' }, changes: { p1: 12, p2: -12 } }, usersById))
+            .toBe('Match saved · Alice +12 · Bob -12')
+        expect(describeRecordedMatch({ sport: 'padel', match: { team1_player1_id: 'a', team1_player2_id: 'b', team2_player1_id: 'c', team2_player2_id: 'd' }, changes: { a: -7, c: 7 } }, usersById))
+            .toBe('Match saved · Ann & Ben -7 · Cy & Di +7')
+        expect(describeRecordedMatch({ sport: 'tennis', match: { player1_id: 'p1', player2_id: 'x' }, changes: {} }, usersById))
+            .toBe('Match saved · Alice · Unknown')
+        expect(describeRecordedMatch({ sport: 'tennis', match: null }, usersById)).toBe('Match saved')
     })
 })

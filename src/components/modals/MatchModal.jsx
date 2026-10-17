@@ -89,8 +89,8 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-lg m-4 shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-white">Record Match Result</h2>
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl w-full max-w-lg m-3 sm:m-4 shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center text-gray-900 dark:text-white">Record Match Result</h2>
 
                 {activeRules.length > 0 && (
                     <div className="mb-8 space-y-3">
@@ -135,9 +135,9 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                     </div>
                 )}
 
-                <div className="flex justify-between items-start mb-8 gap-4">
+                <div className="flex justify-between items-start mb-4 sm:mb-8 gap-4">
                     <div className="flex flex-col items-center w-5/12">
-                        <img src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-20 h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p1?.name} />
+                        <img src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-14 h-14 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p1?.name} />
                         {isAdmin && availablePlayers ? (
                             <select
                                 value={p1?.id || ''}
@@ -154,10 +154,10 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         )}
                     </div>
 
-                    <div className="font-bold text-2xl text-gray-400 dark:text-gray-500 mt-6">VS</div>
+                    <div className="font-bold text-2xl text-gray-400 dark:text-gray-500 mt-4 sm:mt-6">VS</div>
 
                     <div className="flex flex-col items-center w-5/12">
-                        <img src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-20 h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p2?.name} />
+                        <img src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-14 h-14 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p2?.name} />
                         {isAdmin && availablePlayers ? (
                             <select
                                 value={p2?.id || ''}
@@ -175,14 +175,18 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                     </div>
                 </div>
 
-                <div className="flex justify-center space-x-8 mb-8">
+                <div className="flex justify-center space-x-8 mb-6 sm:mb-8">
                     <div className="flex flex-col items-center">
                         <input
                             type="number"
                             min="0"
+                            inputMode="numeric"
+                            autoFocus
+                            aria-label={`${p1?.name || 'Player 1'} score`}
                             value={score1}
                             onFocus={(e) => e.target.select()}
                             onChange={e => setScore1(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !saving) handleSave() }}
                             className="w-20 h-16 text-3xl text-center border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:border-blue-500 focus:outline-none"
                         />
                     </div>
@@ -190,25 +194,28 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         <input
                             type="number"
                             min="0"
+                            inputMode="numeric"
+                            aria-label={`${p2?.name || 'Player 2'} score`}
                             value={score2}
                             onFocus={(e) => e.target.select()}
                             onChange={e => setScore2(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !saving) handleSave() }}
                             className="w-20 h-16 text-3xl text-center border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:border-blue-500 focus:outline-none"
                         />
                     </div>
                 </div>
 
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-end gap-2">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                        className="flex-1 sm:flex-none h-11 sm:h-auto px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={saving || !p1 || !p2}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
+                        className="flex-1 sm:flex-none h-11 sm:h-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
                     >
                         {saving ? 'Saving...' : 'Finish Match'}
                     </button>

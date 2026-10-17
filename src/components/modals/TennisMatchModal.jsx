@@ -59,7 +59,6 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adm
                 matchFormat,
                 setsData: validation.sets,
             })
-            showToast('Tennis match saved!', 'success')
             onMatchSaved?.()
         } catch (error) {
             console.error(error)

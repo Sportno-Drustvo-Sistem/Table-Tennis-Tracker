@@ -167,7 +167,6 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
             })
             setEloChange({ p1: Math.round(changes[player1.id] || 0), p2: Math.round(changes[player2.id] || 0) })
             setTimeout(() => setEloChange(null), 3000)
-            showToast('Tennis match saved!', 'success')
             onMatchSaved?.()
         } catch (error) {
             console.error(error)
@@ -197,7 +196,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95vh]">
                 <div className="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-black text-gray-900 dark:text-white">{matchWinner ? 'Match Complete' : isTiebreak ? 'Tiebreak' : 'Tennis Live Match'}</h2>
@@ -222,12 +221,12 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
                     </div>
                 )}
 
-                <div className="p-5 space-y-5 overflow-y-auto">
+                <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-5 gap-4 sm:gap-5 overflow-y-auto">
                     <div className="flex justify-center gap-2 text-xs font-mono text-gray-500 dark:text-gray-400">
                         {completedSets.map((set, idx) => <span key={idx} className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800">{set.player1Games}-{set.player2Games}</span>)}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="flex-1 grid grid-cols-2 gap-3 sm:gap-4">
                         <ScorePanel player={player1} active={server === 1} won={matchWinner === 1} games={p1Games} points={p1Score} eloChange={eloChange?.p1} onScore={() => scorePoint(1)} color="emerald" />
                         <ScorePanel player={player2} active={server === 2} won={matchWinner === 2} games={p2Games} points={p2Score} eloChange={eloChange?.p2} onScore={() => scorePoint(2)} color="red" />
                     </div>

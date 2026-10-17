@@ -4,8 +4,18 @@ import { supabase } from '../supabaseClient'
 import { buildTennisEloHistory, getTennisScoreSummary, recalculateTennisStats } from '../tennisUtils'
 import { getAvatarFallback } from '../utils'
 import { useToast } from '../contexts/useToast'
+import { LIST_PAGE_SIZE, ShowMore, Spinner } from './layout/AppShell'
 
-const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
+const EloChangeDisplay = ({ elo, change }) => (
+    <div className="text-xs mt-0.5">
+        <span className="text-gray-500 dark:text-gray-400">{elo}</span>{' '}
+        <span className={change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}>
+            ({change > 0 ? '+' : ''}{change})
+        </span>
+    </div>
+)
+
+const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
@@ -14,28 +24,30 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
     const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
     const [isBulkMode, setIsBulkMode] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE)
+
+    const usersById = useMemo(() => new Map(users.map(user => [user.id, user])), [users])
 
     const filteredMatches = useMemo(() => {
         if (!searchQuery.trim()) return matches
         const query = searchQuery.toLowerCase()
-        return matches.filter(match => {
-            const p1 = users.find(user => user.id === match.player1_id)
-            const p2 = users.find(user => user.id === match.player2_id)
-            return p1?.name?.toLowerCase().includes(query) || p2?.name?.toLowerCase().includes(query)
-        })
-    }, [matches, searchQuery, users])
+        return matches.filter(match => [match.player1_id, match.player2_id].some(id => usersById.get(id)?.name?.toLowerCase().includes(query)))
+    }, [matches, searchQuery, usersById])
 
-    const filteredMatchIds = useMemo(() => filteredMatches.map(match => match.id), [filteredMatches])
+    // Select-all covers the rows on screen, never matches hidden behind "Show more".
+    const shownMatches = useMemo(() => filteredMatches.slice(0, visibleCount), [filteredMatches, visibleCount])
+    const shownMatchIds = useMemo(() => shownMatches.map(match => match.id), [shownMatches])
     const selectedFilteredIds = useMemo(
-        () => filteredMatchIds.filter(id => selectedIds.has(id)),
-        [filteredMatchIds, selectedIds]
+        () => shownMatchIds.filter(id => selectedIds.has(id)),
+        [shownMatchIds, selectedIds]
     )
-    const allFilteredSelected = filteredMatches.length > 0 && selectedFilteredIds.length === filteredMatches.length
+    const allFilteredSelected = shownMatches.length > 0 && selectedFilteredIds.length === shownMatches.length
     const hasFilteredSelection = selectedFilteredIds.length > 0
 
     useEffect(() => {
         setSelectedIds(new Set())
         setBulkDeleteConfirm(false)
+        setVisibleCount(LIST_PAGE_SIZE)
     }, [searchQuery])
 
     const matchEloData = useMemo(() => {
@@ -53,7 +65,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
         return eloMap
     }, [matches, users])
 
-    const getPlayerInfo = (playerId) => users.find(user => user.id === playerId) || { id: playerId, name: 'Unknown', avatar_url: null }
+    const getPlayerInfo = (playerId) => usersById.get(playerId) || { id: playerId, name: 'Unknown', avatar_url: null }
 
     const toggleSelect = (id) => {
         setSelectedIds(prev => {
@@ -65,7 +77,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
     }
 
     const toggleSelectAll = () => {
-        setSelectedIds(allFilteredSelected ? new Set() : new Set(filteredMatchIds))
+        setSelectedIds(allFilteredSelected ? new Set() : new Set(shownMatchIds))
     }
 
     const handleBulkDelete = async () => {
@@ -91,6 +103,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
     const handleRecalculate = async () => {
         setRecalculating(true)
         try {
+            await recalculateTennisStats(adminToken)
             onMatchDeleted?.()
         } catch (error) {
             console.error(error)
@@ -108,8 +121,8 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
                 p_admin_token: adminToken,
                 p_match_ids: [match.id],
             })
+            // delete_tennis_matches already recalculates in the same transaction.
             if (error) throw error
-            await recalculateTennisStats(adminToken)
             onMatchDeleted?.()
         } catch (error) {
             showToast('Error deleting tennis match: ' + error.message, 'error')
@@ -118,19 +131,10 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
         }
     }
 
-    const EloChangeDisplay = ({ elo, change }) => (
-        <div className="text-xs mt-0.5">
-            <span className="text-gray-500 dark:text-gray-400">{elo}</span>{' '}
-            <span className={change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}>
-                ({change > 0 ? '+' : ''}{change})
-            </span>
-        </div>
-    )
-
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <div className="flex items-center gap-2 sm:gap-3">
+                <div className="relative flex-1 min-w-0 sm:max-w-xs">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
                         type="text"
@@ -140,31 +144,32 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
                         className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-400 outline-none text-gray-700 dark:text-gray-200"
                     />
                 </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3">
+                <div className="flex shrink-0 gap-2 sm:gap-3">
                     {isAdmin && (
-                        <button
-                            onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
-                            className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-emerald-600 text-white shadow-inner' : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30'}`}
-                        >
-                            <ListChecks size={16} className="mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Bulk Actions</span>
-                            <span className="sm:hidden">Bulk</span>
-                        </button>
+                        <>
+                            <button
+                                aria-label="Bulk actions" onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
+                                className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-emerald-600 text-white shadow-inner' : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30'}`}
+                            >
+                                <ListChecks size={16} className="sm:mr-2" />
+                                <span className="hidden sm:inline">Bulk Actions</span>
+                            </button>
+                            <button
+                                aria-label="Recalculate Elo and stats" onClick={handleRecalculate}
+                                disabled={recalculating}
+                                className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
+                                title="Recalculate ELO and Stats"
+                            >
+                                <RefreshCw size={16} className={`sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
+                            </button>
+                        </>
                     )}
-                    <button
-                        onClick={handleRecalculate}
-                        disabled={recalculating}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
-                    >
-                        <RefreshCw size={16} className={`mr-1 sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
-                        <span className="sm:hidden">{recalculating ? '...' : 'Sync'}</span>
-                    </button>
                 </div>
             </div>
 
             {isBulkMode && isAdmin && (
-                <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-red-700 dark:text-red-300">
                             {selectedFilteredIds.length} match{selectedFilteredIds.length === 1 ? '' : 'es'} selected
@@ -192,7 +197,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
             )}
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {filteredMatches.length === 0 ? (
+                {historyLoading && matches.length === 0 ? <Spinner className="py-20" /> : filteredMatches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                         <div className="mb-4 flex justify-center text-emerald-500"><Calendar size={64} /></div>
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white">{matches.length === 0 ? 'No tennis matches recorded yet' : 'No matches found'}</h3>
@@ -218,7 +223,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {filteredMatches.map(match => {
+                                {shownMatches.map(match => {
                                     const player1 = getPlayerInfo(match.player1_id)
                                     const player2 = getPlayerInfo(match.player2_id)
                                     const summary = getTennisScoreSummary(match)
@@ -245,6 +250,8 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
                                             </td>
                                             <td className="px-1 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col items-center">
+                                                    {/* The date column is hidden on phones; show it under the score instead. */}
+                                                    <span className="order-last sm:hidden mt-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{matchDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
                                                     <div className="flex items-center justify-center space-x-2 font-mono font-bold text-lg sm:text-xl text-gray-900 dark:text-white whitespace-nowrap pb-1">
                                                         <span className={summary.winner === 1 ? 'text-emerald-600 dark:text-emerald-400' : ''}>{summary.hasSets ? summary.player1Sets : summary.player1Games}</span>
                                                         <span className="text-gray-400">-</span>
@@ -303,6 +310,7 @@ const TennisMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, a
                         </table>
                     </div>
                 )}
+                <ShowMore shown={shownMatches.length} total={filteredMatches.length} onShowMore={() => setVisibleCount(count => count + LIST_PAGE_SIZE)} />
             </div>
         </div>
     )

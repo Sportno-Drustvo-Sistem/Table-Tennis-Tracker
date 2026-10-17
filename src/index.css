@@ -50,6 +50,24 @@
   ::selection {
     @apply bg-accent/20;
   }
+  /* No double-tap zoom on controls: rapid taps on live scoring must each count. */
+  button,
+  [role='button'],
+  a {
+    touch-action: manipulation;
+  }
+}
+
+/* iOS Safari zooms into any focused field under 16px; keep small fields at 16px on touch screens. */
+@media (pointer: coarse) {
+  input.text-xs,
+  input.text-sm,
+  select.text-xs,
+  select.text-sm,
+  textarea.text-xs,
+  textarea.text-sm {
+    font-size: 16px;
+  }
 }
 
 @layer utilities {

@@ -191,7 +191,8 @@ export const PageHeader = ({ title, subtitle, children }) => (
     <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{title}</h1>
-            {subtitle && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>}
+            {/* The mobile top bar already names the sport; keep the first screen for content. */}
+            {subtitle && <p className="mt-1 hidden sm:block text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>}
         </div>
         {children && <div className="flex flex-wrap items-center gap-2 shrink-0">{children}</div>}
     </div>
@@ -218,15 +219,47 @@ export const Button = ({ variant = 'secondary', icon: Icon, children, className,
     )
 }
 
-const AppShell = ({ children, ...props }) => (
+export const Spinner = ({ className }) => (
+    <div className={cx('flex justify-center py-16', className)} role="status" aria-label="Loading">
+        <div className="h-6 w-6 rounded-full border-2 border-gray-300 border-t-accent animate-spin dark:border-gray-600 dark:border-t-accent" />
+    </div>
+)
+
+// Long histories render in pages; rendering thousands of rows made every update slow.
+export const LIST_PAGE_SIZE = 50
+
+export const ShowMore = ({ shown, total, onShowMore }) => total > shown && (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+        <span>Showing {shown} of {total} matches</span>
+        <Button onClick={onShowMore}>Show {Math.min(LIST_PAGE_SIZE, total - shown)} more</Button>
+    </div>
+)
+
+// Phone-only primary action, in thumb reach above the bottom nav.
+const FloatingAction = (action) => {
+    const { icon: Icon, label, onClick } = action
+    return (
+        <button
+            onClick={onClick}
+            aria-label={label}
+            className="lg:hidden fixed right-4 z-30 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] flex items-center gap-2 h-14 pl-4 pr-5 rounded-full bg-accent text-white text-sm font-semibold shadow-lg shadow-black/20 active:scale-95 transition-transform"
+        >
+            <Icon size={22} />
+            {label}
+        </button>
+    )
+}
+
+const AppShell = ({ children, floatingAction, ...props }) => (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
         <Sidebar {...props} />
         <MobileTopBar {...props} />
         <div className="lg:pl-64">
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-6 lg:pt-10 pb-28 lg:pb-12">
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-5 lg:pt-10 pb-40 lg:pb-12">
                 {children}
             </main>
         </div>
+        {floatingAction && <FloatingAction {...floatingAction} />}
         <BottomNav {...props} />
     </div>
 )

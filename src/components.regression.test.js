@@ -19,7 +19,7 @@ afterEach(() => vi.useRealTimers())
 describe('component regression handlers', () => {
     it('selects/deletes only visible matches and clears selection on search changes', async () => {
         const rpc = vi.fn().mockResolvedValue({ error: null })
-        const h = hookHarness('src/components/Matches.jsx', 'Matches', 'toggleSelectAll,toggleSelect,visibleSelectedIds,handleSearchChange,handleBulkDelete', '    const EloChangeDisplay', { ...base(), supabase: { rpc } })
+        const h = hookHarness('src/components/Matches.jsx', 'Matches', 'toggleSelectAll,toggleSelect,visibleSelectedIds,handleSearchChange,handleBulkDelete', '    const allShownSelected', { ...base(), supabase: { rpc }, LIST_PAGE_SIZE: 50 })
         const props = { users: players, matches: [{ id:'visible', player1_id:'1', player2_id:'2' },{ id:'hidden', player1_id:'3', player2_id:'4' }], adminToken:'token' }
         let v = h.render(props)
         v.handleSearchChange('Alice'); v = h.render()
@@ -41,6 +41,21 @@ describe('component regression handlers', () => {
         v.toggleSelectAll(); v = h.render(); expect(v.visibleSelectedIds.size).toBe(0)
         v.handleSearchChange('no results'); v = h.render(); v.toggleSelectAll(); v = h.render()
         await v.handleBulkDelete(); expect(rpc).toHaveBeenCalledTimes(1)
+    })
+    it('select-all never reaches matches hidden behind "Show more"', async () => {
+        const rpc = vi.fn().mockResolvedValue({ error: null })
+        const h = hookHarness('src/components/Matches.jsx', 'Matches', 'toggleSelectAll,visibleSelectedIds,setVisibleCount,handleSearchChange,handleBulkDelete', '    const allShownSelected', { ...base(), supabase: { rpc }, LIST_PAGE_SIZE: 50 })
+        const matches = Array.from({ length: 60 }, (_, i) => ({ id: 'm' + i, player1_id: '1', player2_id: '2' }))
+        let v = h.render({ users: players, matches, adminToken: 'token' })
+        v.toggleSelectAll(); v = h.render()
+        expect(v.visibleSelectedIds.size).toBe(50)
+        await v.handleBulkDelete()
+        expect(rpc.mock.calls[0][1].p_match_ids).toHaveLength(50)
+        expect(rpc.mock.calls[0][1].p_match_ids).not.toContain('m50')
+        v = h.render(); v.setVisibleCount(100); v = h.render(); v.toggleSelectAll(); v = h.render()
+        expect(v.visibleSelectedIds.size).toBe(60)
+        v.handleSearchChange('Alice'); v = h.render(); v.toggleSelectAll(); v = h.render()
+        expect(v.visibleSelectedIds.size).toBe(50)
     })
     for (const component of ['PlayerStats','PadelPlayerStats','TennisPlayerStats']) {
         it(component + ' recovers on hydration and season changes, preserving valid choices', () => {

@@ -5,8 +5,39 @@ import { buildPadelEloHistory, getPadelScoreSummary } from '../padelUtils'
 import { getAvatarFallback } from '../utils'
 import { useToast } from '../contexts/useToast'
 import { PadelIcon } from './Icons'
+import { LIST_PAGE_SIZE, ShowMore, Spinner } from './layout/AppShell'
 
-const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
+const EloChangeDisplay = ({ elo, change }) => (
+    <div className="text-xs mt-0.5">
+        <span className="text-gray-500 dark:text-gray-400">{elo}</span>
+        {' '}
+        <span className={change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}>
+            ({change > 0 ? '+' : ''}{change})
+        </span>
+    </div>
+)
+
+const TeamDisplay = ({ player1, player2, eloData, align = 'left' }) => {
+    const isRight = align === 'right'
+    return (
+        <div className={`flex flex-col gap-1 ${isRight ? 'items-end' : 'items-start'}`}>
+            {[player1, player2].map((player, i) => {
+                const playerElo = eloData?.[player.id]
+                return (
+                    <div key={i} className={`flex items-center gap-2 ${isRight ? 'flex-row-reverse' : ''}`}>
+                        <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player.name} />
+                        <div className={isRight ? 'text-right' : ''}>
+                            <span className="font-bold text-sm text-gray-900 dark:text-white">{player.name}</span>
+                            {playerElo && <EloChangeDisplay elo={playerElo.elo} change={playerElo.change} />}
+                        </div>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
@@ -15,6 +46,9 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
     const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
     const [isBulkMode, setIsBulkMode] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE)
+
+    const usersById = useMemo(() => new Map(users.map(user => [user.id, user])), [users])
 
     const filteredMatches = useMemo(() => {
         if (!searchQuery.trim()) return matches
@@ -26,21 +60,24 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
                 match.team2_player1_id,
                 match.team2_player2_id,
             ]
-            return playerIds.some(id => users.find(user => user.id === id)?.name?.toLowerCase().includes(query))
+            return playerIds.some(id => usersById.get(id)?.name?.toLowerCase().includes(query))
         })
-    }, [matches, searchQuery, users])
+    }, [matches, searchQuery, usersById])
 
-    const filteredMatchIds = useMemo(() => filteredMatches.map(match => match.id), [filteredMatches])
+    // Select-all covers the rows on screen, never matches hidden behind "Show more".
+    const shownMatches = useMemo(() => filteredMatches.slice(0, visibleCount), [filteredMatches, visibleCount])
+    const shownMatchIds = useMemo(() => shownMatches.map(match => match.id), [shownMatches])
     const selectedFilteredIds = useMemo(
-        () => filteredMatchIds.filter(id => selectedIds.has(id)),
-        [filteredMatchIds, selectedIds]
+        () => shownMatchIds.filter(id => selectedIds.has(id)),
+        [shownMatchIds, selectedIds]
     )
-    const allFilteredSelected = filteredMatches.length > 0 && selectedFilteredIds.length === filteredMatches.length
+    const allFilteredSelected = shownMatches.length > 0 && selectedFilteredIds.length === shownMatches.length
     const hasFilteredSelection = selectedFilteredIds.length > 0
 
     useEffect(() => {
         setSelectedIds(new Set())
         setBulkDeleteConfirm(false)
+        setVisibleCount(LIST_PAGE_SIZE)
     }, [searchQuery])
 
     const toggleSelect = (id) => {
@@ -56,7 +93,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
         if (allFilteredSelected) {
             setSelectedIds(new Set())
         } else {
-            setSelectedIds(new Set(filteredMatchIds))
+            setSelectedIds(new Set(shownMatchIds))
         }
     }
 
@@ -141,52 +178,12 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
         setConfirmDeleteId(null)
     }
 
-    const getPlayerInfo = (playerId) => {
-        return users.find(u => u.id === playerId) || { id: playerId, name: 'Unknown', avatar_url: null }
-    }
-
-    const EloChangeDisplay = ({ elo, change }) => {
-        const isPositive = change > 0
-        const changeColor = isPositive
-            ? 'text-green-600 dark:text-green-400'
-            : 'text-red-500 dark:text-red-400'
-        const sign = isPositive ? '+' : ''
-
-        return (
-            <div className="text-xs mt-0.5">
-                <span className="text-gray-500 dark:text-gray-400">{elo}</span>
-                {' '}
-                <span className={changeColor}>
-                    ({sign}{change})
-                </span>
-            </div>
-        )
-    }
-
-    const TeamDisplay = ({ player1, player2, eloData, align = 'left' }) => {
-        const isRight = align === 'right'
-        return (
-            <div className={`flex flex-col gap-1 ${isRight ? 'items-end' : 'items-start'}`}>
-                {[player1, player2].map((player, i) => {
-                    const playerElo = eloData?.[player.id]
-                    return (
-                        <div key={i} className={`flex items-center gap-2 ${isRight ? 'flex-row-reverse' : ''}`}>
-                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player.name} />
-                            <div className={isRight ? 'text-right' : ''}>
-                                <span className="font-bold text-sm text-gray-900 dark:text-white">{player.name}</span>
-                                {playerElo && <EloChangeDisplay elo={playerElo.elo} change={playerElo.change} />}
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-        )
-    }
+    const getPlayerInfo = (playerId) => usersById.get(playerId) || { id: playerId, name: 'Unknown', avatar_url: null }
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <div className="flex items-center gap-2 sm:gap-3">
+                <div className="relative flex-1 min-w-0 sm:max-w-xs">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
                         type="text"
@@ -196,33 +193,33 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
                         className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-400 outline-none text-gray-700 dark:text-gray-200"
                     />
                 </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3">
+                <div className="flex shrink-0 gap-2 sm:gap-3">
                     {isAdmin && (
-                        <button
-                            onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
-                            className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-green-600 text-white shadow-inner' : 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 bg-green-50 dark:bg-green-900/30'}`}
-                            title="Toggle Bulk Actions"
-                        >
-                            <ListChecks size={16} className="mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Bulk Actions</span>
-                            <span className="sm:hidden">Bulk</span>
-                        </button>
+                        <>
+                            <button
+                                aria-label="Bulk actions" onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
+                                className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-green-600 text-white shadow-inner' : 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 bg-green-50 dark:bg-green-900/30'}`}
+                                title="Toggle Bulk Actions"
+                            >
+                                <ListChecks size={16} className="sm:mr-2" />
+                                <span className="hidden sm:inline">Bulk Actions</span>
+                            </button>
+                            <button
+                                aria-label="Recalculate Elo and stats" onClick={handleRecalculate}
+                                disabled={recalculating}
+                                className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
+                                title="Recalculate ELO and Stats"
+                            >
+                                <RefreshCw size={16} className={`sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
+                            </button>
+                        </>
                     )}
-                    <button
-                        onClick={handleRecalculate}
-                        disabled={recalculating}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg disabled:opacity-50"
-                        title="Recalculate ELO and Stats"
-                    >
-                        <RefreshCw size={16} className={`mr-1 sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">{recalculating ? 'Recalculating...' : 'Sync'}</span>
-                        <span className="sm:hidden">{recalculating ? '...' : 'Sync'}</span>
-                    </button>
                 </div>
             </div>
 
             {isBulkMode && isAdmin && (
-                <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4 animate-fade-in">
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-red-700 dark:text-red-300">
                             {selectedFilteredIds.length} match{selectedFilteredIds.length === 1 ? '' : 'es'} selected
@@ -250,7 +247,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
             )}
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {filteredMatches.length === 0 ? (
+                {historyLoading && matches.length === 0 ? <Spinner className="py-20" /> : filteredMatches.length === 0 ? (
                     <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                         {matches.length === 0 ? (
                             <>
@@ -286,7 +283,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {filteredMatches.map(match => {
+                                {shownMatches.map(match => {
                                     const t1p1 = getPlayerInfo(match.team1_player1_id)
                                     const t1p2 = getPlayerInfo(match.team1_player2_id)
                                     const t2p1 = getPlayerInfo(match.team2_player1_id)
@@ -315,6 +312,8 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
                                             </td>
                                             <td className="px-1 sm:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col items-center">
+                                                    {/* The date column is hidden on phones; show it under the score instead. */}
+                                                    <span className="order-last sm:hidden mt-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{matchDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
                                                     <div className="flex items-center justify-center space-x-1 sm:space-x-2 font-mono font-bold text-lg sm:text-xl text-gray-900 dark:text-white whitespace-nowrap pb-1">
                                                         <span className={summary.winner === 1 ? 'text-green-600 dark:text-green-400' : ''}>{summary.hasSets && summary.sets.length > 1 ? summary.team1Sets : summary.team1Games}</span>
                                                         <span className="text-gray-400">-</span>
@@ -398,6 +397,7 @@ const PadelMatches = ({ matches, users, onEditMatch, onMatchDeleted, isAdmin, ad
                         </table>
                     </div>
                 )}
+                <ShowMore shown={shownMatches.length} total={filteredMatches.length} onShowMore={() => setVisibleCount(count => count + LIST_PAGE_SIZE)} />
             </div>
         </div>
     )

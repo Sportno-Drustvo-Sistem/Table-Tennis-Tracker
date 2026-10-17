@@ -39,7 +39,7 @@ const TrophyCase = ({ playerId, seasonId }) => {
     if (loading) return <div className="text-center text-sm ml-2">Loading trophies...</div>
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mt-6">
+        <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mt-6">
             <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                 <Trophy className="mr-2 text-yellow-500" size={20} />
                 Trophy Case
