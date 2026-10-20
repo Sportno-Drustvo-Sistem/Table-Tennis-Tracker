@@ -180,7 +180,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <img
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
-                        className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
+                        className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
                     <div>
@@ -305,7 +305,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                                 return (
                                     <div key={partnerId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={partner.avatar_url || getAvatarFallback(partner.name)} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt={partner.name} />
+                                            <img src={partner.avatar_url || getAvatarFallback(partner.name)} className="w-10 h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt={partner.name} />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{partner.name}</span>
                                         </div>
                                         <div className="text-right">
@@ -359,11 +359,11 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
 
                                     <div className="flex items-center justify-end gap-2 shrink-0">
                                         <span className="text-xs text-gray-400">w/</span>
-                                        <img src={partner?.avatar_url} className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" title={partner?.name} />
+                                        <img src={partner?.avatar_url || getAvatarFallback(partner?.name || '?')} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" title={partner?.name} />
                                         <span className="text-xs text-gray-400">vs</span>
                                         <div className="flex -space-x-1.5 hover:space-x-0 transition-all">
                                             {opponents.map((opp, i) => (
-                                                <img key={opp.id} src={opp.avatar_url} className={`w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover border border-white dark:border-gray-800 z-[${2 - i}]`} alt="" title={opp.name} />
+                                                <img key={opp.id} src={opp.avatar_url || getAvatarFallback(opp.name)} className={`w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover border border-white dark:border-gray-800 z-[${2 - i}]`} alt="" title={opp.name} />
                                             ))}
                                         </div>
                                     </div>

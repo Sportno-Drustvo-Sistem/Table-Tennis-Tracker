@@ -241,12 +241,13 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                                 </td>
                                             )}
                                             <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
-                                                <div className="flex items-center justify-end gap-2 sm:gap-3">
-                                                    <div className="text-right flex flex-col items-end">
+                                                {/* Phones: picture above the name so it can be big without squeezing the name. */}
+                                                <div className="flex flex-col-reverse sm:flex-row items-center sm:justify-end gap-1 sm:gap-3">
+                                                    <div className="text-center sm:text-right flex flex-col items-center sm:items-end">
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${summary.winner === 1 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player1.name}</span>
                                                         {eloData && <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />}
                                                     </div>
-                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-200 object-cover" alt={player1.name} />
+                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
                                             <td className="px-1 sm:px-3 xl:px-6 py-3 sm:py-4">
@@ -270,9 +271,9 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                                 </div>
                                             </td>
                                             <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
-                                                <div className="flex items-center gap-2 sm:gap-3">
-                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-200 object-cover" alt={player2.name} />
-                                                    <div className="flex flex-col items-start">
+                                                <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 object-cover" alt={player2.name} />
+                                                    <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${summary.winner === 2 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player2.name}</span>
                                                         {eloData && <EloChangeDisplay elo={eloData.p2Elo} change={eloData.p2Change} />}
                                                     </div>
@@ -288,17 +289,17 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                                 <div className="flex flex-col sm:flex-row justify-center items-center sm:space-x-1">
                                                     {confirmDeleteId === match.id ? (
                                                         <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
-                                                            <button onClick={() => handleDeleteConfirm(match)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white"><Check size={16} /></button>
-                                                            <button onClick={() => setConfirmDeleteId(null)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"><X size={16} /></button>
+                                                            <button onClick={() => handleDeleteConfirm(match)} className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white"><Check size={16} /></button>
+                                                            <button onClick={() => setConfirmDeleteId(null)} className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"><X size={16} /></button>
                                                         </div>
                                                     ) : isAdmin ? (
                                                         <>
-                                                            <button onClick={() => onEditMatch(match)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" disabled={loading}>
-                                                                <Edit2 size={18} />
+                                                            <button onClick={() => onEditMatch(match)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center" disabled={loading}>
+                                                                <Edit2 size={16} />
                                                             </button>
                                                             {!isBulkMode && (
-                                                                <button onClick={() => setConfirmDeleteId(match.id)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" disabled={loading}>
-                                                                    <Trash2 size={18} />
+                                                                <button onClick={() => setConfirmDeleteId(match.id)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center" disabled={loading}>
+                                                                    <Trash2 size={16} />
                                                                 </button>
                                                             )}
                                                         </>

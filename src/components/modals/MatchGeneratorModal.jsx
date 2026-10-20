@@ -314,7 +314,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                             `}>
                                                 {isSelected && !isExcluded && <Check size={12} className="text-white" />}
                                             </div>
-                                            <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-8 h-8 shrink-0 rounded-full bg-gray-200 mr-2 sm:mr-3 object-cover" />
+                                            <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-10 h-10 shrink-0 rounded-full bg-gray-200 mr-2 sm:mr-3 object-cover" />
                                             <span className={`font-medium truncate ${isExcluded ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                                                 {user.name}
                                             </span>

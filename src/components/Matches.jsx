@@ -271,8 +271,9 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                 </td>
                                             )}
                                             <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
-                                                <div className="flex items-center justify-end space-x-2 sm:space-x-3">
-                                                    <div className="text-right flex flex-col items-end">
+                                                {/* Phones: picture above the name so it can be big without squeezing the name. */}
+                                                <div className="flex flex-col-reverse sm:flex-row items-center sm:justify-end gap-1 sm:gap-3">
+                                                    <div className="text-center sm:text-right flex flex-col items-center sm:items-end">
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${match.score1 > match.score2 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                                             {player1.name}
                                                         </span>
@@ -280,7 +281,7 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                             <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />
                                                         )}
                                                     </div>
-                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
+                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
                                             <td className="px-1 sm:px-3 xl:px-6 py-3 sm:py-4">
@@ -312,9 +313,9 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                 </div>
                                             </td>
                                             <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
-                                                <div className="flex items-center space-x-2 sm:space-x-3">
-                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
-                                                    <div className="flex flex-col items-start">
+                                                <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
+                                                    <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                                             {player2.name}
                                                         </span>
@@ -337,14 +338,14 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                             <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Delete?</span>
                                                             <button
                                                                 onClick={() => handleDeleteConfirm(match)}
-                                                                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                                                                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
                                                                 title="Confirm Delete"
                                                             >
                                                                 <Check size={16} />
                                                             </button>
                                                             <button
                                                                 onClick={handleDeleteCancel}
-                                                                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-colors"
+                                                                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-colors"
                                                                 title="Cancel"
                                                             >
                                                                 <X size={16} />
@@ -356,20 +357,20 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                                 <>
                                                                     <button
                                                                         onClick={() => onEditMatch(match)}
-                                                                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
+                                                                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center"
                                                                         title="Edit Match"
                                                                         disabled={loading}
                                                                     >
-                                                                        <Edit2 size={18} />
+                                                                        <Edit2 size={16} />
                                                                     </button>
                                                                     {!isBulkMode && (
                                                                         <button
                                                                             onClick={() => handleDeleteRequest(match.id)}
-                                                                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[36px] sm:min-w-[44px] min-h-[36px] sm:min-h-[44px] flex items-center justify-center p-1 sm:p-2"
+                                                                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[32px] sm:min-w-[36px] min-h-[32px] sm:min-h-[36px] flex items-center justify-center"
                                                                             title="Delete Match"
                                                                             disabled={loading}
                                                                         >
-                                                                            <Trash2 size={18} />
+                                                                            <Trash2 size={16} />
                                                                         </button>
                                                                     )}
                                                                 </>

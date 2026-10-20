@@ -206,7 +206,7 @@ const Leaderboard = ({ users, matches }) => {
                                         <div className="flex items-center">
                                             {/* Phones fold the rank in here and cap long names, so ELO and wins start on screen. */}
                                             <span className="sm:hidden w-6 shrink-0 text-xs font-bold tabular-nums text-gray-400 dark:text-gray-500">{index + 1}</span>
-                                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-2 sm:mr-3" alt="" />
+                                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-2 sm:mr-3" alt="" />
                                             <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap truncate max-w-[28vw] sm:max-w-none">{player.name}</span>
                                         </div>
                                     </td>
