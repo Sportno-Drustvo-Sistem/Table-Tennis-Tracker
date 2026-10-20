@@ -1,9 +1,14 @@
 import defaultTheme from 'tailwindcss/defaultTheme'
 import colors from 'tailwindcss/colors'
+import plugin from 'tailwindcss/plugin'
 
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
+  // Touch screens keep :hover after a tap, which left buttons stuck in their hover colour.
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -51,5 +56,14 @@ export default {
       },
     },
   },
-  plugins: [],
+  // Variants rather than `screens` entries: object screens disable `min-[…]:` variants.
+  plugins: [
+    plugin(({ addVariant }) => {
+      // Phones held sideways: wide enough for `sm:` but too short for the stacked layouts.
+      // Tailwind emits plugin variants before `sm:`, so `html &` lets these win over it.
+      addVariant('short', '@media (max-height: 500px) { html & }')
+      // Mouse-style pointers only; touch devices never see hover-revealed controls.
+      addVariant('can-hover', '@media (hover: hover) and (pointer: fine)')
+    }),
+  ],
 }

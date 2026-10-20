@@ -87,13 +87,15 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
     if (!isOpen) return null
 
+    // Score dialogs sit at the top on phones: iOS keeps fixed dialogs centred, so the
+    // on-screen keyboard covered the inputs. Same layout in the other score/edit dialogs.
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl w-full max-w-lg m-3 sm:m-4 shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl w-full max-w-lg shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center text-gray-900 dark:text-white">Record Match Result</h2>
 
                 {activeRules.length > 0 && (
-                    <div className="mb-8 space-y-3">
+                    <div className="mb-4 sm:mb-8 space-y-3">
                         {activeRules.map((rule, idx) => (
                             <div key={idx} className={`relative p-4 border-l-4 rounded-r-lg text-left shadow-sm transition-opacity ${refusedRules.has(idx) ? 'opacity-40 grayscale' : ''} ${rule.type === 'mayhem'
                                 ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
@@ -124,7 +126,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                                             else newRefused.add(idx)
                                             setRefusedRules(newRefused)
                                         }}
-                                        className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
+                                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 transition-colors"
                                         title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
                                     >
                                         <X size={20} className={refusedRules.has(idx) ? "rotate-45" : ""} />

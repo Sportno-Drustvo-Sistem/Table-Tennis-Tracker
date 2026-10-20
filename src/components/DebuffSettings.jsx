@@ -171,7 +171,7 @@ const DebuffSettings = ({ isAdmin, adminToken }) => {
                                     <div className="flex items-center gap-2 ml-2">
                                         <span className="text-xs text-gray-500">Count:</span>
                                         <input
-                                            type="number"
+                                            type="number" inputMode="numeric"
                                             className="w-16 p-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                                             placeholder="8"
                                             value={formData.trigger_value || ''}

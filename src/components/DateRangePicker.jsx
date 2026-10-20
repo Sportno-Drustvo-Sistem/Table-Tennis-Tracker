@@ -45,7 +45,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     const presetBtn = (label, key) => (
         <button
             onClick={() => setPreset(key)}
-            className={`shrink-0 whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activePreset === key
+            className={`shrink-0 whitespace-nowrap px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg text-xs font-bold transition-all ${activePreset === key
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 ring-1 ring-blue-300 dark:ring-blue-700'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}

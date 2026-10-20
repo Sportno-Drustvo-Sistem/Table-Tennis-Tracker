@@ -165,8 +165,8 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     const maxSets = matchFormat === 'best_of_1' ? 1 : matchFormat === 'best_of_3' ? 3 : 5
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
                 <h2 className="text-2xl font-bold mb-2 text-center text-gray-900 dark:text-white">🎾 Record Padel Match</h2>
                 <p className="text-center text-gray-500 dark:text-gray-400 text-sm mb-6">Click on a player to change them</p>
 
@@ -243,7 +243,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                             <div className="text-sm font-bold text-gray-400 dark:text-gray-500 w-16 text-right">SET {index + 1}</div>
                             <div className="flex items-center space-x-4">
                                 <input
-                                    type="number"
+                                    type="number" inputMode="numeric"
                                     min="0"
                                     value={set.team1Games}
                                     onFocus={(e) => e.target.select()}
@@ -253,7 +253,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                                 />
                                 <span className="text-gray-400 font-bold">-</span>
                                 <input
-                                    type="number"
+                                    type="number" inputMode="numeric"
                                     min="0"
                                     value={set.team2Games}
                                     onFocus={(e) => e.target.select()}

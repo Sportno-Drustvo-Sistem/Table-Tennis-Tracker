@@ -5,6 +5,7 @@ import { tiebreakServer, validateTennisSets } from '../../tennisUtils'
 import { getAvatarFallback } from '../../utils'
 import { recordTennisMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
+import KeepAwake from '../KeepAwake'
 
 const TENNIS_POINTS = ['0', '15', '30', '40']
 
@@ -196,24 +197,26 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95vh]">
-                <div className="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                    <div>
+            {/* Full screen on phones in either orientation; `short` is a phone held sideways. */}
+            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95dvh] short:h-[100dvh] short:max-h-none short:max-w-none short:mx-0 short:rounded-none">
+                <KeepAwake />
+                <div className="px-5 py-4 sm:p-5 short:py-2 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
                         <h2 className="text-xl font-black text-gray-900 dark:text-white">{matchWinner ? 'Match Complete' : isTiebreak ? 'Tiebreak' : 'Tennis Live Match'}</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Server: {server === 1 ? player1.name : player2.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Server: {server === 1 ? player1.name : player2.name}</p>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">
+                    <div className="flex shrink-0 gap-2">
+                        <button onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">
                             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
                         </button>
-                        <button onClick={onClose} className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-red-500">
+                        <button onClick={onClose} aria-label="Close" className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-red-500">
                             <X size={18} />
                         </button>
                     </div>
                 </div>
 
                 {!matchStarted && (
-                    <div className="px-5 pt-4">
+                    <div className="px-5 pt-4 short:pt-2">
                         <div className="inline-flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                             <button onClick={() => setMatchFormat('best_of_1')} className={`px-3 py-1.5 rounded-md text-sm font-bold ${matchFormat === 'best_of_1' ? 'bg-white dark:bg-gray-700 text-emerald-600 shadow-sm' : 'text-gray-500'}`}>Single Set</button>
                             <button onClick={() => setMatchFormat('best_of_3')} className={`px-3 py-1.5 rounded-md text-sm font-bold ${matchFormat === 'best_of_3' ? 'bg-white dark:bg-gray-700 text-emerald-600 shadow-sm' : 'text-gray-500'}`}>Best of 3</button>
@@ -221,8 +224,8 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
                     </div>
                 )}
 
-                <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-5 gap-4 sm:gap-5 overflow-y-auto">
-                    <div className="flex justify-center gap-2 text-xs font-mono text-gray-500 dark:text-gray-400">
+                <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-5 short:py-2 gap-4 sm:gap-5 short:gap-2 overflow-y-auto">
+                    <div className="flex justify-center gap-2 text-xs font-mono text-gray-500 dark:text-gray-400 empty:hidden">
                         {completedSets.map((set, idx) => <span key={idx} className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800">{set.player1Games}-{set.player2Games}</span>)}
                     </div>
 
@@ -232,7 +235,7 @@ const TennisLiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved,
                     </div>
                 </div>
 
-                <div className="p-5 border-t border-gray-200 dark:border-gray-800 flex justify-between gap-3">
+                <div className="px-4 sm:px-5 pt-3 sm:pt-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-5 short:py-2 border-t border-gray-200 dark:border-gray-800 flex justify-between gap-3">
                     <div className="flex gap-2">
                         <button onClick={undoLast} disabled={!history.length || !!matchWinner} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold disabled:opacity-40 flex items-center gap-2">
                             <Undo2 size={16} /> Undo
@@ -254,17 +257,17 @@ const ScorePanel = ({ player, active, won, games, points, eloChange, onScore, co
     <button
         onClick={onScore}
         disabled={won}
-        className={`relative rounded-2xl p-5 min-h-[260px] flex flex-col items-center justify-center transition-all select-none ${won ? 'bg-emerald-600 text-white' : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'} ${active ? 'ring-2 ring-emerald-400' : ''}`}
+        className={`relative rounded-2xl p-5 min-h-[260px] short:min-h-0 short:p-2 flex flex-col items-center justify-center transition-all select-none ${won ? 'bg-emerald-600 text-white' : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'} ${active ? 'ring-2 ring-emerald-400' : ''}`}
     >
         {eloChange !== undefined && (
             <div className={`absolute top-4 right-4 text-xl font-black ${eloChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {eloChange >= 0 ? '+' : ''}{eloChange}
             </div>
         )}
-        <img src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-20 h-20 rounded-full object-cover bg-gray-200 mb-3" />
-        <div className="font-black text-gray-900 dark:text-white">{player.name}</div>
-        <div className={`text-6xl font-black mt-4 ${won ? 'text-white' : color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{points}</div>
-        <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-2">Games: {games}</div>
+        <img src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-20 h-20 short:w-12 short:h-12 rounded-full object-cover bg-gray-200 mb-3 short:mb-1" />
+        <div className="max-w-full truncate font-black text-gray-900 dark:text-white">{player.name}</div>
+        <div className={`text-6xl short:text-5xl font-black mt-4 short:mt-1 ${won ? 'text-white' : color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{points}</div>
+        <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-2 short:mt-0">Games: {games}</div>
     </button>
 )
 

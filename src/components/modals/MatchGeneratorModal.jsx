@@ -169,24 +169,25 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90dvh]">
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <div className="px-4 py-3 sm:p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
                         <Shuffle className="mr-2 text-blue-600 dark:text-blue-400" />
                         Generate Match
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                        aria-label="Close"
+                        className="p-2 -m-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                     >
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6 overflow-y-auto">
+                <div className="p-4 sm:p-6 overflow-y-auto">
                     {generatedMatch ? (
                         <div className="text-center py-8">
                             <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-6">Match Found!</h3>
@@ -287,7 +288,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-3 mb-6">
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
                                 {users.map(user => {
                                     const isExcluded = excludedPlayers.includes(user.id)
                                     const isSelected = selectedPool.includes(user.id)
@@ -298,7 +299,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                             onClick={() => !isExcluded && togglePlayer(user.id)}
                                             disabled={isExcluded}
                                             className={`
-                                                flex items-center p-3 rounded-lg border text-left transition-all
+                                                flex items-center min-w-0 p-2.5 sm:p-3 rounded-lg border text-left transition-all
                                                 ${isExcluded
                                                     ? 'opacity-50 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed'
                                                     : isSelected
@@ -308,12 +309,12 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                             `}
                                         >
                                             <div className={`
-                                                w-5 h-5 rounded-full border flex items-center justify-center mr-3
+                                                w-5 h-5 shrink-0 rounded-full border flex items-center justify-center mr-2 sm:mr-3
                                                 ${isSelected && !isExcluded ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600'}
                                             `}>
                                                 {isSelected && !isExcluded && <Check size={12} className="text-white" />}
                                             </div>
-                                            <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full bg-gray-200 mr-3 object-cover" />
+                                            <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-8 h-8 shrink-0 rounded-full bg-gray-200 mr-2 sm:mr-3 object-cover" />
                                             <span className={`font-medium truncate ${isExcluded ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                                                 {user.name}
                                             </span>
@@ -321,36 +322,41 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                     )
                                 })}
                             </div>
-
-                            {error && (
-                                <div className="mb-4 text-red-500 text-sm text-center font-medium animate-pulse">
-                                    {error}
-                                </div>
-                            )}
-
-                            <button
-                                onClick={generateMatch}
-                                disabled={isGenerating}
-                                className={`
-                                    w-full py-3 rounded-xl font-bold text-white shadow-md transition-all flex items-center justify-center
-                                    ${isGenerating
-                                        ? 'bg-gray-400 cursor-wait'
-                                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                                    }
-                                `}
-                            >
-                                {isGenerating ? (
-                                    <>Processing...</>
-                                ) : (
-                                    <>
-                                        <Shuffle size={20} className="mr-2" />
-                                        Generate Match
-                                    </>
-                                )}
-                            </button>
                         </>
                     )}
                 </div>
+
+                {/* Kept below the scrolling list so it is reachable without scrolling to the end. */}
+                {!generatedMatch && (
+                    <div className="px-4 pt-3 pb-4 sm:px-6 sm:pb-6 border-t border-gray-100 dark:border-gray-700">
+                        {error && (
+                            <div className="mb-3 text-red-500 text-sm text-center font-medium animate-pulse">
+                                {error}
+                            </div>
+                        )}
+
+                        <button
+                            onClick={generateMatch}
+                            disabled={isGenerating}
+                            className={`
+                                w-full py-3 rounded-xl font-bold text-white shadow-md transition-all flex items-center justify-center
+                                ${isGenerating
+                                    ? 'bg-gray-400 cursor-wait'
+                                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                                }
+                            `}
+                        >
+                            {isGenerating ? (
+                                <>Processing...</>
+                            ) : (
+                                <>
+                                    <Shuffle size={20} className="mr-2" />
+                                    Generate Match
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     )

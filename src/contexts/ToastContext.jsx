@@ -46,13 +46,14 @@ export const ToastProvider = ({ children }) => {
                                     'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/90 dark:text-blue-100 dark:border-blue-800'
                             }`}
                     >
-                        {toast.type === 'error' ? <AlertCircle className="w-5 h-5 mr-3" /> :
-                            toast.type === 'success' ? <CheckCircle className="w-5 h-5 mr-3" /> :
-                                <Info className="w-5 h-5 mr-3" />}
-                        <span className="font-medium text-sm">{toast.message}</span>
+                        {toast.type === 'error' ? <AlertCircle className="w-5 h-5 mr-3 shrink-0" /> :
+                            toast.type === 'success' ? <CheckCircle className="w-5 h-5 mr-3 shrink-0" /> :
+                                <Info className="w-5 h-5 mr-3 shrink-0" />}
+                        <span className="flex-1 font-medium text-sm">{toast.message}</span>
                         <button
                             onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                            className="ml-4 opacity-50 hover:opacity-100 transition-opacity"
+                            aria-label="Dismiss"
+                            className="ml-2 p-2 -m-2 shrink-0 opacity-50 hover:opacity-100 transition-opacity"
                         >
                             <X className="w-4 h-4" />
                         </button>

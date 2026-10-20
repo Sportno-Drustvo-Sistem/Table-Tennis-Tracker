@@ -144,7 +144,7 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                         className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-400 outline-none text-gray-700 dark:text-gray-200"
                     />
                 </div>
-                <div className="flex shrink-0 gap-2 sm:gap-3">
+                <div className="flex self-stretch shrink-0 gap-2 sm:gap-3">
                     {isAdmin && (
                         <>
                             <button
@@ -210,16 +210,17 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                 <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     {isAdmin && isBulkMode && (
                                         <th className="px-2 sm:px-3 py-3 sm:py-4 w-8 sm:w-10">
-                                            <button onClick={toggleSelectAll} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                            <button onClick={toggleSelectAll} className="p-2 -m-2 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                                                 {allFilteredSelected ? <CheckSquare size={16} /> : hasFilteredSelection ? <MinusSquare size={16} /> : <Square size={16} />}
                                             </button>
                                         </th>
                                     )}
-                                    <th className="px-2 sm:px-6 py-3 sm:py-4 text-right">Player 1</th>
-                                    <th className="px-1 sm:px-6 py-3 sm:py-4 text-center">Score</th>
-                                    <th className="px-2 sm:px-6 py-3 sm:py-4">Player 2</th>
-                                    <th className="px-2 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">Date</th>
-                                    <th className="px-2 sm:px-6 py-3 sm:py-4 text-center">Actions</th>
+                                    <th className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4 text-right">Player 1</th>
+                                    <th className="w-px sm:w-auto px-1 sm:px-3 xl:px-6 py-3 sm:py-4 text-center">Score</th>
+                                    <th className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">Player 2</th>
+                                    <th className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4 hidden sm:table-cell">Date</th>
+                                    {/* Viewers have no actions; on phones that column only squeezed the player names. */}
+                                    <th className={`px-1 sm:px-3 xl:px-6 py-3 sm:py-4 text-center ${isAdmin ? '' : 'hidden sm:table-cell'}`}><span className="sr-only sm:not-sr-only">Actions</span></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -234,21 +235,21 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                         <tr key={match.id} className={`transition-colors text-sm ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-emerald-50 dark:hover:bg-gray-700'}`}>
                                             {isAdmin && isBulkMode && (
                                                 <td className="px-2 sm:px-3 py-3 sm:py-4">
-                                                    <button onClick={() => toggleSelect(match.id)} className={isSelected ? 'text-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}>
+                                                    <button onClick={() => toggleSelect(match.id)} className={`p-2 -m-2 ${isSelected ? 'text-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}`}>
                                                         {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
                                                     </button>
                                                 </td>
                                             )}
-                                            <td className="px-2 sm:px-6 py-3 sm:py-4">
-                                                <div className="flex items-center justify-end gap-3">
+                                            <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
+                                                <div className="flex items-center justify-end gap-2 sm:gap-3">
                                                     <div className="text-right flex flex-col items-end">
-                                                        <span className={`font-bold truncate max-w-[80px] sm:max-w-none ${summary.winner === 1 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player1.name}</span>
+                                                        <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${summary.winner === 1 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player1.name}</span>
                                                         {eloData && <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />}
                                                     </div>
-                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 object-cover" alt={player1.name} />
+                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-200 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
-                                            <td className="px-1 sm:px-6 py-3 sm:py-4">
+                                            <td className="px-1 sm:px-3 xl:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col items-center">
                                                     {/* The date column is hidden on phones; show it under the score instead. */}
                                                     <span className="order-last sm:hidden mt-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{matchDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
@@ -258,9 +259,9 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                                         <span className={summary.winner === 2 ? 'text-emerald-600 dark:text-emerald-400' : ''}>{summary.hasSets ? summary.player2Sets : summary.player2Games}</span>
                                                     </div>
                                                     {summary.sets.length > 0 && (
-                                                        <div className="flex space-x-1 sm:space-x-2 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                                        <div className="flex justify-center gap-0.5 sm:gap-2 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-mono">
                                                             {summary.sets.map((set, idx) => (
-                                                                <span key={idx} className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                                <span key={idx} className="bg-gray-100 dark:bg-gray-700 px-1 sm:px-1.5 py-0.5 rounded whitespace-nowrap">
                                                                     {set.player1Games}-{set.player2Games}{set.player1Games === 7 && set.player2Games === 6 ? ` (${set.player1Tiebreak}-${set.player2Tiebreak})` : ''}
                                                                 </span>
                                                             ))}
@@ -268,32 +269,35 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-2 sm:px-6 py-3 sm:py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="hidden sm:block w-8 h-8 rounded-full bg-gray-200 object-cover" alt={player2.name} />
+                                            <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
+                                                <div className="flex items-center gap-2 sm:gap-3">
+                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-200 object-cover" alt={player2.name} />
                                                     <div className="flex flex-col items-start">
-                                                        <span className={`font-bold truncate max-w-[80px] sm:max-w-none ${summary.winner === 2 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player2.name}</span>
+                                                        <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${summary.winner === 2 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player2.name}</span>
                                                         {eloData && <EloChangeDisplay elo={eloData.p2Elo} change={eloData.p2Change} />}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-gray-600 dark:text-gray-400 font-mono text-[9px] sm:text-sm whitespace-nowrap hidden sm:table-cell">
-                                                {matchDate.toLocaleDateString()} {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4 text-gray-600 dark:text-gray-400 font-mono text-[9px] sm:text-sm whitespace-nowrap hidden sm:table-cell">
+                                                {/* Date over time until xl so tablets (and iPads) fit every column. */}
+                                                <span className="block xl:inline">{matchDate.toLocaleDateString()}</span>{' '}
+                                                {matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </td>
-                                            <td className="px-2 sm:px-6 py-3 sm:py-4">
-                                                <div className="flex justify-center items-center space-x-1">
+                                            <td className={`px-1 sm:px-3 xl:px-6 py-3 sm:py-4 ${isAdmin ? '' : 'hidden sm:table-cell'}`}>
+                                                {/* Edit and delete stack on phones so the player columns keep room for avatars. */}
+                                                <div className="flex flex-col sm:flex-row justify-center items-center sm:space-x-1">
                                                     {confirmDeleteId === match.id ? (
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
                                                             <button onClick={() => handleDeleteConfirm(match)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white"><Check size={16} /></button>
                                                             <button onClick={() => setConfirmDeleteId(null)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200"><X size={16} /></button>
                                                         </div>
                                                     ) : isAdmin ? (
                                                         <>
-                                                            <button onClick={() => onEditMatch(match)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-w-[44px] min-h-[44px] flex items-center justify-center" disabled={loading}>
+                                                            <button onClick={() => onEditMatch(match)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" disabled={loading}>
                                                                 <Edit2 size={18} />
                                                             </button>
                                                             {!isBulkMode && (
-                                                                <button onClick={() => setConfirmDeleteId(match.id)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center" disabled={loading}>
+                                                                <button onClick={() => setConfirmDeleteId(match.id)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" disabled={loading}>
                                                                     <Trash2 size={18} />
                                                                 </button>
                                                             )}

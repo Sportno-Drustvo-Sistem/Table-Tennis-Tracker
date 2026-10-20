@@ -53,8 +53,14 @@
   /* No double-tap zoom on controls: rapid taps on live scoring must each count. */
   button,
   [role='button'],
-  a {
+  a,
+  .cursor-pointer {
     touch-action: manipulation;
+  }
+  /* A long press on an avatar inside a button opened the iOS "Save Image" sheet mid-match. */
+  button img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
   }
 }
 
@@ -67,6 +73,25 @@
   textarea.text-xs,
   textarea.text-sm {
     font-size: 16px;
+  }
+
+  /* While a dialog is open the page behind stays put: no background scrolling on iOS and no
+     Android pull-to-refresh, which reloaded the app and lost a live match in progress. */
+  html:has(.fixed.inset-0) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
+/* iOS Safari only: empty date fields collapsed to a sliver and dates were centred. */
+@supports (-webkit-touch-callout: none) {
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.5rem;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
   }
 }
 

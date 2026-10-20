@@ -112,7 +112,7 @@ const IconButton = ({ children, className, ...props }) => (
     <button
         {...props}
         className={cx(
-            'flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors',
+            'flex items-center justify-center w-10 h-10 shrink-0 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors',
             className
         )}
     >
@@ -122,7 +122,7 @@ const IconButton = ({ children, className, ...props }) => (
 
 const MobileTopBar = ({ sports, activeSport, onSportChange, darkMode, onToggleDarkMode, isAdmin, onAdminClick }) => (
     <header className="lg:hidden sticky top-0 z-30 border-b border-gray-200/80 bg-white/85 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/85">
-        <div className="flex items-center gap-2 px-4 h-14">
+        <div className="flex items-center gap-1.5 px-4 h-14">
             <div className="flex flex-1 min-w-0 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800/80">
                 {sports.map((item) => {
                     const { id, shortLabel, Icon } = item
@@ -133,7 +133,7 @@ const MobileTopBar = ({ sports, activeSport, onSportChange, darkMode, onToggleDa
                             onClick={() => onSportChange(id)}
                             aria-pressed={active}
                             className={cx(
-                                'flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all',
+                                'flex-1 flex items-center justify-center gap-1.5 px-2 h-9 rounded-md text-xs font-semibold whitespace-nowrap transition-all',
                                 active
                                     ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
                                     : 'text-gray-500 dark:text-gray-400'
@@ -187,8 +187,9 @@ const BottomNav = ({ navItems, activeTab, onTabChange }) => (
     </nav>
 )
 
+// Actions share the title row on phones too, so they don't push content down a full row.
 export const PageHeader = ({ title, subtitle, children }) => (
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+    <div className="flex flex-wrap items-center sm:items-end justify-between gap-x-4 gap-y-3 mb-5 sm:mb-6">
         <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{title}</h1>
             {/* The mobile top bar already names the sport; keep the first screen for content. */}

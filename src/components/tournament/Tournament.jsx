@@ -512,18 +512,18 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     return (
         <div className="flex flex-col h-full min-h-[600px]">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <Trophy className="mr-2 text-yellow-500" />
+            <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                        <Trophy className="mr-2 shrink-0 text-yellow-500" />
                         {activeTournament.name}
                     </h2>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
+                    <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
                         {activeTournament.status === 'active' ? '🔴 Live' : '🏁 Completed'} • {formatLabel}{phaseLabel}
                     </div>
                 </div>
                 {isAdmin && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 -mx-2 sm:mx-0">
                         {activeTournament.status === 'active' && (
                             <button onClick={handleManuallyFinishTournament} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex items-center font-bold">
                                 <Trophy size={18} className="mr-1" /> Finish
@@ -603,21 +603,23 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                                                     </div>
                                                 </div>
 
-                                                <div className="px-4 flex flex-col items-center gap-1">
+                                                <div className="px-2 sm:px-4 flex flex-col items-center gap-1">
                                                     <span className="text-gray-400 font-bold text-xs">VS</span>
                                                     {!isDone && isAdmin && (
                                                         <div className="flex gap-1">
                                                             <button
                                                                 onClick={() => handleGroupMatchClick(gIdx, pairing, false)}
-                                                                className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-200 transition-colors"
+                                                                className="p-2.5 sm:p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-200 transition-colors"
                                                                 title="Record Result"
+                                                                aria-label="Record result"
                                                             >
                                                                 <RefreshCw size={14} />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleGroupMatchClick(gIdx, pairing, true)}
-                                                                className="p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200 transition-colors"
+                                                                className="p-2.5 sm:p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200 transition-colors"
                                                                 title="Live Match"
+                                                                aria-label="Live match"
                                                             >
                                                                 <Trophy size={14} />
                                                             </button>

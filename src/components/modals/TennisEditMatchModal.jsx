@@ -60,8 +60,8 @@ const TennisEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users, a
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-xl shadow-xl border border-gray-100 dark:border-gray-700">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-xl max-h-[90dvh] overflow-y-auto shadow-xl border border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Edit Tennis Match</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
@@ -78,21 +78,21 @@ const TennisEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users, a
                         <div key={index} className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
                             <label>
                                 <span className="block text-xs font-bold text-gray-500 mb-1">Set {index + 1} {player1?.name}</span>
-                                <input type="number" min="0" value={set.player1Games} onChange={event => updateSet(index, 'player1Games', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
+                                <input type="number" inputMode="numeric" min="0" value={set.player1Games} onChange={event => updateSet(index, 'player1Games', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
                             </label>
                             <label>
                                 <span className="block text-xs font-bold text-gray-500 mb-1">Set {index + 1} {player2?.name}</span>
-                                <input type="number" min="0" value={set.player2Games} onChange={event => updateSet(index, 'player2Games', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
+                                <input type="number" inputMode="numeric" min="0" value={set.player2Games} onChange={event => updateSet(index, 'player2Games', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
                             </label>
                             {(Number(set.player1Games) === 7 && Number(set.player2Games) === 6) || (Number(set.player2Games) === 7 && Number(set.player1Games) === 6) ? (
                                 <>
                                     <label>
                                         <span className="block text-xs font-bold text-gray-500 mb-1">Tiebreak {player1?.name}</span>
-                                        <input type="number" min="0" value={set.player1Tiebreak} onChange={event => updateSet(index, 'player1Tiebreak', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
+                                        <input type="number" inputMode="numeric" min="0" value={set.player1Tiebreak} onChange={event => updateSet(index, 'player1Tiebreak', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
                                     </label>
                                     <label>
                                         <span className="block text-xs font-bold text-gray-500 mb-1">Tiebreak {player2?.name}</span>
-                                        <input type="number" min="0" value={set.player2Tiebreak} onChange={event => updateSet(index, 'player2Tiebreak', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
+                                        <input type="number" inputMode="numeric" min="0" value={set.player2Tiebreak} onChange={event => updateSet(index, 'player2Tiebreak', event.target.value)} className="w-full p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
                                     </label>
                                 </>
                             ) : null}

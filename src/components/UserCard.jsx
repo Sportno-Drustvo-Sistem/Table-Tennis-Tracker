@@ -91,7 +91,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
                     <div className="text-xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white leading-none">{elo}</div>
                     <div className="mt-1 text-[11px] tabular-nums text-gray-500 dark:text-gray-400">{wins}W / {losses}L</div>
                 </div>
-                {editButton('sm:hidden shrink-0 -mr-1 p-2 rounded-lg text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white')}
+                {editButton('sm:hidden shrink-0 -mr-2 w-10 h-10 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white')}
                 {position != null && (
                     <span className="hidden sm:inline self-start text-xs font-semibold tabular-nums text-gray-400 dark:text-gray-500">#{position}</span>
                 )}
@@ -116,7 +116,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
                 <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${winRate ?? 0}%` }} />
             </div>
 
-            {editButton('hidden sm:block absolute top-3 right-3 p-1.5 rounded-lg bg-white/90 text-gray-500 border border-gray-200 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-opacity hover:text-gray-900 dark:bg-gray-800/90 dark:border-gray-600 dark:text-gray-300 dark:hover:text-white')}
+            {editButton('hidden sm:block absolute top-3 right-3 p-1.5 rounded-lg bg-white/90 text-gray-500 border border-gray-200 lg:can-hover:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-opacity hover:text-gray-900 dark:bg-gray-800/90 dark:border-gray-600 dark:text-gray-300 dark:hover:text-white')}
         </div>
     )
 })

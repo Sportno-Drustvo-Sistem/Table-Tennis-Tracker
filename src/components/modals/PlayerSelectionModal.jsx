@@ -48,7 +48,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
-                className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full max-w-5xl h-[88dvh] sm:h-[80vh] flex flex-col shadow-xl border border-gray-100 dark:border-gray-700 animate-slide-up"
+                className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full max-w-5xl h-[88dvh] sm:h-[80dvh] flex flex-col shadow-xl border border-gray-100 dark:border-gray-700 animate-slide-up"
             >
                 {/* Header */}
                 <div className="flex justify-between items-center px-4 py-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">

@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, getAvatarFallback } from '../../utils'
 import { recordPingPongMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
+import KeepAwake from '../KeepAwake'
 
 const WINNING_SCORE = 11
 const MIN_LEAD = 2
@@ -508,20 +509,23 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95vh]">
+            {/* Full screen on phones in either orientation; `short` is a phone held sideways. */}
+            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95dvh] short:h-[100dvh] short:max-h-none short:max-w-none short:mx-0 short:rounded-none">
+                <KeepAwake />
 
                 {/* Close button */}
                 {!matchWinner && (
                     <button
                         onClick={onClose}
-                        className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-1.5 sm:p-2"
+                        aria-label="Close"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 short:top-2 short:right-2 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-2.5 sm:p-2"
                     >
                         <X size={20} />
                     </button>
                 )}
 
                 {/* Header */}
-                <div className="text-center pt-6 pb-2 px-4">
+                <div className="text-center pt-6 pb-2 px-4 short:pt-2 short:pb-1">
                     <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                         {matchWinner ? '🏆 Match Complete' : isDeuce ? '🔥 Deuce!' : gameWinner ? '🎉 Game!' : 'Live Match'}
                     </h2>
@@ -547,7 +551,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                     {/* Win probability bar */}
                     {winProb && !matchWinner && (
-                        <div className="mt-2 mx-auto max-w-xs">
+                        <div className="mt-2 mx-auto max-w-xs short:hidden">
                             <div className="flex justify-between text-[10px] font-bold mb-0.5">
                                 <span className="text-blue-500">{winProb.p1}%</span>
                                 <span className="text-gray-400 dark:text-gray-500">Win Prob</span>
@@ -584,7 +588,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                 {/* Handicap rules */}
                 {activeRules.length > 0 && (
-                    <div className="mx-6 mb-2 space-y-2">
+                    <div className="mx-4 sm:mx-6 mb-2 space-y-2">
                         {activeRules.map((rule, idx) => (
                             <div key={idx} className={`relative p-3 border-l-4 rounded-r-lg text-left text-sm transition-opacity ${refusedRules.has(idx) ? 'opacity-40 grayscale' : ''} ${rule.type === 'mayhem'
                                 ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
@@ -612,7 +616,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                         else newRefused.add(idx)
                                         setRefusedRules(newRefused)
                                     }}
-                                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors"
+                                    className="absolute top-0.5 right-0.5 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                                     title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
                                 >
                                     <X size={16} className={refusedRules.has(idx) ? "rotate-45" : ""} />
@@ -623,13 +627,13 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 )}
 
                 {/* Score Area */}
-                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 gap-3 min-h-0">
+                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 short:pb-2 short:pt-1 gap-3 min-h-0">
                     {/* Player 1 Side */}
                     <button
                         onClick={() => scorePoint(1)}
                         disabled={!!gameWinner || !!matchWinner}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 1
                                 ? 'bg-gradient-to-b from-blue-500 to-blue-700 ring-4 ring-blue-400 shadow-xl shadow-blue-500/30'
                                 : matchWinner === 2
@@ -646,11 +650,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2 mb-3 short:mb-1">
                             <img
                                 src={player1.avatar_url || getAvatarFallback(player1.name)}
                                 alt={player1.name}
-                                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
+                                className={`w-16 h-16 sm:w-20 sm:h-20 short:w-14 short:h-14 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
                             />
                             {currentServer === 1 && !matchWinner && !gameWinner && (
                                 <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce">
@@ -661,11 +665,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {player1.name}
                         </div>
-                        <div className={`text-7xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
+                        <div className={`text-7xl sm:text-8xl short:text-6xl font-black tabular-nums mt-2 short:mt-1 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {score1}
                         </div>
                         {matchWinner === 1 && (
-                            <div className="mt-3 flex items-center gap-2 text-white">
+                            <div className="mt-3 short:mt-1 flex items-center gap-2 text-white">
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
@@ -682,7 +686,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         onClick={() => scorePoint(2)}
                         disabled={!!gameWinner || !!matchWinner}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 2
                                 ? 'bg-gradient-to-b from-red-500 to-red-700 ring-4 ring-red-400 shadow-xl shadow-red-500/30'
                                 : matchWinner === 1
@@ -699,7 +703,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2 mb-3 short:mb-1">
                             {currentServer === 2 && !matchWinner && !gameWinner && (
                                 <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce">
                                     <div className="w-3 h-3 bg-white rounded-full"></div>
@@ -708,17 +712,17 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             <img
                                 src={player2.avatar_url || getAvatarFallback(player2.name)}
                                 alt={player2.name}
-                                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
+                                className={`w-16 h-16 sm:w-20 sm:h-20 short:w-14 short:h-14 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
                             />
                         </div>
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {player2.name}
                         </div>
-                        <div className={`text-7xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
+                        <div className={`text-7xl sm:text-8xl short:text-6xl font-black tabular-nums mt-2 short:mt-1 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {score2}
                         </div>
                         {matchWinner === 2 && (
-                            <div className="mt-3 flex items-center gap-2 text-white">
+                            <div className="mt-3 short:mt-1 flex items-center gap-2 text-white">
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
@@ -727,7 +731,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 </div>
 
                 {/* Bottom Bar */}
-                <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 short:py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-2">
                     {!matchWinner ? (
                         <>
                             <button
@@ -740,13 +744,13 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </button>
                             <div className="flex items-center gap-2">
                                 <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                    <span className="sm:hidden">Tap a side to score</span>
-                                    <span className="hidden sm:inline">Tap or use ← → keys to score</span>
+                                    <span className="can-hover:hidden">Tap a side to score</span>
+                                    <span className="hidden can-hover:inline">Tap or use ← → keys to score</span>
                                 </div>
                                 <button
                                     onClick={() => setSoundEnabled(!soundEnabled)}
                                     aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
-                                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
+                                    className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
                                     title={soundEnabled ? 'Mute' : 'Unmute'}
                                 >
                                     {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -758,13 +762,13 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             <div className="flex gap-2">
                                 <button
                                     onClick={onClose}
-                                    className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    className="px-3 sm:px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                 >
                                     Discard
                                 </button>
                                 <button
                                     onClick={handleRematch}
-                                    className="px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
+                                    className="px-3 sm:px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
                                 >
                                     <RefreshCw size={14} />
                                     Rematch
@@ -773,9 +777,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all text-sm flex items-center gap-2"
+                                className="px-5 sm:px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all text-sm whitespace-nowrap flex items-center gap-2"
                             >
-                                <Trophy size={18} />
+                                <Trophy size={18} className="hidden min-[400px]:block" />
                                 {saving ? 'Saving...' : 'Save Match'}
                             </button>
                         </>

@@ -26,7 +26,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-scale-in">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-6">
@@ -36,7 +36,8 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
                         </h2>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                            aria-label="Close"
+                            className="p-2 -m-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                         >
                             <X size={24} />
                         </button>

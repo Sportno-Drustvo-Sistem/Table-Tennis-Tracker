@@ -238,7 +238,7 @@ const TournamentSetup = ({ users, onStart, isAdmin, adminToken, fetchData }) => 
                         </label>
                         <button
                             onClick={handleSelectAll}
-                            className="text-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            className="py-2 -my-2 text-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                         >
                             {selectedPlayerIds.length === availableUsers.length ? 'Deselect All' : 'Select All'}
                         </button>

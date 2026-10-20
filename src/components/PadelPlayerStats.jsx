@@ -176,15 +176,15 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-green-500 flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center space-x-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md border-2 border-green-500 flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <img
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
-                        className="w-20 h-20 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
+                        className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white [overflow-wrap:anywhere]">{selectedPlayer.name}</h2>
                         <div className="flex items-center gap-2">
                             <span className="text-green-600 dark:text-green-400 font-semibold">{stats?.matchesPlayed || 0} Padel Matches Played</span>
                             {(() => {
@@ -196,11 +196,11 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                     </div>
                 </div>
 
-                <div>
+                <div className="w-full sm:w-auto">
                     <select
                         value={selectedPlayerId}
                         onChange={e => setSelectedPlayerId(e.target.value)}
-                        className="p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none font-medium"
+                        className="w-full sm:w-auto p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none font-medium"
                     >
                         {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>

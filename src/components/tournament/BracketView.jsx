@@ -11,6 +11,8 @@ const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
     const isCompleted = !!winner
     const isWaiting = !p1 || !p2
     const hasSinglePlayer = (p1 && !p2) || (!p1 && p2)
+    const canPlay = !isCompleted && isClickable && p1 && p2 && !match.isBye
+    const canBye = !isCompleted && isClickable && hasSinglePlayer && !match.isBye && onManualBye
 
     return (
         <div
@@ -55,8 +57,8 @@ const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
                 </div>
 
                 <div className="h-px bg-gray-100 dark:bg-gray-700 mx-2 flex items-center justify-center">
-                    {!isCompleted && isClickable && p1 && p2 && !match.isBye && (
-                        <div className="flex bg-white dark:bg-gray-800 px-2 gap-2 z-10">
+                    {canPlay && (
+                        <div className="hidden sm:flex bg-white dark:bg-gray-800 px-2 gap-2 z-10">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onMatchClick(match.id, false) }}
                                 className="p-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 transition-colors border border-blue-200 dark:border-blue-800"
@@ -74,8 +76,8 @@ const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
                         </div>
                     )}
                     {/* Manual Bye button: shown when only one player is present and match is not decided */}
-                    {!isCompleted && isClickable && hasSinglePlayer && !match.isBye && onManualBye && (
-                        <div className="flex bg-white dark:bg-gray-800 px-2 z-10">
+                    {canBye && (
+                        <div className="hidden sm:flex bg-white dark:bg-gray-800 px-2 z-10">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onManualBye(match.id) }}
                                 className="p-1 px-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md hover:bg-orange-100 transition-colors border border-orange-200 dark:border-orange-800 flex items-center gap-1 text-xs font-bold"
@@ -116,6 +118,35 @@ const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
                         </span>
                     )}
                 </div>
+
+                {/* Phones: labelled, finger-sized actions instead of the tiny icons on the divider. */}
+                {(canPlay || canBye) && (
+                    <div className="sm:hidden flex gap-1 pt-1">
+                        {canPlay ? (
+                            <>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onMatchClick(match.id, false) }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                                >
+                                    <RefreshCw size={14} /> Score
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onMatchClick(match.id, true) }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-bold bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"
+                                >
+                                    <Trophy size={14} /> Live
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onManualBye(match.id) }}
+                                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-bold bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800"
+                            >
+                                <UserX size={14} /> Assign bye
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     )
@@ -161,7 +192,7 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManua
                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg m-4 gap-1">
                     {['winners', 'losers', 'finals'].map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
-                            className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all capitalize ${activeTab === tab
+                            className={`flex-1 py-2 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-bold whitespace-nowrap transition-all capitalize ${activeTab === tab
                                 ? tab === 'winners' ? 'bg-blue-500 text-white' : tab === 'losers' ? 'bg-red-500 text-white' : 'bg-yellow-500 text-white'
                                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                                 }`}
@@ -172,7 +203,7 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManua
                 </div>
 
                 <div className="flex-1 overflow-x-auto pb-12 pt-4 hide-scrollbar">
-                    <div className="min-w-max flex gap-12 px-8">
+                    <div className="min-w-max flex gap-6 px-4 sm:gap-12 sm:px-8">
                         {activeTab === 'winners' && winnersRounds.map((round, rIndex) => (
                             <RoundColumn key={rIndex} round={round} rIndex={getActualIndex(round)}
                                 onMatchClick={onMatchClick} onManualBye={onManualBye} readOnly={readOnly} totalRounds={rounds.length} />
@@ -215,7 +246,7 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManua
 
     return (
         <div className="overflow-x-auto pb-12 pt-4 hide-scrollbar">
-            <div className="min-w-max flex gap-12 px-8">
+            <div className="min-w-max flex gap-6 px-4 sm:gap-12 sm:px-8">
                 {cleanedRounds.map((round, rIndex) => {
                     const actualIdx = rounds.indexOf(round)
                     return (

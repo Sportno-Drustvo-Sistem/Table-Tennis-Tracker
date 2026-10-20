@@ -60,14 +60,17 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-md m-4 shadow-xl border border-gray-100 dark:border-gray-700">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto shadow-xl border border-gray-100 dark:border-gray-700">
                 <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Edit Player</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
                         <input
                             type="text"
+                            autoCapitalize="words"
+                            autoComplete="off"
+                            enterKeyHint="done"
                             value={name}
                             onChange={e => setName(e.target.value)}
                             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 focus:border-blue-500 focus:outline-none"
