@@ -7,15 +7,21 @@ const KeepAwake = () => {
         if (!navigator.wakeLock) return
         let lock = null
         let closed = false
+        // A visibilitychange can fire while the first request is still pending; without this
+        // both would succeed and the extra lock would outlive the match screen.
+        let pending = false
 
         const request = async () => {
-            if (document.visibilityState !== 'visible' || (lock && !lock.released)) return
+            if (pending || document.visibilityState !== 'visible' || (lock && !lock.released)) return
+            pending = true
             try {
                 const next = await navigator.wakeLock.request('screen')
                 if (closed) next.release().catch(() => {})
                 else lock = next
             } catch {
                 // Denied (e.g. battery saver): the screen just sleeps as usual.
+            } finally {
+                pending = false
             }
         }
 

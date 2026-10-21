@@ -363,7 +363,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                                         <span className="text-xs text-gray-400">vs</span>
                                         <div className="flex -space-x-1.5 hover:space-x-0 transition-all">
                                             {opponents.map((opp, i) => (
-                                                <img key={opp.id} src={opp.avatar_url || getAvatarFallback(opp.name)} className={`w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover border border-white dark:border-gray-800 z-[${2 - i}]`} alt="" title={opp.name} />
+                                                <img key={opp.id} src={opp.avatar_url || getAvatarFallback(opp.name)} className={`w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover border border-white dark:border-gray-800`} style={{ zIndex: 2 - i }} alt="" title={opp.name} />
                                             ))}
                                         </div>
                                     </div>
