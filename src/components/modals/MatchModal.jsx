@@ -139,7 +139,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
                 <div className="flex justify-between items-start mb-4 sm:mb-8 gap-4">
                     <div className="flex flex-col items-center w-5/12">
-                        <img src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-14 h-14 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p1?.name} />
+                        <img src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p1?.name} />
                         {isAdmin && availablePlayers ? (
                             <select
                                 value={p1?.id || ''}
@@ -159,7 +159,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                     <div className="font-bold text-2xl text-gray-400 dark:text-gray-500 mt-4 sm:mt-6">VS</div>
 
                     <div className="flex flex-col items-center w-5/12">
-                        <img src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-14 h-14 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p2?.name} />
+                        <img src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p2?.name} />
                         {isAdmin && availablePlayers ? (
                             <select
                                 value={p2?.id || ''}

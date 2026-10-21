@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Trophy, RefreshCw, Swords, UserX } from 'lucide-react'
+import { getAvatarFallback } from '../../utils'
 
 const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
     const p1 = match.player1
@@ -36,8 +37,8 @@ const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
                     <div className="flex items-center gap-2 overflow-hidden">
                         {p1 ? (
                             <>
-                                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                    {p1.avatar_url && <img src={p1.avatar_url} alt="" className="w-full h-full object-cover" />}
+                                <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                    <img src={p1.avatar_url || getAvatarFallback(p1.name)} alt={p1.name} className="w-full h-full object-cover" />
                                 </div>
                                 <span className={`text-sm truncate ${winner?.id === p1.id ? 'text-green-800 dark:text-green-300' : 'text-gray-900 dark:text-white'}`}>
                                     {p1.name}
@@ -99,8 +100,8 @@ const MatchNode = ({ match, onMatchClick, onManualBye, readOnly }) => {
                     <div className="flex items-center gap-2 overflow-hidden">
                         {p2 ? (
                             <>
-                                <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                    {p2.avatar_url && <img src={p2.avatar_url} alt="" className="w-full h-full object-cover" />}
+                                <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                    <img src={p2.avatar_url || getAvatarFallback(p2.name)} alt={p2.name} className="w-full h-full object-cover" />
                                 </div>
                                 <span className={`text-sm truncate ${winner?.id === p2.id ? 'text-green-800 dark:text-green-300' : 'text-gray-900 dark:text-white'}`}>
                                     {p2.name}

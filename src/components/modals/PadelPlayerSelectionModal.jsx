@@ -91,7 +91,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', on
         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${teamColor}`}>
             <img
                 src={player.avatar_url || getAvatarFallback(player.name)}
-                className="w-8 h-8 rounded-full object-cover bg-gray-200"
+                className="w-10 h-10 shrink-0 rounded-full object-cover bg-gray-200"
                 alt={player.name}
             />
             <span className="font-bold text-sm text-gray-900 dark:text-white">{player.name}</span>
@@ -168,7 +168,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', on
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <img
                                                         src={player.avatar_url || getAvatarFallback(player.name)}
-                                                        className="w-10 h-10 shrink-0 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
+                                                        className="w-12 h-12 shrink-0 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
                                                         alt={player.name}
                                                     />
                                                     <span className="font-bold text-gray-900 dark:text-white truncate">{player.name}</span>

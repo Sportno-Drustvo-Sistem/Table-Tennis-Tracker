@@ -28,7 +28,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
                         : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'}
                 `}
             >
-                <div className="relative w-14 h-14 mb-2">
+                <div className="relative w-16 h-16 mb-2">
                     <img src={avatar} alt={user.name} className="w-full h-full rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
                     {isSelected && (
                         <div className="absolute -top-1 -right-1 bg-accent text-white rounded-full p-0.5 shadow-sm">
@@ -70,7 +70,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
         >
             <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
-                    <img src={avatar} alt={user.name} className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
+                    <img src={avatar} alt={user.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
                     {isSelected && (
                         <div className="absolute -top-1 -right-1 bg-accent text-white rounded-full p-0.5 shadow-sm">
                             <Check size={12} strokeWidth={3} />
@@ -91,7 +91,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
                     <div className="text-xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white leading-none">{elo}</div>
                     <div className="mt-1 text-[11px] tabular-nums text-gray-500 dark:text-gray-400">{wins}W / {losses}L</div>
                 </div>
-                {editButton('sm:hidden shrink-0 -mr-2 w-10 h-10 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white')}
+                {editButton('sm:hidden shrink-0 -mr-1 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white')}
                 {position != null && (
                     <span className="hidden sm:inline self-start text-xs font-semibold tabular-nums text-gray-400 dark:text-gray-500">#{position}</span>
                 )}

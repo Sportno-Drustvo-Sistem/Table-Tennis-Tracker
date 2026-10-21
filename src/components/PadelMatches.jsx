@@ -7,12 +7,13 @@ import { useToast } from '../contexts/useToast'
 import { PadelIcon } from './Icons'
 import { LIST_PAGE_SIZE, ShowMore, Spinner } from './layout/AppShell'
 
+// Phones drop the brackets so "1314 +18" stays on one line next to the avatar.
 const EloChangeDisplay = ({ elo, change }) => (
     <div className="text-[11px] sm:text-xs mt-0.5">
         <span className="text-gray-500 dark:text-gray-400">{elo}</span>
         {' '}
         <span className={change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}>
-            ({change > 0 ? '+' : ''}{change})
+            <span className="hidden sm:inline">(</span>{change > 0 ? '+' : ''}{change}<span className="hidden sm:inline">)</span>
         </span>
     </div>
 )
@@ -25,7 +26,7 @@ const TeamDisplay = ({ player1, player2, eloData, align = 'left' }) => {
                 const playerElo = eloData?.[player.id]
                 return (
                     <div key={i} className={`flex items-center gap-1.5 sm:gap-2 ${isRight ? 'flex-row-reverse' : ''}`}>
-                        <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player.name} />
+                        <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player.name} />
                         <div className={isRight ? 'text-right' : ''}>
                             <span className="block font-bold text-xs sm:text-sm text-gray-900 dark:text-white line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none">{player.name}</span>
                             {playerElo && <EloChangeDisplay elo={playerElo.elo} change={playerElo.change} />}
@@ -303,7 +304,7 @@ const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDele
                                                     </button>
                                                 </td>
                                             )}
-                                            <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
+                                            <td className="px-1.5 sm:px-3 xl:px-6 py-3 sm:py-4">
                                                 <TeamDisplay
                                                     player1={t1p1}
                                                     player2={t1p2}
@@ -331,7 +332,7 @@ const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDele
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
+                                            <td className="px-1.5 sm:px-3 xl:px-6 py-3 sm:py-4">
                                                 <TeamDisplay
                                                     player1={t2p1}
                                                     player2={t2p2}
@@ -352,14 +353,14 @@ const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDele
                                                             <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Delete?</span>
                                                             <button
                                                                 onClick={() => handleDeleteConfirm(match)}
-                                                                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                                                                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
                                                                 title="Confirm Delete"
                                                             >
                                                                 <Check size={16} />
                                                             </button>
                                                             <button
                                                                 onClick={handleDeleteCancel}
-                                                                className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-colors"
+                                                                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-colors"
                                                                 title="Cancel"
                                                             >
                                                                 <X size={16} />
@@ -371,20 +372,20 @@ const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDele
                                                                 <>
                                                                     <button
                                                                         onClick={() => onEditMatch(match)}
-                                                                        className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center"
+                                                                        className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center"
                                                                         title="Edit Match"
                                                                         disabled={loading}
                                                                     >
-                                                                        <Edit2 size={18} />
+                                                                        <Edit2 size={16} />
                                                                     </button>
                                                                     {!isBulkMode && (
                                                                         <button
                                                                             onClick={() => handleDeleteRequest(match.id)}
-                                                                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[36px] sm:min-w-[44px] min-h-[36px] sm:min-h-[44px] flex items-center justify-center p-1 sm:p-2"
+                                                                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 min-w-[32px] sm:min-w-[36px] min-h-[32px] sm:min-h-[36px] flex items-center justify-center"
                                                                             title="Delete Match"
                                                                             disabled={loading}
                                                                         >
-                                                                            <Trash2 size={18} />
+                                                                            <Trash2 size={16} />
                                                                         </button>
                                                                     )}
                                                                 </>

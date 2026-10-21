@@ -7,7 +7,7 @@ import { getSportStats } from '../utils'
 const SkeletonCard = () => (
     <div className="p-4 rounded-2xl border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700/80 animate-pulse">
         <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gray-200 dark:bg-gray-700" />
             <div className="flex-1 space-y-2">
                 <div className="h-3.5 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
                 <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-700/60" />
