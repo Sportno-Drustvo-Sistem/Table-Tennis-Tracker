@@ -1,163 +1,91 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { X, Shuffle, Check, AlertCircle, Scale } from 'lucide-react'
-import { getHeadToHeadStreak, getHandicapRule, getAvatarFallback } from '../../utils'
-import { calculateExpectedScore } from '../../utils'
+import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, getAvatarFallback, calculateExpectedScore } from '../../utils'
+import { generatePairing, getRecentMatches, getRestingPlayers } from '../../matchGenerator'
+
+const POOL_KEY = 'matchGeneratorPool'
+
+const loadSavedPool = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(POOL_KEY))
+        return Array.isArray(saved) ? saved : null
+    } catch {
+        return null
+    }
+}
 
 const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated }) => {
-    const [selectedPool, setSelectedPool] = useState([])
-    const [excludedPlayers, setExcludedPlayers] = useState([])
+    // null = no saved choice yet, so everyone is in the pool
+    const [selectedPool, setSelectedPool] = useState(null)
+    const [openedAt, setOpenedAt] = useState(null)
+    const [debuffs, setDebuffs] = useState([])
     const [generatedMatch, setGeneratedMatch] = useState(null)
     const [handicapRule, setHandicapRule] = useState(null)
     const [error, setError] = useState(null)
     const [isGenerating, setIsGenerating] = useState(false)
 
-    const identifyExcludedPlayers = useCallback(() => {
-        // Find players who played the last 2 consecutive matches
-        // matches are assumed to be sorted by date desc (newest first)
-
-        const excluded = new Set()
-
-        // We only care about the most recent matches to determine "streak"
-        // Iterate through matches to find current streaks
-
-        // Actually, the rule is "player shouldn't have more than 2 games in a row"
-        // This means if I played the last 2 games, I cannot play the next one.
-        // We look at the last 2 matches strictly.
-
-        if (matches.length >= 2) {
-            const lastMatch = matches[0]
-            const secondLastMatch = matches[1]
-
-            const lastPlayers = [lastMatch.player1_id, lastMatch.player2_id]
-            const secondLastPlayers = [secondLastMatch.player1_id, secondLastMatch.player2_id]
-
-            // Check for players present in BOTH
-            const playedBoth = lastPlayers.filter(id => secondLastPlayers.includes(id))
-
-            playedBoth.forEach(id => excluded.add(id))
-        }
-
-        setExcludedPlayers(Array.from(excluded))
-    }, [matches])
-
-    // Reset state when modal opens
+    // Reset only when the modal opens, so realtime updates don't wipe a shown pairing
     useEffect(() => {
         if (!isOpen) return undefined
+        let cancelled = false
 
         const timer = setTimeout(() => {
-            // Load from localStorage or default to all users
-            const savedPool = localStorage.getItem('matchGeneratorPool')
-            if (savedPool) {
-                try {
-                    const parsedPool = JSON.parse(savedPool)
-                    // Ensure saved IDs still exist in current users list
-                    const validIds = parsedPool.filter(id => users.some(u => u.id === id))
-                    setSelectedPool(validIds)
-                } catch {
-                    setSelectedPool(users.map(u => u.id))
-                }
-            } else {
-                setSelectedPool(users.map(u => u.id))
-            }
-
+            setSelectedPool(loadSavedPool())
+            setOpenedAt(Date.now())
             setGeneratedMatch(null)
             setHandicapRule(null)
             setError(null)
-            identifyExcludedPlayers()
         }, 0)
+        getActiveDebuffs().then(active => { if (!cancelled) setDebuffs(active) })
 
-        return () => clearTimeout(timer)
-    }, [identifyExcludedPlayers, isOpen, users])
+        return () => {
+            cancelled = true
+            clearTimeout(timer)
+        }
+    }, [isOpen])
 
-    // Save selected pool when it changes
-    const updateSelectedPool = (newPool) => {
-        setSelectedPool(newPool)
-        localStorage.setItem('matchGeneratorPool', JSON.stringify(newPool))
-    }
+    const recentMatches = useMemo(() => openedAt ? getRecentMatches(matches, openedAt) : [], [matches, openedAt])
+    const excludedPlayers = useMemo(() => getRestingPlayers(recentMatches), [recentMatches])
+    const pool = selectedPool ?? users.map(u => u.id)
 
     const togglePlayer = (userId) => {
-        if (selectedPool.includes(userId)) {
-            updateSelectedPool(selectedPool.filter(id => id !== userId))
-        } else {
-            updateSelectedPool([...selectedPool, userId])
+        const next = pool.includes(userId) ? pool.filter(id => id !== userId) : [...pool, userId]
+        const valid = next.filter(id => users.some(u => u.id === id))
+        setSelectedPool(valid)
+        try {
+            localStorage.setItem(POOL_KEY, JSON.stringify(valid))
+        } catch {
+            // Storage unavailable: the pool still works for this visit
         }
     }
 
     const generateMatch = () => {
         setError(null)
+        const avoidPair = generatedMatch?.map(p => p.id) ?? null
         setGeneratedMatch(null)
-        setIsGenerating(true)
 
-        // 1. Filter pool: Must be in selectedPool AND NOT in excludedPlayers
-        const candidates = users.filter(u =>
-            selectedPool.includes(u.id) && !excludedPlayers.includes(u.id)
-        )
+        const inPool = users.filter(u => pool.includes(u.id))
+        const candidates = inPool.filter(u => !excludedPlayers.includes(u.id))
 
         if (candidates.length < 2) {
-            setError('Not enough available players in the pool (after applying constraints).')
-            setIsGenerating(false)
+            const resting = inPool.filter(u => excludedPlayers.includes(u.id)).map(u => u.name)
+            setError(resting.length
+                ? `Not enough players: ${resting.join(' and ')} ${resting.length > 1 ? 'are' : 'is'} resting after playing the last 2 games. Add more players to the pool.`
+                : 'Select at least 2 players.')
             return
         }
 
-        // 2. Weighted Random Selection
-        // Get last 10 matches to determine weights
-        const recentMatches = matches.slice(0, 10)
-
-        // Calculate play counts in recent matches
-        const playCounts = {}
-        // candidateIds line removed as it was unused and invalid
-
-        // Initialize counts to 0
-        candidates.forEach(c => playCounts[c.id] = 0)
-
-        // Count occurrences
-        recentMatches.forEach(m => {
-            if (playCounts[m.player1_id] !== undefined) playCounts[m.player1_id]++
-            if (playCounts[m.player2_id] !== undefined) playCounts[m.player2_id]++
-        })
-
-        // Calculate weights: 1 / (count + 1)
-        // Less played = Higher weight
-        const candidatesWithWeights = candidates.map(c => {
-            const count = playCounts[c.id]
-            const weight = 1 / (count + 1)
-            return { ...c, weight, recentCount: count }
-        })
-
-        console.log('Match Generation Weights:', candidatesWithWeights.map(c => ({
-            name: c.name,
-            recentMatches: c.recentCount,
-            weight: c.weight.toFixed(3)
-        })))
-
-        // Helper for weighted random choice
-        const weightedRandomObj = (items) => {
-            const totalWeight = items.reduce((sum, item) => sum + item.weight, 0)
-            let random = Math.random() * totalWeight
-
-            for (const item of items) {
-                if (random < item.weight) return item
-                random -= item.weight
-            }
-            return items[items.length - 1]
-        }
-
+        setIsGenerating(true)
         setTimeout(() => {
-            // Select Player 1
-            const player1 = weightedRandomObj(candidatesWithWeights)
+            const [player1, player2] = generatePairing(candidates, recentMatches, { avoidPair })
 
-            // Select Player 2 (exclude Player 1)
-            const remainingCandidates = candidatesWithWeights.filter(c => c.id !== player1.id)
-            const player2 = weightedRandomObj(remainingCandidates)
-
-            // Check for Handicap
             const { streak, winnerId } = getHeadToHeadStreak(player1.id, player2.id, matches)
             let rule = null
 
             if (streak >= 8 && winnerId) {
                 const winnerName = winnerId === player1.id ? player1.name : player2.name
                 const loserName = winnerId === player1.id ? player2.name : player1.name
-                rule = getHandicapRule(streak, winnerName, loserName)
+                rule = getHandicapRule(streak, winnerName, loserName, debuffs)
             }
 
             setGeneratedMatch([player1, player2])
@@ -253,10 +181,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
 
                             <div className="flex gap-3 justify-center">
                                 <button
-                                    onClick={() => {
-                                        setGeneratedMatch(null)
-                                        generateMatch()
-                                    }}
+                                    onClick={generateMatch}
                                     className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
                                 >
                                     Retry
@@ -273,7 +198,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                     ) : (
                         <>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Select players available for this match. Players who played the last 2 consecutive games are automatically excluded.
+                                Select players available for this match. Players who played the last 2 games in a row sit the next one out. Games older than 12 hours don't count.
                             </p>
 
                             {/* Exclusion Notice */}
@@ -291,7 +216,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                             <div className="grid grid-cols-2 gap-2 sm:gap-3">
                                 {users.map(user => {
                                     const isExcluded = excludedPlayers.includes(user.id)
-                                    const isSelected = selectedPool.includes(user.id)
+                                    const isSelected = pool.includes(user.id)
 
                                     return (
                                         <button
