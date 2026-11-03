@@ -244,22 +244,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setCompletedSets([])
             setBestOf(1)
             setMatchStarted(false)
+            setInitialServer(null)
             setEloChange(null)
             setRefusedRules(new Set())
             getActiveDebuffs().then(setAllDebuffs)
-
-            // Determine initial server: Higher seed (Lower Elo) serves first
-            if (player1 && player2) {
-                const p1Elo = player1.elo_rating || 1200
-                const p2Elo = player2.elo_rating || 1200
-                if (p1Elo < p2Elo) {
-                    setInitialServer(1)
-                } else if (p2Elo < p1Elo) {
-                    setInitialServer(2)
-                } else {
-                    setInitialServer(Math.random() > 0.5 ? 1 : 2)
-                }
-            }
         }
     }, [isOpen, player1, player2])
 
@@ -308,8 +296,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const gamesWon2 = completedSets.filter(s => s.s2 > s.s1).length
 
     const scorePoint = useCallback((playerNum) => {
+        if (!initialServer || gameWinner || matchWinner) return
         unlockAudioAndSpeech()
-        if (gameWinner || matchWinner) return
 
         let newS1 = score1
         let newS2 = score2
@@ -452,16 +440,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         setMatchWinner(null)
         setCompletedSets([])
         setMatchStarted(false)
+        setInitialServer(null)
         setEloChange(null)
-
-        // Re-determine server
-        if (player1 && player2) {
-            const p1Elo = player1.elo_rating || 1200
-            const p2Elo = player2.elo_rating || 1200
-            if (p1Elo < p2Elo) setInitialServer(1)
-            else if (p2Elo < p1Elo) setInitialServer(2)
-            else setInitialServer(Math.random() > 0.5 ? 1 : 2)
-        }
     }
 
     // Keyboard scoring — placed before the early return to respect React rules of hooks
@@ -626,7 +606,34 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     </div>
                 )}
 
+                {initialServer === null && (
+                    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 short:py-2 text-center" role="group" aria-labelledby="first-server-prompt">
+                        <h3 id="first-server-prompt" className="text-xl font-bold text-gray-900 dark:text-white">
+                            Who serves first?
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Click a player to start the match.</p>
+                        <div className="mt-5 short:mt-2 grid grid-cols-2 gap-3">
+                            {[player1, player2].map((player, index) => (
+                                <button
+                                    key={player.id}
+                                    type="button"
+                                    onClick={() => setInitialServer(index + 1)}
+                                    className={`min-w-0 rounded-2xl border-2 p-4 short:p-2 flex flex-col items-center gap-3 short:gap-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${index === 0
+                                        ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 focus-visible:outline-blue-500'
+                                        : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 focus-visible:outline-red-500'
+                                        }`}
+                                >
+                                    <img src={player.avatar_url || getAvatarFallback(player.name)} alt="" className="w-16 h-16 short:w-12 short:h-12 rounded-full object-cover" />
+                                    <span className="font-bold break-words w-full">{player.name}</span>
+                                    <span className="text-sm">Serves first</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Score Area */}
+                {initialServer !== null && (
                 <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 short:pb-2 short:pt-1 gap-3 min-h-0">
                     {/* Player 1 Side */}
                     <button
@@ -729,6 +736,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         )}
                     </button>
                 </div>
+                )}
 
                 {/* Bottom Bar */}
                 <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 short:py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-2">
@@ -744,8 +752,12 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </button>
                             <div className="flex items-center gap-2">
                                 <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                    <span className="can-hover:hidden">Tap a side to score</span>
-                                    <span className="hidden can-hover:inline">Tap or use ← → keys to score</span>
+                                    {initialServer === null ? 'Choose the first server above' : (
+                                        <>
+                                            <span className="can-hover:hidden">Tap a side to score</span>
+                                            <span className="hidden can-hover:inline">Tap or use ← → keys to score</span>
+                                        </>
+                                    )}
                                 </div>
                                 <button
                                     onClick={() => setSoundEnabled(!soundEnabled)}
