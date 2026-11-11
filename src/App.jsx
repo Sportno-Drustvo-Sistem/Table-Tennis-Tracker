@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
-import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap } from 'lucide-react'
+import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { filterSeasonMatches, getSeasonUsers } from './seasonUtils'
@@ -68,12 +68,13 @@ const SPORTS = [
 ]
 
 const NAV_ITEMS = [
-  { id: 'grid', label: 'Players', Icon: Users },
-  { id: 'leaderboard', label: 'Leaderboard', shortLabel: 'Ranks', Icon: Trophy },
-  { id: 'stats', label: 'Stats', Icon: BarChart2 },
-  { id: 'matches', label: 'Matches', Icon: Calendar },
-  { id: 'tournament', label: 'Tournament', shortLabel: 'Cup', Icon: Swords, sports: ['pingpong'] },
-  { id: 'settings', label: 'Settings', Icon: Settings, adminOnly: true },
+  // `primary` tabs sit in the phone's bottom bar; the rest open from its "More" sheet.
+  { id: 'grid', label: 'Players', Icon: Users, primary: true },
+  { id: 'leaderboard', label: 'Leaderboard', shortLabel: 'Ranks', Icon: Trophy, primary: true },
+  { id: 'matches', label: 'Matches', Icon: Calendar, primary: true },
+  { id: 'stats', label: 'Stats', description: 'Charts, streaks and head-to-heads', Icon: BarChart2 },
+  { id: 'tournament', label: 'Tournament', description: 'Brackets and cup history', Icon: Swords, sports: ['pingpong'] },
+  { id: 'settings', label: 'Settings', description: 'Debuffs and Discord', Icon: Settings, adminOnly: true },
 ]
 
 // --- Main App ---
@@ -144,6 +145,8 @@ function App() {
   const [isPlayerSelectionOpen, setIsPlayerSelectionOpen] = useState(false)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false)
+  // Which action the player pickers offer: 'live' scoring or 'record' a final score.
+  const [selectionMode, setSelectionMode] = useState('record')
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
   const [isLiveMatchOpen, setIsLiveMatchOpen] = useState(false)
   const [liveMatchPlayers, setLiveMatchPlayers] = useState([null, null])
@@ -153,7 +156,6 @@ function App() {
 
   // Modal States — Padel
   const [isPadelSelectionOpen, setIsPadelSelectionOpen] = useState(false)
-  const [padelSelectionMode, setPadelSelectionMode] = useState('record')
   const [isPadelMatchModalOpen, setIsPadelMatchModalOpen] = useState(false)
   const [padelTeams, setPadelTeams] = useState({ team1: null, team2: null })
   const [editingPadelMatch, setEditingPadelMatch] = useState(null)
@@ -369,41 +371,34 @@ function App() {
     return map
   }, [tennisStats])
 
-  const openLiveMatch = () => {
-    if (isPingPong) {
-      setIsGeneratorOpen(true)
-    } else if (isPadel) {
-      setPadelSelectionMode('live')
-      setIsPadelSelectionOpen(true)
-    } else {
-      setIsTennisSelectionOpen(true)
-    }
+  const openSelection = (mode) => {
+    setSelectionMode(mode)
+    if (isPingPong) setIsPlayerSelectionOpen(true)
+    else if (isPadel) setIsPadelSelectionOpen(true)
+    else setIsTennisSelectionOpen(true)
   }
+  const openLiveMatch = () => openSelection('live')
+  const openRecordMatch = () => openSelection('record')
+  const openGenerator = () => setIsGeneratorOpen(true)
+  // Saving needs an admin session, so locked actions lead to the login instead of a dead end.
+  const adminOnly = (action) => isAdmin ? action : () => setIsLoginModalOpen(true)
 
-  const openRecordMatch = () => {
-    if (isPingPong) {
-      setIsPlayerSelectionOpen(true)
-    } else if (isPadel) {
-      setPadelSelectionMode('record')
-      setIsPadelSelectionOpen(true)
-    } else {
-      setIsTennisSelectionOpen(true)
-    }
-  }
+  const playActions = [
+    isPingPong && { id: 'generate', label: 'Generate match', description: 'Pick who is here and get a fair pairing', Icon: Shuffle, onClick: openGenerator },
+    { id: 'live', label: 'Live match', description: 'Keep score point by point', Icon: Zap, locked: !isAdmin, onClick: adminOnly(openLiveMatch) },
+    { id: 'record', label: 'Record result', description: 'Enter the score of a finished match', Icon: PencilLine, locked: !isAdmin, onClick: adminOnly(openRecordMatch) },
+  ].filter(Boolean)
 
+  // Phones and tablets start matches from the Play button in the bottom bar.
   const pageActions = currentTab === 'grid' && users.length > 0 ? (
     <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>Add Player</Button>
-  ) : currentTab === 'matches' && isAdmin ? (
+  ) : currentTab === 'matches' ? (
     <>
-      <Button variant="live" icon={Zap} onClick={openLiveMatch}>Live Match</Button>
-      {/* Below lg (bottom-nav layouts) the floating Record button replaces this one. */}
-      <Button variant="primary" icon={Plus} onClick={openRecordMatch} className="hidden lg:inline-flex">Record Match</Button>
+      {isPingPong && <Button icon={Shuffle} onClick={openGenerator} className="hidden lg:inline-flex">Generate Match</Button>}
+      {isAdmin && <Button variant="live" icon={Zap} onClick={openLiveMatch} className="hidden lg:inline-flex">Live Match</Button>}
+      {isAdmin && <Button variant="primary" icon={Plus} onClick={openRecordMatch} className="hidden lg:inline-flex">Record Match</Button>}
     </>
   ) : null
-
-  const floatingAction = isAdmin && ['grid', 'leaderboard', 'stats', 'matches'].includes(currentTab)
-    ? { icon: Plus, label: 'Record match', onClick: openRecordMatch }
-    : null
 
   return (
     <AppShell
@@ -417,7 +412,7 @@ function App() {
       onToggleDarkMode={() => setDarkMode(!darkMode)}
       isAdmin={isAdmin}
       onAdminClick={() => isAdmin ? handleAdminLogout() : setIsLoginModalOpen(true)}
-      floatingAction={floatingAction}
+      playActions={playActions}
     >
       <PageHeader
         title={currentNav.label}
@@ -494,7 +489,6 @@ function App() {
             historyLoading={!loaded.matches}
             onEditMatch={setEditingMatch}
             onMatchDeleted={refreshPingPong}
-            onGenerateMatch={() => setIsGeneratorOpen(true)}
             isAdmin={isAdmin && canManageSeason}
             adminToken={adminToken}
           />
@@ -570,6 +564,7 @@ function App() {
         users={users}
         onPlayersSelected={handlePlayersSelected}
         onLiveMatchSelected={handleLiveMatchFromSelection}
+        mode={selectionMode}
       />
 
       <MatchGeneratorModal
@@ -578,6 +573,8 @@ function App() {
         users={users}
         matches={currentMatches}
         onMatchGenerated={handleMatchGenerated}
+        canStart={isAdmin}
+        onLogin={() => { setIsGeneratorOpen(false); setIsLoginModalOpen(true) }}
       />
 
       <EditMatchModal
@@ -626,7 +623,7 @@ function App() {
         isOpen={isPadelSelectionOpen}
         onClose={() => setIsPadelSelectionOpen(false)}
         users={users}
-        mode={padelSelectionMode}
+        mode={selectionMode}
         onTeamsSelected={handlePadelTeamsSelected}
         onLiveTeamsSelected={handlePadelLiveTeamsSelected}
         padelStats={padelStats}
@@ -681,6 +678,7 @@ function App() {
         users={users}
         onPlayersSelected={handleTennisPlayersSelected}
         onLiveMatchSelected={handleTennisLiveMatchSelected}
+        mode={selectionMode}
         sport="tennis"
         sportStatsMap={tennisStatsMap}
         title="Select Players for Tennis Match"

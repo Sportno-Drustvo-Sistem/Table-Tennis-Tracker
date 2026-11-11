@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react'
 import UserCard from '../UserCard'
 import { getAvatarFallback } from '../../utils'
 
-const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiveMatchSelected, sport = 'pingpong', sportStatsMap, title = 'Select Players for Match', accent = 'blue' }) => {
+const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiveMatchSelected, mode, sport = 'pingpong', sportStatsMap, title = 'Select Players for Match', accent = 'blue' }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
     const [query, setQuery] = useState('')
 
@@ -141,7 +141,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                             </span>
                         </div>
                         <div className="flex gap-2">
-                            <button
+                            {mode !== 'live' && <button
                                 disabled={!ready}
                                 onClick={() => {
                                     onPlayersSelected(selectedPlayers[0], selectedPlayers[1])
@@ -150,8 +150,8 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                 className={`${accentButton} flex-1 sm:flex-none h-11 sm:h-9 px-4 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed`}
                             >
                                 Record Score
-                            </button>
-                            {onLiveMatchSelected && (
+                            </button>}
+                            {onLiveMatchSelected && mode !== 'record' && (
                                 <button
                                     disabled={!ready}
                                     onClick={() => {
@@ -163,7 +163,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 36 36" className="transform -rotate-12 group-hover:scale-110 transition-transform">
                                         <path fill="#ffac33" d="M32.938 15.651A1 1 0 0 0 32 15H19.925L26.89 1.458A1 1 0 0 0 26 0a1 1 0 0 0-.653.243L18 6.588L3.347 19.243A1 1 0 0 0 4 21h12.075L9.11 34.542A1 1 0 0 0 10 36a1 1 0 0 0 .653-.243L18 29.412l14.653-12.655a1 1 0 0 0 .285-1.106" />
                                     </svg>
-                                    Live Match
+                                    {mode === 'live' ? 'Start Live Match' : 'Live Match'}
                                 </button>
                             )}
                         </div>

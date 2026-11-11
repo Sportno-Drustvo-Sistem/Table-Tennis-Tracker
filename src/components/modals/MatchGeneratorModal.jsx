@@ -14,7 +14,7 @@ const loadSavedPool = () => {
     }
 }
 
-const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated }) => {
+const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated, canStart = true, onLogin }) => {
     // null = no saved choice yet, so everyone is in the pool
     const [selectedPool, setSelectedPool] = useState(null)
     const [openedAt, setOpenedAt] = useState(null)
@@ -49,7 +49,10 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
     const pool = selectedPool ?? users.map(u => u.id)
 
     const togglePlayer = (userId) => {
-        const next = pool.includes(userId) ? pool.filter(id => id !== userId) : [...pool, userId]
+        savePool(pool.includes(userId) ? pool.filter(id => id !== userId) : [...pool, userId])
+    }
+
+    const savePool = (next) => {
         const valid = next.filter(id => users.some(u => u.id === id))
         setSelectedPool(valid)
         try {
@@ -97,8 +100,9 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90dvh]">
+        // Bottom sheet on phones so the Generate button stays in thumb reach.
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90dvh] animate-slide-up">
                 {/* Header */}
                 <div className="px-4 py-3 sm:p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -182,23 +186,39 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                             <div className="flex gap-3 justify-center">
                                 <button
                                     onClick={generateMatch}
-                                    className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+                                    className="flex-1 h-12 flex items-center justify-center gap-2 font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors border border-gray-200 dark:border-gray-600"
                                 >
-                                    Retry
+                                    <Shuffle size={18} />
+                                    Shuffle again
                                 </button>
-                                <button
+                                {canStart && <button
                                     onClick={() => onMatchGenerated(generatedMatch[0], generatedMatch[1])}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center"
+                                    className="flex-1 h-12 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center"
                                 >
                                     <Check size={20} className="mr-2" />
                                     Start Match
-                                </button>
+                                </button>}
                             </div>
+                            {!canStart && (
+                                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                                    Scoring and saving this match needs the admin PIN.{' '}
+                                    <button onClick={onLogin} className="font-semibold text-blue-600 dark:text-blue-400 underline">Admin login</button>
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                Select players available for this match. Players who played the last 2 games in a row sit the next one out. Games older than 12 hours don't count.
+                            <div className="flex items-center justify-between gap-3 mb-1">
+                                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    Who's here? <span className="font-normal text-gray-500 dark:text-gray-400">{users.filter(u => pool.includes(u.id)).length} of {users.length}</span>
+                                </span>
+                                <span className="flex gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                    <button onClick={() => savePool(users.map(u => u.id))} className="px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30">All</button>
+                                    <button onClick={() => savePool([])} className="px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30">None</button>
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                                Players who played the last 2 games in a row sit the next one out. Games older than 12 hours don't count.
                             </p>
 
                             {/* Exclusion Notice */}
@@ -253,7 +273,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
 
                 {/* Kept below the scrolling list so it is reachable without scrolling to the end. */}
                 {!generatedMatch && (
-                    <div className="px-4 pt-3 pb-4 sm:px-6 sm:pb-6 border-t border-gray-100 dark:border-gray-700">
+                    <div className="px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6 border-t border-gray-100 dark:border-gray-700">
                         {error && (
                             <div className="mb-3 text-red-500 text-sm text-center font-medium animate-pulse">
                                 {error}
