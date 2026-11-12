@@ -25,6 +25,11 @@ export const DATA_SOURCES = {
     tennisMatches: { table: 'tennis_matches', order: byNewest, history: true, load: client => fetchAllMatches(client, 'tennis_matches') },
     tennisStats: { table: 'tennis_stats', load: client => client.from('tennis_stats').select('*') },
     seasonData: { load: loadSeasons },
+    // Points betting. Optional: the app works without these tables (before the
+    // betting migration is applied, or after it is rolled back).
+    betWallets: { table: 'bet_wallets', optional: true, load: client => client.from('bet_wallets').select('*') },
+    betMarkets: { table: 'bet_markets', optional: true, order: byNewest, load: client => client.from('bet_markets').select('*').order('created_at', { ascending: false }).limit(300) },
+    bets: { table: 'bets', optional: true, order: byNewest, load: client => client.from('bets').select('*').order('created_at', { ascending: false }).limit(1000) },
 }
 
 export const SPORT_DATA = {
@@ -33,7 +38,10 @@ export const SPORT_DATA = {
     tennis: { history: 'tennisMatches', stats: 'tennisStats' },
 }
 
-export const REALTIME_TABLES = Object.values(DATA_SOURCES).map(source => source.table).filter(Boolean)
+const realtimeTables = optional => Object.values(DATA_SOURCES).filter(source => source.table && Boolean(source.optional) === optional).map(source => source.table)
+export const REALTIME_TABLES = realtimeTables(false)
+// Subscribed on their own channel so a missing table cannot break the main one.
+export const OPTIONAL_REALTIME_TABLES = realtimeTables(true)
 const keyForTable = Object.fromEntries(Object.entries(DATA_SOURCES).map(([key, source]) => [source.table, key]))
 
 export const createInitialData = () => ({
@@ -44,6 +52,9 @@ export const createInitialData = () => ({
     tennisMatches: [],
     tennisStats: [],
     seasonData: { seasons: [], snapshots: [] },
+    betWallets: [],
+    betMarkets: [],
+    bets: [],
     loaded: {},
     failed: {},
 })

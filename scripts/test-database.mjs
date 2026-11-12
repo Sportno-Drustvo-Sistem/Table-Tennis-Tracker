@@ -65,7 +65,18 @@ try {
         await Promise.all(Array.from({length:12},attempt))
         assert.equal(sql(db,"SELECT failed_attempts FROM private.admin_login_attempts WHERE login_key=private.admin_login_key()"),'5')
         assert.equal(sql(db,"SELECT failed_attempts FROM private.admin_login_attempts WHERE login_key='aggregate'"),'5')
-        process.stdout.write(mode+': migration chain, authorization, transactions, throttling, archive, SQL/JS parity passed\n')
+        // Points betting, then its rollback: nothing of the feature may remain,
+        // plain match saving must still work, and the migration must re-apply.
+        sql(db,read('betting.sql'))
+        const bettingObjects="SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname ~ '^bets?(_|$)')+(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN('public','private') AND p.proname ~ 'bet')+(SELECT count(*) FROM pg_trigger WHERE tgname ~ 'bets');"
+        assert.notEqual(sql(db,bettingObjects),'0')
+        const bettingVersion=files.find(file=>file.includes('points_betting')).split('_')[0]
+        sql(db,fs.readFileSync(path.join('supabase/rollbacks',bettingVersion+'_points_betting_down.sql'),'utf8'))
+        assert.equal(sql(db,bettingObjects),'0','betting rollback left objects behind')
+        sql(db,"SET ROLE anon; SELECT public.delete_pingpong_matches('valid',ARRAY[(public.record_pingpong_match('valid',(SELECT id FROM test.players WHERE n=1),(SELECT id FROM test.players WHERE n=2),'[{\"s1\":11,\"s2\":8}]')->'match'->>'id')::uuid]);")
+        sql(db,fs.readFileSync(path.join('supabase/migrations',files.find(file=>file.includes('points_betting'))),'utf8'))
+        assert.equal(sql(db,'SELECT count(*) FROM public.bets'),'0')
+        process.stdout.write(mode+': migration chain, authorization, transactions, throttling, archive, SQL/JS parity, betting and its rollback passed\n')
     }
 } finally {
     if(started)docker(['rm','-f',name])

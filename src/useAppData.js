@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { supabase } from './supabaseClient'
 import { onMatchRecorded } from './matchPersistence'
+import { bettingChanges, onBetsChanged } from './betPersistence'
 import {
     DATA_SOURCES,
+    OPTIONAL_REALTIME_TABLES,
     REALTIME_TABLES,
     SPORT_DATA,
     combineChanges,
@@ -49,7 +51,7 @@ export const useAppData = (showToast) => {
             load.applied = ticket
 
             if (result.error) {
-                console.error(`Error loading ${key}:`, result.error)
+                if (!DATA_SOURCES[key].optional) console.error(`Error loading ${key}:`, result.error)
                 dispatch({ type: 'failed', key })
                 return key
             }
@@ -72,11 +74,14 @@ export const useAppData = (showToast) => {
         return refresh([history, stats])
     }, [refresh])
 
-    useEffect(() => onMatchRecorded(({ sport, matches }) => {
+    useEffect(() => onMatchRecorded(({ sport, matches, betting }) => {
         const { history, stats } = SPORT_DATA[sport]
         if (matches.length) applyChanges({ [history]: { upserts: matches } })
+        if (betting) applyChanges(bettingChanges(betting))
         refresh([stats])
     }), [applyChanges, refresh])
+
+    useEffect(() => onBetsChanged(applyChanges), [applyChanges])
 
     useEffect(() => {
         const initialLoad = setTimeout(() => refresh(), 0)
@@ -94,15 +99,19 @@ export const useAppData = (showToast) => {
             if (reload.size) refresh([...reload])
         }
 
-        const channel = supabase.channel('public:db_changes')
-        REALTIME_TABLES.forEach(table => {
-            channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+        const listen = (target, tables) => tables.forEach(table => {
+            target.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
                 const change = realtimeChange(payload)
                 if (!change) return
                 queue.push(change)
                 flushTimer ||= setTimeout(flush, REALTIME_BATCH_MS)
             })
         })
+        const channel = supabase.channel('public:db_changes')
+        listen(channel, REALTIME_TABLES)
+        const optionalChannel = supabase.channel('public:optional_changes')
+        listen(optionalChannel, OPTIONAL_REALTIME_TABLES)
+        optionalChannel.subscribe()
         channel.subscribe((status) => {
             if (status !== 'SUBSCRIBED') return
             // Changes made while the socket was down were never delivered.
@@ -114,6 +123,7 @@ export const useAppData = (showToast) => {
             clearTimeout(initialLoad)
             clearTimeout(flushTimer)
             supabase.removeChannel(channel)
+            supabase.removeChannel(optionalChannel)
         }
     }, [applyChanges, refresh])
 
@@ -121,5 +131,9 @@ export const useAppData = (showToast) => {
 
     const loading = !data.loaded.users && !data.failed.users
 
-    return { ...data, loading, historyFailed, refresh, refreshSport }
+    // False until the betting tables answer (so also when they do not exist).
+    const bettingReady = Boolean(data.loaded.betWallets && data.loaded.betMarkets && data.loaded.bets)
+        && !data.failed.betWallets && !data.failed.betMarkets && !data.failed.bets
+
+    return { ...data, loading, historyFailed, bettingReady, refresh, refreshSport }
 }

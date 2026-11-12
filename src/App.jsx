@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
-import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine } from 'lucide-react'
+import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { filterSeasonMatches, getSeasonUsers } from './seasonUtils'
@@ -17,6 +17,7 @@ import AppShell, { PageHeader, Button, Spinner } from './components/layout/AppSh
 import PlayersView from './components/PlayersView'
 import Leaderboard from './components/Leaderboard'
 import Matches from './components/Matches'
+import BetsView from './components/BetsView'
 import AddUserModal from './components/modals/AddUserModal'
 import EditUserModal from './components/modals/EditUserModal'
 import EditMatchModal from './components/modals/EditMatchModal'
@@ -76,6 +77,7 @@ const NAV_ITEMS = [
   { id: 'matches', label: 'Matches', Icon: Calendar, primary: true },
   { id: 'stats', label: 'Stats', description: 'Charts, streaks and head-to-heads', Icon: BarChart2 },
   { id: 'tournament', label: 'Tournament', description: 'Brackets and cup history', Icon: Swords, sports: ['pingpong'] },
+  { id: 'bets', label: 'Bets', description: 'Points wagered on live matches', Icon: Coins, sports: ['pingpong'], betting: true },
   { id: 'settings', label: 'Settings', description: 'Debuffs and Discord', Icon: Settings, adminOnly: true },
 ]
 
@@ -91,6 +93,10 @@ function App() {
     tennisMatches,
     tennisStats,
     seasonData: { seasons, snapshots: seasonSnapshots },
+    betWallets,
+    betMarkets,
+    bets,
+    bettingReady,
     loaded,
     loading,
     historyFailed,
@@ -363,12 +369,15 @@ function App() {
   const scopedUsers = useMemo(() => activeSeason ? getSeasonUsers(users, matches, seasonSnapshots, selectedSeasonId, activeSeason.id) : users, [users, matches, seasonSnapshots, selectedSeasonId, activeSeason])
   const canManageSeason = !activeSeason || String(selectedSeasonId) === String(activeSeason.id)
 
+  // Points betting on live matches; off until its tables exist.
+  const liveBetting = useMemo(() => bettingReady ? { users, bets, wallets: betWallets } : null, [bettingReady, users, bets, betWallets])
+
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
   const sport = SPORTS.find(s => s.id === activeSport) || SPORTS[0]
 
   const navItems = NAV_ITEMS.filter(item =>
-    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin)
+    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin) && (!item.betting || bettingReady)
   )
   // Fall back to Players when the stored tab isn't available (e.g. Tournament outside ping pong).
   const currentTab = navItems.some(item => item.id === activeTab) ? activeTab : 'grid'
@@ -547,6 +556,10 @@ function App() {
         />
       )}
 
+      {currentTab === 'bets' && (
+        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} isAdmin={isAdmin} adminToken={adminToken} />
+      )}
+
       {currentTab === 'settings' && (
         <div className="space-y-6">
           <DebuffSettings isAdmin={isAdmin} adminToken={adminToken} />
@@ -635,6 +648,7 @@ function App() {
             matches={currentMatches}
             historyMatches={matches}
             adminToken={adminToken}
+            betting={liveBetting}
           />
         </Suspense>
       )}

@@ -42,10 +42,21 @@ export const buildTennisRecordParams = ({ adminToken, player1Id, player2Id, scor
     p_sets_data: setsData,
 })
 
+export const buildPingPongBetRecordParams = ({ adminToken, marketId, player1Id, player2Id, sets, handicapRule = null }) => ({
+    p_admin_token: requireAdminToken(adminToken),
+    p_market_id: marketId,
+    p_player1_id: player1Id,
+    p_player2_id: player2Id,
+    p_sets: sets,
+    p_handicap_rule: handicapRule,
+})
+
 const normalizeRecordResponse = (data) => ({
     match: data?.match || null,
     matches: data?.matches || (data?.match ? [data.match] : []),
     changes: data?.changes || {},
+    // Only present when the save also settled bets.
+    ...(data?.market ? { betting: { market: data.market, bets: data.bets || [], wallets: data.wallets || [] } } : {}),
 })
 
 // Every successful save is announced so the app can merge the returned rows
@@ -58,7 +69,7 @@ export const onMatchRecorded = (listener) => {
 }
 
 const callRecordRpc = async (client, sport, functionName, params) => {
-    if (functionName === 'record_pingpong_match' && (!params.p_sets?.length || params.p_sets.some(s => !validPingPongScores(s.s1, s.s2)))) throw new Error('Invalid Ping Pong scores')
+    if (params.p_sets !== undefined && (!params.p_sets?.length || params.p_sets.some(s => !validPingPongScores(s.s1, s.s2)))) throw new Error('Invalid Ping Pong scores')
     const { data, error } = await client.rpc(functionName, params)
     if (error) {
         if (isAdminSessionError(error)) reportAdminSessionExpired()
@@ -73,6 +84,11 @@ const callRecordRpc = async (client, sport, functionName, params) => {
 
 export const recordPingPongMatch = (client, payload) => (
     callRecordRpc(client, 'pingpong', 'record_pingpong_match', buildPingPongRecordParams(payload))
+)
+
+// Saves the match and pays out its bets in one database transaction.
+export const recordPingPongMatchWithBets = (client, payload) => (
+    callRecordRpc(client, 'pingpong', 'record_pingpong_match_with_bets', buildPingPongBetRecordParams(payload))
 )
 
 export const recordPadelMatch = (client, payload) => (

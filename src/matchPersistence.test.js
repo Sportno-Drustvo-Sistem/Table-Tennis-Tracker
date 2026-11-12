@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { onAdminSessionExpired } from './adminSession'
 import {
     buildPadelRecordParams,
@@ -146,5 +146,21 @@ describe('match persistence RPC helpers', () => {
         expect(describeRecordedMatch({ sport: 'tennis', match: { player1_id: 'p1', player2_id: 'x' }, changes: {} }, usersById))
             .toBe('Match saved · Alice · Unknown')
         expect(describeRecordedMatch({ sport: 'tennis', match: null }, usersById)).toBe('Match saved')
+    })
+})
+
+describe('saving a match with bets', () => {
+    it('calls the settling RPC and passes the settled bets on to listeners', async () => {
+        const { recordPingPongMatchWithBets, onMatchRecorded } = await import('./matchPersistence')
+        const data = { match: { id: 'm' }, matches: [{ id: 'm' }], changes: {}, market: { id: 'k', status: 'settled' }, bets: [{ id: 'b' }], wallets: [{ id: 'w' }] }
+        const rpc = vi.fn().mockResolvedValue({ data, error: null })
+        const heard = []
+        const stop = onMatchRecorded(event => heard.push(event))
+        const result = await recordPingPongMatchWithBets({ rpc }, { adminToken: 't', marketId: 'k', player1Id: 'a', player2Id: 'b', sets: [{ s1: 11, s2: 4 }] })
+        stop()
+        expect(rpc).toHaveBeenCalledWith('record_pingpong_match_with_bets', { p_admin_token: 't', p_market_id: 'k', p_player1_id: 'a', p_player2_id: 'b', p_sets: [{ s1: 11, s2: 4 }], p_handicap_rule: null })
+        expect(result.betting).toEqual({ market: data.market, bets: data.bets, wallets: data.wallets })
+        expect(heard[0].betting.market.id).toBe('k')
+        await expect(recordPingPongMatchWithBets({ rpc }, { adminToken: 't', marketId: 'k', player1Id: 'a', player2Id: 'b', sets: [{ s1: 11, s2: 11 }] })).rejects.toThrow('Invalid Ping Pong scores')
     })
 })

@@ -1,0 +1,82 @@
+// Points betting rules shared by the bet sheet and the Bets page. The database
+// (supabase/migrations/*_points_betting.sql) is the authority on balances and
+// payouts; the numbers here are previews and must stay in step with it.
+
+export const STARTING_BALANCE = 1000
+export const REBUY_BALANCE = 100
+export const MIN_MULTIPLIER = 1.05
+export const MAX_MULTIPLIER = 10
+export const STAKE_CHIPS = [10, 50, 100, 250]
+
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x))
+
+// The server refuses probabilities outside this range.
+export const clampBetProbability = p => clamp(p, 0.01, 0.99)
+
+// What one point pays back when the backed side wins with probability p.
+export const betMultiplier = p => Math.round(clamp(1 / clampBetProbability(p), MIN_MULTIPLIER, MAX_MULTIPLIER) * 100) / 100
+
+export const potentialPayout = (stake, multiplier) => Math.round(stake * multiplier)
+
+// Betting stops at match point: one more point could end the match.
+export const isBettingClosed = ({ score1 = 0, score2 = 0, games1 = 0, games2 = 0, bestOf = 1, gameWinner = null, matchWinner = null }) => {
+    if (matchWinner) return true
+    if (gameWinner) return false
+    const need = Math.ceil(bestOf / 2)
+    const gamePoint1 = score1 >= 10 && score1 > score2
+    const gamePoint2 = score2 >= 10 && score2 > score1
+    return (gamePoint1 && games1 + 1 >= need) || (gamePoint2 && games2 + 1 >= need)
+}
+
+// Players in the match may only back themselves.
+export const allowedSides = (userId, player1Id, player2Id) => (
+    userId === player1Id ? [1] : userId === player2Id ? [2] : [1, 2]
+)
+
+export const walletBalance = (wallets, userId) => (
+    (wallets || []).find(wallet => wallet.user_id === userId)?.balance ?? STARTING_BALANCE
+)
+
+const signed = value => (value > 0 ? `+${value}` : value < 0 ? `−${Math.abs(value)}` : '0')
+export const formatPoints = signed
+
+// Net result per bettor for settled bets: [{ userId, net }], biggest winner first.
+export const netResults = (bets) => {
+    const totals = new Map()
+    for (const bet of bets || []) {
+        if (bet.status !== 'won' && bet.status !== 'lost') continue
+        totals.set(bet.user_id, (totals.get(bet.user_id) || 0) + bet.payout - bet.stake)
+    }
+    return [...totals].map(([userId, net]) => ({ userId, net })).sort((a, b) => b.net - a.net)
+}
+
+// "Bets · Carol +100 · Dave −50"
+export const describeBetResults = (bets, usersById) => {
+    const results = netResults(bets)
+    if (!results.length) return ''
+    return ['Bets', ...results.map(({ userId, net }) => `${usersById[userId]?.name || 'Unknown'} ${signed(net)}`)].join(' · ')
+}
+
+// One row per player: balance plus what their settled bets did. Players who
+// have bet come first, richest on top.
+export const buildBettingLeaderboard = (users, wallets, bets) => {
+    const walletByUser = new Map((wallets || []).map(wallet => [wallet.user_id, wallet]))
+    const stats = new Map()
+    for (const bet of bets || []) {
+        const row = stats.get(bet.user_id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
+        if (bet.status === 'won') {
+            row.won++
+            row.profit += bet.payout - bet.stake
+            row.biggestWin = Math.max(row.biggestWin, bet.payout - bet.stake)
+        } else if (bet.status === 'lost') {
+            row.lost++
+            row.profit -= bet.stake
+        } else if (bet.status === 'pending') row.pending += bet.stake
+        stats.set(bet.user_id, row)
+    }
+    return (users || []).map(user => {
+        const wallet = walletByUser.get(user.id)
+        const row = stats.get(user.id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
+        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: Boolean(wallet), ...row }
+    }).sort((a, b) => (b.hasBet - a.hasBet) || (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
+}
