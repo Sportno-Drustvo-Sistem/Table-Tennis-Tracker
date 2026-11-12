@@ -28,6 +28,9 @@ that existed before.
 
 `supabase/migrations/20261112120000_points_betting.sql`
 
+Applied to the hosted "Table Tennis Tracker" Supabase project on 2026-11-12,
+where it is recorded as version `20261112132310`, name `points_betting`.
+
 | Object | Kind | Purpose |
 |---|---|---|
 | `public.bet_wallets` | table | balance and restart count per player (row appears with the first bet) |

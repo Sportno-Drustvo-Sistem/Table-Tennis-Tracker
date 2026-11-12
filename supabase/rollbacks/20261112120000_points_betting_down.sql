@@ -21,10 +21,11 @@ DROP TABLE IF EXISTS public.bets;
 DROP TABLE IF EXISTS public.bet_markets;
 DROP TABLE IF EXISTS public.bet_wallets;
 
--- Forget the migration so it can be applied again later.
+-- Forget the migration so it can be applied again later. Matched by name too:
+-- the hosted project recorded it as version 20261112132310.
 DO $$ BEGIN
     IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
-        DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261112120000';
+        DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261112120000' OR name = 'points_betting';
     END IF;
 END $$;
 
