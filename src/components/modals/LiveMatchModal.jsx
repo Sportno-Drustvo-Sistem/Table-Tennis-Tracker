@@ -3,6 +3,7 @@ import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw } from 'luc
 import { supabase } from '../../supabaseClient'
 import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, getAvatarFallback } from '../../utils'
 import { recordPingPongMatch } from '../../matchPersistence'
+import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
 import KeepAwake from '../KeepAwake'
 
@@ -327,6 +328,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 const mw = newGamesWon1 >= gamesNeeded ? 1 : 2
                 setGameWinner(w)
                 setMatchWinner(mw)
+                // Nothing was sent during the match, so the connection is cold and the
+                // session may have run out: warm it up and re-check before Save is pressed.
+                checkAdminSession(supabase, adminToken)
                 if (soundEnabled) {
                     playWinSound()
                     const winnerName = mw === 1 ? 'Blue' : 'Red'
@@ -378,7 +382,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 }
             }
         }
-    }, [checkGameWin, completedSets, gameWinner, gamesNeeded, initialServer, matchStarted, matchWinner, score1, score2, soundEnabled])
+    }, [adminToken, checkGameWin, completedSets, gameWinner, gamesNeeded, initialServer, matchStarted, matchWinner, score1, score2, soundEnabled])
 
     const undoLast = useCallback(() => {
         unlockAudioAndSpeech()

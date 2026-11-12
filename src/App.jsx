@@ -5,7 +5,9 @@ import { supabase } from './supabaseClient'
 import { filterSeasonMatches, getSeasonUsers } from './seasonUtils'
 import {
   ADMIN_SESSION_STORAGE_KEY,
+  checkAdminSession,
   createAdminSession,
+  onAdminSessionExpired,
   revokeAdminSession,
   validateAdminSession,
 } from './adminSession'
@@ -218,6 +220,24 @@ function App() {
     }
   }, [])
 
+  // Leave admin mode when the session has run out, so the app stops offering
+  // saves that would fail. When a save found out, ask for the PIN on the spot.
+  useEffect(() => onAdminSessionExpired(({ prompt }) => {
+    setAdminToken(null)
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
+    if (prompt) setIsLoginModalOpen(true)
+  }), [])
+
+  // Phones keep the tab open for days: re-check each time the app comes back to the front.
+  useEffect(() => {
+    if (!adminToken) return undefined
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkAdminSession(supabase, adminToken, { prompt: false })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [adminToken])
+
   // Apply Dark Mode
   useEffect(() => {
     if (darkMode) {
@@ -384,7 +404,7 @@ function App() {
   const adminOnly = (action) => isAdmin ? action : () => setIsLoginModalOpen(true)
 
   const playActions = [
-    isPingPong && { id: 'generate', label: 'Generate match', description: 'Pick who is here and get a fair pairing', Icon: Shuffle, onClick: openGenerator },
+    isPingPong && { id: 'generate', label: 'Generate match', description: 'Pick who is here and draw a random pairing', Icon: Shuffle, onClick: openGenerator },
     { id: 'live', label: 'Live match', description: 'Keep score point by point', Icon: Zap, locked: !isAdmin, onClick: adminOnly(openLiveMatch) },
     { id: 'record', label: 'Record result', description: 'Enter the score of a finished match', Icon: PencilLine, locked: !isAdmin, onClick: adminOnly(openRecordMatch) },
   ].filter(Boolean)

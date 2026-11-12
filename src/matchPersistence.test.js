@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { onAdminSessionExpired } from './adminSession'
 import {
     buildPadelRecordParams,
     buildPingPongRecordParams,
@@ -121,6 +122,19 @@ describe('match persistence RPC helpers', () => {
         await recordPadelMatch(ok, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })
 
         expect(heard).toEqual([{ sport: 'padel', match, matches: [match], changes: { a: 9 } }])
+    })
+
+    it('reports an ended admin session when a save is refused for it', async () => {
+        const heard = []
+        const stop = onAdminSessionExpired(event => heard.push(event))
+        const refusing = error => ({ rpc: async () => ({ data: null, error }) })
+        const save = client => recordPingPongMatch(client, { adminToken: 't', player1Id: 'p1', player2Id: 'p2', sets: [{ s1: 11, s2: 8 }] })
+
+        await expect(save(refusing({ code: 'P0001', message: 'Player 1 not found' }))).rejects.toBeTruthy()
+        expect(heard).toEqual([])
+        await expect(save(refusing({ code: '42501', message: 'Admin session is missing or expired' }))).rejects.toBeTruthy()
+        stop()
+        expect(heard).toEqual([{ prompt: true }])
     })
 
     it('describes saved matches with Elo changes', () => {

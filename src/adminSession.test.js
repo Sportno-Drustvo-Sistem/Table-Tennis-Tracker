@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+    checkAdminSession,
     createAdminSession,
+    onAdminSessionExpired,
     revokeAdminSession,
     validateAdminSession,
 } from './adminSession'
@@ -50,5 +52,22 @@ describe('admin session RPC helpers', () => {
         expect(rpc).toHaveBeenNthCalledWith(2, 'revoke_admin_session', {
             p_token: 'token',
         })
+    })
+
+    it('reports an ended session, but not a failed check', async () => {
+        const heard = []
+        const stop = onAdminSessionExpired(event => heard.push(event))
+        const answering = data => ({ rpc: async () => ({ data, error: null }) })
+        const offline = { rpc: async () => ({ data: null, error: new Error('Load failed') }) }
+
+        await checkAdminSession(answering(true), 'token')
+        await checkAdminSession(offline, 'token')
+        expect(heard).toEqual([])
+
+        await checkAdminSession(answering(false), 'token')
+        await checkAdminSession(answering(false), 'token', { prompt: false })
+        stop()
+        await checkAdminSession(answering(false), 'token')
+        expect(heard).toEqual([{ prompt: true }, { prompt: false }])
     })
 })

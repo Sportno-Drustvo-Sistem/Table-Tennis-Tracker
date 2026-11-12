@@ -1,4 +1,6 @@
-export const validPingPongScores = (a, b) => [a, b].every(value =>
+import { isAdminSessionError, reportAdminSessionExpired } from './adminSession'
+
+export const validPingPongScores =(a, b) => [a, b].every(value =>
     value !== null && value !== undefined && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number.isInteger(Number(value)) && Number(value) >= 0
 ) && Number(a) !== Number(b)
 
@@ -58,7 +60,10 @@ export const onMatchRecorded = (listener) => {
 const callRecordRpc = async (client, sport, functionName, params) => {
     if (functionName === 'record_pingpong_match' && (!params.p_sets?.length || params.p_sets.some(s => !validPingPongScores(s.s1, s.s2)))) throw new Error('Invalid Ping Pong scores')
     const { data, error } = await client.rpc(functionName, params)
-    if (error) throw error
+    if (error) {
+        if (isAdminSessionError(error)) reportAdminSessionExpired()
+        throw error
+    }
     const result = normalizeRecordResponse(data)
     recordedListeners.forEach(listener => {
         try { listener({ sport, ...result }) } catch (listenerError) { console.error(listenerError) }

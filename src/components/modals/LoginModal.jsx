@@ -26,7 +26,8 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+        // Above the other dialogs: it can be asked for while a match is waiting to be saved.
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-[60] p-3 pt-4 sm:p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-scale-in">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-6">

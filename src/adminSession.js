@@ -23,7 +23,33 @@ export const validateAdminSession = async (client, token) => {
     return data === true
 }
 
-export const revokeAdminSession = async (client, token) => {
+// Sessions last 12 hours but the app can stay open for days. Whoever finds the
+// session gone reports it here; `prompt` asks for the PIN straight away, on top
+// of whatever is open, so a finished match can still be saved.
+const expiredListeners = new Set()
+
+export const onAdminSessionExpired = (listener) => {
+    expiredListeners.add(listener)
+    return () => expiredListeners.delete(listener)
+}
+
+export const reportAdminSessionExpired = ({ prompt = true } = {}) => {
+    expiredListeners.forEach(listener => listener({ prompt }))
+}
+
+// Postgres "insufficient privilege", raised by the admin-only RPCs.
+export const isAdminSessionError = error => error?.code === '42501'
+
+// Also wakes the idle API connection, so a save right after it answers faster.
+export const checkAdminSession = async (client, token, options) => {
+    try {
+        if (!(await validateAdminSession(client, token))) reportAdminSessionExpired(options)
+    } catch {
+        // Offline or flaky: not proof the session ended. A save reports its own error.
+    }
+}
+
+export const revokeAdminSession =async (client, token) => {
     if (!token) return
 
     const { error } = await client.rpc('revoke_admin_session', {
