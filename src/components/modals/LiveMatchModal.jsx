@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, getAvatarFallback } from '../../utils'
+import { estimatePointProbability, liveWinProbability, pointProbabilityFromGameProbability } from '../../winProbability'
 import { recordPingPongMatch } from '../../matchPersistence'
 import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
@@ -208,7 +209,7 @@ const playAudioSequence = async (paths, fallbackText) => {
     }
 }
 
-const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, adminToken }) => {
+const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, historyMatches, tournamentId, debuffs, adminToken }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
@@ -480,14 +481,35 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         }
     }, [score1, score2, initialServer])
 
-    // Win Probability
+    // Pre-match chance that player 1 wins a point, fitted from the full match
+    // history (Elo stands in for players who have none yet).
+    const pointProb = useMemo(() => {
+        if (!isOpen || !player1 || !player2) return null
+        const estimate = estimatePointProbability(historyMatches || matches, player1.id, player2.id)
+        if (estimate.hasHistory) return estimate.pointProb
+        return pointProbabilityFromGameProbability(calculateExpectedScore(player1.elo_rating || 1200, player2.elo_rating || 1200))
+    }, [isOpen, player1, player2, historyMatches, matches])
+
+    // Live win probability: moves with every point.
     const winProb = useMemo(() => {
-        if (!player1 || !player2) return null
-        const p1Elo = player1.elo_rating || 1200
-        const p2Elo = player2.elo_rating || 1200
-        const p1Expected = calculateExpectedScore(p1Elo, p2Elo)
-        return { p1: Math.round(p1Expected * 100), p2: Math.round((1 - p1Expected) * 100) }
-    }, [player1, player2])
+        if (pointProb === null) return null
+        // Between games the finished game is already in completedSets.
+        const live1 = gameWinner ? 0 : score1
+        const live2 = gameWinner ? 0 : score2
+        const p1 = liveWinProbability({
+            pointProb,
+            bestOf,
+            games1: completedSets.filter(s => s.s1 > s.s2).length,
+            games2: completedSets.filter(s => s.s2 > s.s1).length,
+            score1: live1,
+            score2: live2,
+            points1: completedSets.reduce((sum, s) => sum + s.s1, live1),
+            points2: completedSets.reduce((sum, s) => sum + s.s2, live2),
+        })
+        // Nothing is certain until the match is over.
+        const percent = Math.min(99, Math.max(1, Math.round(p1 * 100)))
+        return { p1: percent, p2: 100 - percent }
+    }, [pointProb, bestOf, completedSets, gameWinner, score1, score2])
 
     if (!isOpen || !player1 || !player2) return null
 
@@ -542,8 +564,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <span className="text-red-500">{winProb.p2}%</span>
                             </div>
                             <div className="flex h-1 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                                <div className="bg-blue-500" style={{ width: `${winProb.p1}%` }} />
-                                <div className="bg-red-500" style={{ width: `${winProb.p2}%` }} />
+                                <div className="bg-blue-500 transition-[width] duration-500" style={{ width: `${winProb.p1}%` }} />
+                                <div className="bg-red-500 transition-[width] duration-500" style={{ width: `${winProb.p2}%` }} />
                             </div>
                         </div>
                     )}

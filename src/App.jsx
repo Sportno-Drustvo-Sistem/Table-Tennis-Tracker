@@ -633,6 +633,7 @@ function App() {
             player2={liveMatchPlayers[1]}
             onMatchSaved={handleLiveMatchSaved}
             matches={currentMatches}
+            historyMatches={matches}
             adminToken={adminToken}
           />
         </Suspense>
