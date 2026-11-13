@@ -126,7 +126,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                                     aria-pressed={activeSide === n}
                                     className={`min-w-0 rounded-2xl border-2 p-3 short:p-2 flex items-center gap-3 text-left transition-colors disabled:cursor-not-allowed ${activeSide === n ? SIDE_STYLES[n].active : SIDE_STYLES[n].idle} ${bettorId && !sides.includes(n) ? 'opacity-40' : ''}`}
                                 >
-                                    <img src={players[n].avatar_url || getAvatarFallback(players[n].name)} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
+                                    <img loading="lazy" decoding="async" src={players[n].avatar_url || getAvatarFallback(players[n].name)} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
                                     <span className="min-w-0">
                                         <span className="block font-bold truncate">{players[n].name}</span>
                                         <span className="block text-xl font-black tabular-nums leading-tight">{multiplier[n].toFixed(2)}×</span>
@@ -161,7 +161,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                                                 : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                                         >
                                             <span className="relative">
-                                                <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-12 h-12 rounded-full object-cover" />
+                                                <img loading="lazy" decoding="async" src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-12 h-12 rounded-full object-cover" />
                                                 {hasBet.has(user.id) && (
                                                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center ring-2 ring-white dark:ring-gray-900" title="Has a bet on this match">
                                                         <Coins size={10} />

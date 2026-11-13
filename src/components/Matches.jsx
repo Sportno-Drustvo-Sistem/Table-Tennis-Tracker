@@ -143,11 +143,14 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
     }, [matches, usersById, searchQuery])
     const shownMatches = filteredMatches.slice(0, visibleCount)
 
-    const visibleSelectedIds = new Set(filteredMatches.filter(m => selectedIds.has(m.id)).map(m => m.id))
+    const visibleSelectedIds = useMemo(
+        () => new Set(filteredMatches.filter(m => selectedIds.has(m.id)).map(m => m.id)),
+        [filteredMatches, selectedIds],
+    )
     if (visibleSelectedIds.size !== selectedIds.size) setSelectedIds(visibleSelectedIds)
     const allShownSelected = shownMatches.length > 0 && shownMatches.every(m => visibleSelectedIds.has(m.id))
     // Points bets paid on a match, shown under its score.
-    const matchBets = betsByMatchId(matches, betMarkets, bets)
+    const matchBets = useMemo(() => betsByMatchId(matches, betMarkets, bets), [matches, betMarkets, bets])
 
     return (
         <div className="space-y-6">
@@ -290,7 +293,7 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                             <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />
                                                         )}
                                                     </div>
-                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
+                                                    <img loading="lazy" decoding="async" src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
                                             <td className="px-1 sm:px-3 xl:px-6 py-3 sm:py-4">
@@ -337,7 +340,7 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                             </td>
                                             <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
-                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
+                                                    <img loading="lazy" decoding="async" src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player2.name} />
                                                     <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${match.score2 > match.score1 ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                                                             {player2.name}

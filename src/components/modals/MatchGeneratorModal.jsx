@@ -125,7 +125,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                             <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-6">Match Found!</h3>
                             <div className="flex items-center justify-center gap-4 mb-8">
                                 <div className="flex flex-col items-center">
-                                    <img
+                                    <img loading="lazy" decoding="async"
                                         src={generatedMatch[0].avatar_url || getAvatarFallback(generatedMatch[0].name)}
                                         alt={generatedMatch[0].name}
                                         className="w-20 h-20 rounded-full border-4 border-blue-500 shadow-lg object-cover"
@@ -134,7 +134,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                 </div>
                                 <div className="text-2xl font-bold text-gray-300">VS</div>
                                 <div className="flex flex-col items-center">
-                                    <img
+                                    <img loading="lazy" decoding="async"
                                         src={generatedMatch[1].avatar_url || getAvatarFallback(generatedMatch[1].name)}
                                         alt={generatedMatch[1].name}
                                         className="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg object-cover"
@@ -259,7 +259,7 @@ const MatchGeneratorModal = ({ isOpen, onClose, users, matches, onMatchGenerated
                                             `}>
                                                 {isSelected && !isExcluded && <Check size={12} className="text-white" />}
                                             </div>
-                                            <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-10 h-10 shrink-0 rounded-full bg-gray-200 mr-2 sm:mr-3 object-cover" />
+                                            <img loading="lazy" decoding="async" src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-10 h-10 shrink-0 rounded-full bg-gray-200 mr-2 sm:mr-3 object-cover" />
                                             <span className={`font-medium truncate ${isExcluded ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                                                 {user.name}
                                             </span>

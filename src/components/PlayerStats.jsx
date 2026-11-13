@@ -168,7 +168,7 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
                 }}
             >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <img
+                    <img loading="lazy" decoding="async"
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
                         className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
@@ -277,7 +277,7 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
 
             <TrophyCase playerId={selectedPlayerId} seasonId={seasonId} />
 
-            <Achievements playerId={selectedPlayerId} users={users} matches={matches} />
+            <Achievements playerId={selectedPlayerId} users={users} matches={matches} eloData={eloData} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -295,7 +295,7 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
                                 return (
                                     <div key={oppId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-10 h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img loading="lazy" decoding="async" src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-10 h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{opponent.name}</span>
                                         </div>
                                         <div className="text-right">
@@ -335,7 +335,7 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
                                     </div>
                                     <div className="flex items-center justify-end w-32 truncate">
                                         <span className="text-gray-600 dark:text-gray-300 mr-2 truncate">{opponent?.name}</span>
-                                        <img src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-8 h-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
+                                        <img loading="lazy" decoding="async" src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-8 h-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
                                     </div>
                                 </div>
                             )

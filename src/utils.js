@@ -199,18 +199,30 @@ export const generateTournamentName = () => {
     return `${adj} ${noun} ${years[0]}`
 }
 
-// Fetches all active debuffs (both mayhem and streak types)
-export const getActiveDebuffs = async () => {
-    const { data, error } = await supabase
-        .from('debuffs')
-        .select('*')
-        .eq('is_active', true)
+// Fetches all active debuffs (both mayhem and streak types). Many screens ask
+// for them when they open, so one answer is shared for a short while.
+const DEBUFF_CACHE_MS = 60000
+let debuffCache = null
 
-    if (error) {
+export const invalidateActiveDebuffs = () => { debuffCache = null }
+
+export const getActiveDebuffs = () => {
+    if (debuffCache && Date.now() - debuffCache.at < DEBUFF_CACHE_MS) return debuffCache.promise
+    const entry = { at: Date.now() }
+    entry.promise = Promise.resolve(supabase.from('debuffs').select('*').eq('is_active', true)).then(({ data, error }) => {
+        if (error) {
+            console.error('Error fetching debuffs:', error)
+            if (debuffCache === entry) debuffCache = null
+            return []
+        }
+        return data
+    }, (error) => {
         console.error('Error fetching debuffs:', error)
+        if (debuffCache === entry) debuffCache = null
         return []
-    }
-    return data
+    })
+    debuffCache = entry
+    return entry.promise
 }
 
 export const getRandomDebuff = (debuffs, playerElo) => {

@@ -247,7 +247,7 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${summary.winner === 1 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player1.name}</span>
                                                         {eloData && <EloChangeDisplay elo={eloData.p1Elo} change={eloData.p1Change} />}
                                                     </div>
-                                                    <img src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 object-cover" alt={player1.name} />
+                                                    <img loading="lazy" decoding="async" src={player1.avatar_url || getAvatarFallback(player1.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 object-cover" alt={player1.name} />
                                                 </div>
                                             </td>
                                             <td className="px-1 sm:px-3 xl:px-6 py-3 sm:py-4">
@@ -272,7 +272,7 @@ const TennisMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDel
                                             </td>
                                             <td className="px-2 sm:px-3 xl:px-6 py-3 sm:py-4">
                                                 <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
-                                                    <img src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 object-cover" alt={player2.name} />
+                                                    <img loading="lazy" decoding="async" src={player2.avatar_url || getAvatarFallback(player2.name)} className="w-11 h-11 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gray-200 object-cover" alt={player2.name} />
                                                     <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
                                                         <span className={`font-bold line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none sm:whitespace-nowrap ${summary.winner === 2 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{player2.name}</span>
                                                         {eloData && <EloChangeDisplay elo={eloData.p2Elo} change={eloData.p2Change} />}

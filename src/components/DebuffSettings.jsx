@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Edit2, AlertTriangle, Save, X, Settings } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { useToast } from '../contexts/useToast'
+import { invalidateActiveDebuffs } from '../utils'
 
 const DebuffSettings = ({ isAdmin, adminToken }) => {
     const { showToast, showConfirm } = useToast()
@@ -66,6 +67,7 @@ const DebuffSettings = ({ isAdmin, adminToken }) => {
 
         setEditingId(null)
         setFormData({ title: '', description: '', severity: 5, trigger_types: ['mayhem'], trigger_value: null, is_active: true })
+        invalidateActiveDebuffs()
         fetchDebuffs()
     }
 
@@ -88,6 +90,7 @@ const DebuffSettings = ({ isAdmin, adminToken }) => {
             if (error) {
                 showToast('Error deleting debuff: ' + error.message, 'error')
             } else {
+                invalidateActiveDebuffs()
                 fetchDebuffs()
             }
         })

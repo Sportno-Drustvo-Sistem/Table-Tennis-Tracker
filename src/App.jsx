@@ -26,20 +26,11 @@ import MatchModal from './components/modals/MatchModal'
 import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
 import LoginModal from './components/modals/LoginModal'
 
-// Padel imports
-import PadelLeaderboard from './components/PadelLeaderboard'
-import PadelMatches from './components/PadelMatches'
-import PadelPlayerSelectionModal from './components/modals/PadelPlayerSelectionModal'
-import PadelMatchModal from './components/modals/PadelMatchModal'
-import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
-import TennisLeaderboard from './components/TennisLeaderboard'
-import TennisMatches from './components/TennisMatches'
-import TennisMatchModal from './components/modals/TennisMatchModal'
-import TennisEditMatchModal from './components/modals/TennisEditMatchModal'
 import { useToast } from './contexts/useToast'
 
-// Charts (recharts), tournaments, settings and live scoring load on demand so
-// the first paint only needs the players, rankings and match lists.
+// Charts (recharts), tournaments, settings, live scoring and the padel and
+// tennis screens load on demand so the first paint only needs the players,
+// rankings and match lists of the sport that is open.
 const loadPlayerStats = () => import('./components/PlayerStats')
 const loadPadelPlayerStats = () => import('./components/PadelPlayerStats')
 const loadTennisPlayerStats = () => import('./components/TennisPlayerStats')
@@ -49,9 +40,20 @@ const loadDiscordSettings = () => import('./components/DiscordSettings')
 const loadLiveMatchModal = () => import('./components/modals/LiveMatchModal')
 const loadPadelLiveMatchModal = () => import('./components/modals/PadelLiveMatchModal')
 const loadTennisLiveMatchModal = () => import('./components/modals/TennisLiveMatchModal')
+const loadPadelLeaderboard = () => import('./components/PadelLeaderboard')
+const loadPadelMatches = () => import('./components/PadelMatches')
+const loadTennisLeaderboard = () => import('./components/TennisLeaderboard')
+const loadTennisMatches = () => import('./components/TennisMatches')
+const loadPadelPlayerSelectionModal = () => import('./components/modals/PadelPlayerSelectionModal')
+const loadPadelMatchModal = () => import('./components/modals/PadelMatchModal')
+const loadPadelEditMatchModal = () => import('./components/modals/PadelEditMatchModal')
+const loadTennisMatchModal = () => import('./components/modals/TennisMatchModal')
+const loadTennisEditMatchModal = () => import('./components/modals/TennisEditMatchModal')
 const DEFERRED_MODULES = [
   loadPlayerStats, loadPadelPlayerStats, loadTennisPlayerStats, loadTournament, loadDebuffSettings,
   loadDiscordSettings, loadLiveMatchModal, loadPadelLiveMatchModal, loadTennisLiveMatchModal,
+  loadPadelLeaderboard, loadPadelMatches, loadTennisLeaderboard, loadTennisMatches,
+  loadPadelPlayerSelectionModal, loadPadelMatchModal, loadPadelEditMatchModal, loadTennisMatchModal, loadTennisEditMatchModal,
 ]
 
 const PlayerStats = lazy(loadPlayerStats)
@@ -63,6 +65,15 @@ const DiscordSettings = lazy(loadDiscordSettings)
 const LiveMatchModal = lazy(loadLiveMatchModal)
 const PadelLiveMatchModal = lazy(loadPadelLiveMatchModal)
 const TennisLiveMatchModal = lazy(loadTennisLiveMatchModal)
+const PadelLeaderboard = lazy(loadPadelLeaderboard)
+const PadelMatches = lazy(loadPadelMatches)
+const TennisLeaderboard = lazy(loadTennisLeaderboard)
+const TennisMatches = lazy(loadTennisMatches)
+const PadelPlayerSelectionModal = lazy(loadPadelPlayerSelectionModal)
+const PadelMatchModal = lazy(loadPadelMatchModal)
+const PadelEditMatchModal = lazy(loadPadelEditMatchModal)
+const TennisMatchModal = lazy(loadTennisMatchModal)
+const TennisEditMatchModal = lazy(loadTennisEditMatchModal)
 
 const SPORTS = [
   { id: 'pingpong', label: 'Ping Pong', shortLabel: 'Ping Pong', Icon: PingPongIcon, tagline: 'Track your garage glory.' },
@@ -85,6 +96,11 @@ const NAV_ITEMS = [
 
 function App() {
   const { showToast } = useToast()
+  // Sport Switcher State
+  const [activeSport, setActiveSport] = useState(() => {
+    const stored = localStorage.getItem('activeSport')
+    return SPORTS.some(sport => sport.id === stored) ? stored : 'pingpong'
+  })
   const {
     users,
     matches,
@@ -102,18 +118,13 @@ function App() {
     historyFailed,
     refresh,
     refreshSport,
-  } = useAppData(showToast)
+  } = useAppData(showToast, activeSport)
   const [seasonScope, setSeasonScope] = useState('current')
 
   const refreshUsers = useCallback(() => refresh(['users']), [refresh])
   const refreshPingPong = useCallback(() => refreshSport('pingpong'), [refreshSport])
   const refreshPadel = useCallback(() => refreshSport('padel'), [refreshSport])
   const refreshTennis = useCallback(() => refreshSport('tennis'), [refreshSport])
-
-  // Sport Switcher State
-  const [activeSport, setActiveSport] = useState(() => {
-    return localStorage.getItem('activeSport') || 'pingpong'
-  })
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light')
@@ -267,6 +278,8 @@ function App() {
   // Fetch the deferred screens once the first data is in, so switching tabs stays instant.
   useEffect(() => {
     if (loading) return
+    // Data saver on: fetch each screen only when it is opened.
+    if (navigator.connection?.saveData) return
     const prefetch = () => DEFERRED_MODULES.forEach(load => load().catch(() => {}))
     if (window.requestIdleCallback) {
       const handle = window.requestIdleCallback(prefetch, { timeout: 4000 })
@@ -374,6 +387,7 @@ function App() {
 
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
+  const isTennis = activeSport === 'tennis'
   const sport = SPORTS.find(s => s.id === activeSport) || SPORTS[0]
 
   const navItems = NAV_ITEMS.filter(item =>
@@ -656,6 +670,8 @@ function App() {
       )}
 
       {/* Padel Modals */}
+      {isPadel && (
+      <Suspense fallback={null}>
       <PadelPlayerSelectionModal
         isOpen={isPadelSelectionOpen}
         onClose={() => setIsPadelSelectionOpen(false)}
@@ -675,8 +691,11 @@ function App() {
         onMatchUpdated={refreshPadel}
         isAdmin={isAdmin}
       />
+      </Suspense>
+      )}
 
       {padelTeams.team1 && padelTeams.team2 && (
+        <Suspense fallback={null}>
         <PadelMatchModal
           isOpen={isPadelMatchModalOpen}
           onClose={() => {
@@ -689,6 +708,7 @@ function App() {
           onMatchSaved={handlePadelMatchSaved}
           adminToken={adminToken}
         />
+        </Suspense>
       )}
 
       {padelLiveMatchTeams.team1 && padelLiveMatchTeams.team2 && (
@@ -722,6 +742,8 @@ function App() {
         accent="emerald"
       />
 
+      {isTennis && (
+      <Suspense fallback={null}>
       <TennisEditMatchModal
         isOpen={!!editingTennisMatch}
         match={editingTennisMatch}
@@ -730,8 +752,11 @@ function App() {
         onMatchUpdated={refreshTennis}
         users={users}
       />
+      </Suspense>
+      )}
 
       {tennisPlayers[0] && tennisPlayers[1] && (
+        <Suspense fallback={null}>
         <TennisMatchModal
           isOpen={isTennisMatchModalOpen}
           onClose={() => {
@@ -743,6 +768,7 @@ function App() {
           onMatchSaved={handleTennisMatchSaved}
           adminToken={adminToken}
         />
+        </Suspense>
       )}
 
       {tennisLivePlayers[0] && tennisLivePlayers[1] && (

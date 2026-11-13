@@ -752,10 +752,10 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                         )}
 
                         <div className="flex items-center gap-1 mb-2 short:mb-1">
-                            <img src={team1[0].avatar_url || getAvatarFallback(team1[0].name)} alt={team1[0].name}
+                            <img loading="lazy" decoding="async" src={team1[0].avatar_url || getAvatarFallback(team1[0].name)} alt={team1[0].name}
                                 className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-3 border-white' : 'border-2 border-emerald-300 dark:border-emerald-600'} ${currentServer === 1 && currentServerPlayer === 0 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
-                            <img src={team1[1].avatar_url || getAvatarFallback(team1[1].name)} alt={team1[1].name}
+                            <img loading="lazy" decoding="async" src={team1[1].avatar_url || getAvatarFallback(team1[1].name)} alt={team1[1].name}
                                 className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-3 border-white' : 'border-2 border-emerald-300 dark:border-emerald-600'} ${currentServer === 1 && currentServerPlayer === 1 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
                             {currentServer === 1 && !matchWinner && (
@@ -811,10 +811,10 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                                     <div className="w-2 h-2 bg-white rounded-full"></div>
                                 </div>
                             )}
-                            <img src={team2[0].avatar_url || getAvatarFallback(team2[0].name)} alt={team2[0].name}
+                            <img loading="lazy" decoding="async" src={team2[0].avatar_url || getAvatarFallback(team2[0].name)} alt={team2[0].name}
                                 className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-3 border-white' : 'border-2 border-red-300 dark:border-red-600'} ${currentServer === 2 && currentServerPlayer === 0 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
-                            <img src={team2[1].avatar_url || getAvatarFallback(team2[1].name)} alt={team2[1].name}
+                            <img loading="lazy" decoding="async" src={team2[1].avatar_url || getAvatarFallback(team2[1].name)} alt={team2[1].name}
                                 className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-3 border-white' : 'border-2 border-red-300 dark:border-red-600'} ${currentServer === 2 && currentServerPlayer === 1 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
                         </div>

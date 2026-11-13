@@ -26,24 +26,29 @@ export const getSeasonUsers = (users, matches, snapshots, seasonId, activeSeason
 }
 
 // Keyset pagination tolerates server response caps below the requested page size.
-// Stop only on an empty page; failures discard the partial result.
+// The first page also asks for the row count, so a history that is already
+// complete skips the request that would only confirm it. Without a count, stop
+// on an empty page; failures discard the partial result.
 export const fetchAllMatches = async (client, table, { select = '*', start, end } = {}) => {
     const matches = []
     let cursor = null
+    let total = null
     try {
         for (;;) {
-            let query = client.from(table).select(select)
+            let query = client.from(table).select(select, cursor ? undefined : { count: 'exact' })
                 .order('created_at', { ascending: false }).order('id', { ascending: false })
             if (start) query = query.gte('created_at', start.toISOString())
             if (end) query = query.lt('created_at', end.toISOString())
             if (cursor) query = query.or('created_at.lt.' + cursor.created_at + ',and(created_at.eq.' + cursor.created_at + ',id.lt.' + cursor.id + ')')
-            const { data, error } = await query.range(0, 999)
+            const { data, error, count } = await query.range(0, 999)
             if (error) return { data: null, error }
             if (!Array.isArray(data)) throw new Error('Incomplete match history response')
             if (!data.length) return { data: matches, error: null }
             const next = data[data.length - 1]
             if (!next.id || !next.created_at || (cursor && next.id === cursor.id)) throw new Error('Match history cursor did not advance')
             matches.push(...data)
+            if (!cursor) total = count
+            if (Number.isInteger(total) && matches.length >= total) return { data: matches, error: null }
             cursor = next
         }
     } catch (error) { return { data: null, error } }

@@ -279,22 +279,29 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         return null
     }, [])
 
+    // Head-to-head streak between these two players.
+    const { streak: h2hStreak, winnerId: h2hWinnerId } = useMemo(() => (
+        isOpen && player1 && player2 && matches
+            ? getHeadToHeadStreak(player1.id, player2.id, matches)
+            : { streak: 0, winnerId: null }
+    ), [isOpen, player1, player2, matches])
+
+    // The streak rule is drawn at random, so it depends on the streak itself and
+    // not on `matches`: a match saved elsewhere must not re-roll it mid-game.
+    const streakRule = useMemo(() => {
+        if (!isOpen || !player1 || !player2 || h2hStreak < 8 || !h2hWinnerId) return null
+        const winnerName = h2hWinnerId === player1.id ? player1.name : player2.name
+        const loserName = h2hWinnerId === player1.id ? player2.name : player1.name
+        const rule = getHandicapRule(h2hStreak, winnerName, loserName, allDebuffs)
+        return rule ? { ...rule, type: 'streak', targetPlayerId: h2hWinnerId, targetPlayerName: winnerName } : null
+    }, [isOpen, player1, player2, h2hStreak, h2hWinnerId, allDebuffs])
+
     // Handicap / debuff rules
     const activeRules = useMemo(() => {
         if (!isOpen || !player1 || !player2) return []
 
-        const { streak, winnerId } = matches ? getHeadToHeadStreak(player1.id, player2.id, matches) : { streak: 0, winnerId: null }
-        let streakRule = null
-        let winnerName = null
-
-        if (streak >= 8 && winnerId) {
-            winnerName = winnerId === player1.id ? player1.name : player2.name
-            const loserName = winnerId === player1.id ? player2.name : player1.name
-            streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
-        }
-
         const rules = []
-        if (streakRule) rules.push({ ...streakRule, type: 'streak', targetPlayerId: winnerId, targetPlayerName: winnerName })
+        if (streakRule) rules.push(streakRule)
 
         if (debuffs) {
             if (debuffs[player1.id]) rules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
@@ -302,7 +309,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         }
 
         return rules
-    }, [isOpen, player1, player2, matches, allDebuffs, debuffs])
+    }, [isOpen, player1, player2, streakRule, debuffs])
 
     // How many games needed to win the match
     const gamesNeeded = Math.ceil(bestOf / 2)
@@ -692,7 +699,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                         : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 focus-visible:outline-red-500'
                                         }`}
                                 >
-                                    <img src={player.avatar_url || getAvatarFallback(player.name)} alt="" className="w-16 h-16 short:w-12 short:h-12 rounded-full object-cover" />
+                                    <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} alt="" className="w-16 h-16 short:w-12 short:h-12 rounded-full object-cover" />
                                     <span className="font-bold break-words w-full">{player.name}</span>
                                     <span className="text-sm">Serves first</span>
                                 </button>
@@ -727,7 +734,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         )}
 
                         <div className="flex items-center gap-2 mb-3 short:mb-1">
-                            <img
+                            <img loading="lazy" decoding="async"
                                 src={player1.avatar_url || getAvatarFallback(player1.name)}
                                 alt={player1.name}
                                 className={`w-16 h-16 sm:w-20 sm:h-20 short:w-14 short:h-14 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
@@ -785,7 +792,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                     <div className="w-3 h-3 bg-white rounded-full"></div>
                                 </div>
                             )}
-                            <img
+                            <img loading="lazy" decoding="async"
                                 src={player2.avatar_url || getAvatarFallback(player2.name)}
                                 alt={player2.name}
                                 className={`w-16 h-16 sm:w-20 sm:h-20 short:w-14 short:h-14 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}

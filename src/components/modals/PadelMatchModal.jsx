@@ -131,7 +131,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
         return (
             <div className="flex flex-col items-center group relative">
                 <div className="relative">
-                    <img
+                    <img loading="lazy" decoding="async"
                         src={player.avatar_url || getAvatarFallback(player.name)}
                         className="w-14 h-14 rounded-full border-2 border-white dark:border-gray-800 object-cover bg-gray-200"
                         alt={player.name}

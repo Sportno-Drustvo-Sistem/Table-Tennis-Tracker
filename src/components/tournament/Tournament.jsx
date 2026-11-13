@@ -599,7 +599,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                                                 <div className="flex-1 flex items-center justify-end gap-2 text-right">
                                                     <span className="font-bold text-gray-900 dark:text-white truncate max-w-[80px]">{p1?.name}</span>
                                                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                                        <img src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-full h-full object-cover" alt={p1?.name || ''} />
+                                                        <img loading="lazy" decoding="async" src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-full h-full object-cover" alt={p1?.name || ''} />
                                                     </div>
                                                 </div>
 
@@ -630,7 +630,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
 
                                                 <div className="flex-1 flex items-center justify-start gap-2 text-left">
                                                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                                        <img src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-full h-full object-cover" alt={p2?.name || ''} />
+                                                        <img loading="lazy" decoding="async" src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-full h-full object-cover" alt={p2?.name || ''} />
                                                     </div>
                                                     <span className="font-bold text-gray-900 dark:text-white truncate max-w-[80px]">{p2?.name}</span>
                                                 </div>

@@ -136,7 +136,7 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adm
 const PlayerPreview = ({ player, align }) => (
     <div className={`flex items-center gap-3 ${align === 'right' ? 'justify-end text-right' : ''}`}>
         {align === 'right' && <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>}
-        <img src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-14 h-14 rounded-full object-cover bg-gray-200" />
+        <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-14 h-14 rounded-full object-cover bg-gray-200" />
         {align !== 'right' && <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>}
     </div>
 )

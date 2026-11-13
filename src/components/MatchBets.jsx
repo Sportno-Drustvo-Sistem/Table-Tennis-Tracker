@@ -10,7 +10,7 @@ const SIDE_TEXT = {
 const SIDE_BAR = { 1: 'bg-blue-500', 2: 'bg-red-500' }
 
 export const BetAvatar = ({ user, className = 'w-10 h-10' }) => (
-    <img src={user?.avatar_url || getAvatarFallback(user?.name)} alt="" className={`${className} rounded-full object-cover flex-shrink-0 bg-gray-200 dark:bg-gray-600`} />
+    <img loading="lazy" decoding="async" src={user?.avatar_url || getAvatarFallback(user?.name)} alt="" className={`${className} rounded-full object-cover flex-shrink-0 bg-gray-200 dark:bg-gray-600`} />
 )
 
 // How the points on a match split between the two players.

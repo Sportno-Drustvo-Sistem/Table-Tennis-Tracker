@@ -264,7 +264,7 @@ const ScorePanel = ({ player, active, won, games, points, eloChange, onScore, co
                 {eloChange >= 0 ? '+' : ''}{eloChange}
             </div>
         )}
-        <img src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-20 h-20 short:w-12 short:h-12 rounded-full object-cover bg-gray-200 mb-3 short:mb-1" />
+        <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-20 h-20 short:w-12 short:h-12 rounded-full object-cover bg-gray-200 mb-3 short:mb-1" />
         <div className="max-w-full truncate font-black text-gray-900 dark:text-white">{player.name}</div>
         <div className={`text-6xl short:text-5xl font-black mt-4 short:mt-1 ${won ? 'text-white' : color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{points}</div>
         <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-2 short:mt-0">Games: {games}</div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/useToast'
+import { uploadAvatar } from '../../avatarUpload'
 
 const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     const { showToast } = useToast()
@@ -20,20 +21,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
         try {
             // Picture is optional; players without one get a generated avatar.
             let avatarUrl = null
-            if (file) {
-                const fileExt = file.name.split('.').pop().toLowerCase()
-                const fileName = `create/${crypto.randomUUID()}.${fileExt}`
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars')
-                    .upload(fileName, file, { upsert: false })
-
-                if (uploadError) throw uploadError
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(fileName)
-                avatarUrl = publicUrl
-            }
+            if (file) avatarUrl = await uploadAvatar(supabase, file)
 
             const { error: insertError } = await supabase.rpc('create_player', { p_name: trimmedName, p_avatar_url: avatarUrl })
 

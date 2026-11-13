@@ -125,7 +125,7 @@ const PlayerSelectionModal = ({ isOpen, onClose, users, onPlayersSelected, onLiv
                             {selectedPlayers.length > 0 && (
                                 <div className="flex -space-x-2 shrink-0">
                                     {selectedPlayers.map(p => (
-                                        <img
+                                        <img loading="lazy" decoding="async"
                                             key={p.id}
                                             src={p.avatar_url || getAvatarFallback(p.name)}
                                             className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover"

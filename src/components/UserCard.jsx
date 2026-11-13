@@ -29,7 +29,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
                 `}
             >
                 <div className="relative w-16 h-16 mb-2">
-                    <img src={avatar} alt={user.name} className="w-full h-full rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
+                    <img loading="lazy" decoding="async" src={avatar} alt={user.name} className="w-full h-full rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
                     {isSelected && (
                         <div className="absolute -top-1 -right-1 bg-accent text-white rounded-full p-0.5 shadow-sm">
                             <Check size={12} strokeWidth={3} />
@@ -70,7 +70,7 @@ const UserCard = memo(({ user, isSelected, selectionMode, onClick, onEdit, isAdm
         >
             <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
-                    <img src={avatar} alt={user.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
+                    <img loading="lazy" decoding="async" src={avatar} alt={user.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" />
                     {isSelected && (
                         <div className="absolute -top-1 -right-1 bg-accent text-white rounded-full p-0.5 shadow-sm">
                             <Check size={12} strokeWidth={3} />

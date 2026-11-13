@@ -89,7 +89,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', on
 
     const PlayerBadge = ({ player, teamColor }) => (
         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${teamColor}`}>
-            <img
+            <img loading="lazy" decoding="async"
                 src={player.avatar_url || getAvatarFallback(player.name)}
                 className="w-10 h-10 shrink-0 rounded-full object-cover bg-gray-200"
                 alt={player.name}
@@ -166,7 +166,7 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', on
                                         {selectedPlayers.filter(p => !getPlayerTeam(p)).map(player => (
                                             <div key={player.id} className="flex items-center justify-between gap-2 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-200 dark:border-gray-600">
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <img
+                                                    <img loading="lazy" decoding="async"
                                                         src={player.avatar_url || getAvatarFallback(player.name)}
                                                         className="w-12 h-12 shrink-0 rounded-full object-cover bg-gray-200 dark:bg-gray-600"
                                                         alt={player.name}

@@ -26,7 +26,7 @@ const TeamDisplay = ({ player1, player2, eloData, align = 'left' }) => {
                 const playerElo = eloData?.[player.id]
                 return (
                     <div key={i} className={`flex items-center gap-1.5 sm:gap-2 ${isRight ? 'flex-row-reverse' : ''}`}>
-                        <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player.name} />
+                        <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt={player.name} />
                         <div className={isRight ? 'text-right' : ''}>
                             <span className="block font-bold text-xs sm:text-sm text-gray-900 dark:text-white line-clamp-2 [overflow-wrap:anywhere] sm:line-clamp-none">{player.name}</span>
                             {playerElo && <EloChangeDisplay elo={playerElo.elo} change={playerElo.change} />}

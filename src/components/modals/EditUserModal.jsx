@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/useToast'
+import { uploadAvatar } from '../../avatarUpload'
 
 const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAdmin, adminToken }) => {
     const { showToast } = useToast()
@@ -25,20 +26,7 @@ const EditUserModal = ({ isOpen, onClose, user, onUserUpdated, onViewStats, isAd
         try {
             let publicUrl = user.avatar_url
 
-            if (file) {
-                const fileExt = file.name.split('.').pop().toLowerCase()
-                const fileName = `create/${crypto.randomUUID()}.${fileExt}`
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars')
-                    .upload(fileName, file, { upsert: false })
-
-                if (uploadError) throw uploadError
-
-                const { data } = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(fileName)
-                publicUrl = data.publicUrl
-            }
+            if (file) publicUrl = await uploadAvatar(supabase, file)
 
             const { error: updateError } = await supabase.rpc('update_player', {
                 p_admin_token: adminToken,

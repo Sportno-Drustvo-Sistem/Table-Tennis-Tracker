@@ -15,14 +15,18 @@ import {
 } from './appData'
 
 const ALL_KEYS = Object.keys(DATA_SOURCES)
+// Match histories are the big downloads: each one waits until its sport is opened.
+const STARTUP_KEYS = ALL_KEYS.filter(key => !DATA_SOURCES[key].history)
 const REALTIME_BATCH_MS = 150
 
 // Loads every dataset once, then keeps it current without full reloads:
 // saves merge the rows the RPC returned and refresh only that sport's stats,
 // and realtime row changes are merged in place.
-export const useAppData = (showToast) => {
+export const useAppData = (showToast, activeSport = 'pingpong') => {
     const [data, dispatch] = useReducer(dataReducer, undefined, createInitialData)
     const loads = useRef({})
+    // Datasets this visit has asked for; a reconnect reloads only these.
+    const wanted = useRef(new Set(STARTUP_KEYS))
 
     const applyChanges = useCallback((changes) => {
         for (const [key, change] of Object.entries(changes)) {
@@ -84,7 +88,16 @@ export const useAppData = (showToast) => {
     useEffect(() => onBetsChanged(applyChanges), [applyChanges])
 
     useEffect(() => {
-        const initialLoad = setTimeout(() => refresh(), 0)
+        const history = SPORT_DATA[activeSport]?.history
+        if (!history) return undefined
+        wanted.current.add(history)
+        if (loads.current[history]) return undefined
+        const load = setTimeout(() => refresh([history]), 0)
+        return () => clearTimeout(load)
+    }, [activeSport, refresh])
+
+    useEffect(() => {
+        const initialLoad = setTimeout(() => refresh(STARTUP_KEYS), 0)
         let queue = []
         let flushTimer = null
         let joined = false
@@ -94,9 +107,11 @@ export const useAppData = (showToast) => {
             const batch = queue
             queue = []
             const reload = new Set(batch.filter(change => change.reload).map(change => change.key))
-            const changes = combineChanges(batch.filter(change => !reload.has(change.key)))
+            // A history that was never opened is loaded whole when its sport is.
+            const changes = combineChanges(batch.filter(change => !reload.has(change.key) && wanted.current.has(change.key)))
             if (Object.keys(changes).length) applyChanges(changes)
-            if (reload.size) refresh([...reload])
+            const stale = [...reload].filter(key => wanted.current.has(key))
+            if (stale.length) refresh(stale)
         }
 
         const listen = (target, tables) => tables.forEach(table => {
@@ -115,7 +130,7 @@ export const useAppData = (showToast) => {
         channel.subscribe((status) => {
             if (status !== 'SUBSCRIBED') return
             // Changes made while the socket was down were never delivered.
-            if (joined) refresh()
+            if (joined) refresh([...wanted.current])
             joined = true
         })
 
