@@ -18,8 +18,9 @@ the feature can be removed cleanly.
 - Everyone starts with 1,000 points. A wallet at 0 with nothing riding restarts
   at 100. Players in the match can only bet on themselves.
 - Editing a paid match's score re-pays its bets; deleting it refunds them.
-- The **Bets** tab (ping pong) shows balances, who bet what on the match in
-  play and on recently paid matches. Admins can refund an orphaned open market
+- The **Bets** tab (ping pong, in the phone's bottom bar) shows who bet what
+  on the match in play, a podium and standings with streaks, awards (jackpot,
+  long shot, oracle, ...) and recently paid matches. Admins can refund an orphaned open market
   there.
 - The ping pong **match history** marks matches that had bets; tapping the
   marker lists who bet, how much, on whom and what it paid.

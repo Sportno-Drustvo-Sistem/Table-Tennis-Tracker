@@ -3,7 +3,10 @@ import {
     allowedSides,
     betMultiplier,
     buildBettingLeaderboard,
+    betStreaks,
     betsByMatchId,
+    bettingTotals,
+    buildBettingAwards,
     describeBetResults,
     describeSnapshot,
     poolTotals,
@@ -114,5 +117,25 @@ describe('results', () => {
         expect([...byMatch.keys()]).toEqual(['m2'])
         expect(byMatch.get('m2').bets.map(bet => bet.id)).toEqual(['b1'])
         expect(betsByMatchId([{ id: 'm2' }], [], []).size).toBe(0)
+    })
+
+    it('tracks streaks, totals and awards', () => {
+        const bet = (user_id, status, stake, payout, multiplier, day) => ({ user_id, status, stake, payout, multiplier, created_at: `2026-11-${day}` })
+        const history = [
+            bet('a', 'won', 100, 400, '4.00', 14), bet('a', 'won', 50, 75, '1.50', 13), bet('a', 'lost', 10, 0, '2.00', 12),
+            bet('b', 'lost', 500, 0, '1.20', 14), bet('b', 'lost', 20, 0, '1.20', 13), bet('b', 'won', 20, 24, '1.20', 12),
+            bet('c', 'pending', 900, 0, '2.00', 14), bet('c', 'void', 5000, 0, '2.00', 13),
+        ]
+        expect([...betStreaks(history)]).toEqual([['a', 2], ['b', -2]])
+        expect(bettingTotals(history)).toEqual({ count: 6, wagered: 700, biggestWin: 300 })
+        const awards = Object.fromEntries(buildBettingAwards(history).map(award => [award.id, award]))
+        expect(awards.highRoller).toMatchObject({ userId: 'c', value: 900 })
+        expect(awards.jackpot).toMatchObject({ userId: 'a', value: 300 })
+        expect(awards.longShot).toMatchObject({ userId: 'a', value: 4 })
+        expect(awards.oracle).toMatchObject({ userId: 'a', value: 2, total: 3 })
+        expect(awards.hot).toMatchObject({ userId: 'a', value: 2 })
+        expect(awards.cold).toMatchObject({ userId: 'b', value: 2 })
+        expect(awards.ouch).toMatchObject({ userId: 'b', value: 500 })
+        expect(buildBettingAwards([])).toEqual([])
     })
 })

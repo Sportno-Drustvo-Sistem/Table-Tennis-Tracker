@@ -75,9 +75,9 @@ const NAV_ITEMS = [
   { id: 'grid', label: 'Players', Icon: Users, primary: true },
   { id: 'leaderboard', label: 'Leaderboard', shortLabel: 'Ranks', Icon: Trophy, primary: true },
   { id: 'matches', label: 'Matches', Icon: Calendar, primary: true },
+  { id: 'bets', label: 'Bets', Icon: Coins, sports: ['pingpong'], betting: true, primary: true },
   { id: 'stats', label: 'Stats', description: 'Charts, streaks and head-to-heads', Icon: BarChart2 },
   { id: 'tournament', label: 'Tournament', description: 'Brackets and cup history', Icon: Swords, sports: ['pingpong'] },
-  { id: 'bets', label: 'Bets', description: 'Points wagered on live matches', Icon: Coins, sports: ['pingpong'], betting: true },
   { id: 'settings', label: 'Settings', description: 'Debuffs and Discord', Icon: Settings, adminOnly: true },
 ]
 

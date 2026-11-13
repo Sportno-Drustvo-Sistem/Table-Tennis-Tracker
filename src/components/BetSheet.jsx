@@ -1,11 +1,15 @@
 import React, { useState } from 'react'
-import { X, Coins, Trash2 } from 'lucide-react'
+import { X, Coins, Trash2, Flame } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { getAvatarFallback } from '../utils'
 import { cancelBet, placeBet } from '../betPersistence'
 import { STAKE_CHIPS, allowedSides, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
 import { BetAvatar, BetList, BetPool } from './MatchBets'
+
+// Stake buttons drawn as poker chips, one colour per value.
+const CHIP_COLORS = { 10: 'bg-sky-600', 50: 'bg-emerald-600', 100: 'bg-violet-600', 250: 'bg-gray-950 dark:bg-black' }
+const selectedRing = 'ring-4 ring-amber-400 scale-110'
 
 const SIDE_STYLES = {
     1: {
@@ -38,15 +42,13 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
     const pool = poolTotals(bets)
     const names = { 1: player1.name, 2: player2.name }
     const hasBet = new Set(bets.map(bet => bet.user_id))
-    const chip = active => `px-3.5 py-2 rounded-full text-sm font-bold tabular-nums border transition-colors ${active
-        ? 'bg-amber-500 border-amber-500 text-white'
-        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'}`
 
     const balance = bettorId ? walletBalance(wallets, bettorId) : 0
     const sides = bettorId ? allowedSides(bettorId, player1.id, player2.id) : [1, 2]
     const activeSide = sides.includes(side) ? side : (sides.length === 1 ? sides[0] : null)
     const stakeValue = Number(stake)
     const stakeValid = Number.isInteger(stakeValue) && stakeValue >= 1 && stakeValue <= balance
+    const allIn = stakeValid && stakeValue === balance
     const canPlace = !closed && !busy && bettorId && activeSide && stakeValid
 
     const pickBettor = (id) => {
@@ -70,6 +72,8 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                 winProbability: Number(probability[activeSide].toFixed(4)),
                 snapshot,
             })
+            const bettor = usersById[bettorId]?.name || 'Bet'
+            showToast(allIn ? `${bettor} is all in on ${players[activeSide].name}!` : `${bettor} put ${stakeValue.toLocaleString()} on ${players[activeSide].name}`, 'success')
             pickBettor(null)
         } catch (error) {
             console.error(error)
@@ -206,20 +210,23 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         {balance === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400">No points left until their bets are settled.</p>
                         ) : (
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2.5">
                                 {STAKE_CHIPS.filter(amount => amount < balance).map(amount => (
-                                    <button key={amount} type="button" onClick={() => setStake(String(amount))} aria-pressed={stakeValue === amount} className={chip(stakeValue === amount)}>
+                                    <button key={amount} type="button" onClick={() => setStake(String(amount))} aria-pressed={stakeValue === amount}
+                                        className={`w-12 h-12 rounded-full border-[3px] border-dashed border-white/70 text-white text-sm font-black tabular-nums shadow-md transition-transform active:scale-95 ${CHIP_COLORS[amount] || 'bg-gray-600'} ${stakeValue === amount ? selectedRing : ''}`}>
                                         {amount}
                                     </button>
                                 ))}
-                                <button type="button" onClick={() => setStake(String(balance))} aria-pressed={stakeValue === balance} className={chip(stakeValue === balance)}>
+                                <button type="button" onClick={() => setStake(String(balance))} aria-pressed={allIn}
+                                    className={`h-12 px-4 rounded-full flex items-center gap-1.5 text-sm font-black uppercase tracking-wide text-white bg-gradient-to-r from-orange-500 to-red-600 shadow-md transition-transform active:scale-95 ${allIn ? selectedRing : ''}`}>
+                                    <Flame size={16} />
                                     All in
                                 </button>
                                 <input
                                     type="number" inputMode="numeric" min="1" max={balance} step="1"
                                     value={stake} onChange={e => setStake(e.target.value)}
                                     placeholder="Other" aria-label="Stake in points"
-                                    className="w-24 px-3 py-2 rounded-full text-sm font-bold tabular-nums border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                    className="w-24 h-12 px-3 rounded-full text-sm font-bold tabular-nums border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 />
                             </div>
                         )}
@@ -228,10 +235,10 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         )}
                         <button
                             type="button" onClick={handlePlace} disabled={!canPlace}
-                            className="mt-3 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                            className={`mt-3 w-full py-3 rounded-xl text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed ${allIn && activeSide ? 'bg-gradient-to-r from-orange-500 to-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}
                         >
                             {busy ? 'Placing…' : !activeSide ? 'Pick who they back' : !stakeValid ? 'Pick a stake'
-                                : `Bet ${stakeValue} on ${players[activeSide].name} · pays ${potentialPayout(stakeValue, multiplier[activeSide])}`}
+                                : `${allIn ? 'All in!' : 'Bet'} ${stakeValue.toLocaleString()} on ${players[activeSide].name} · pays ${potentialPayout(stakeValue, multiplier[activeSide]).toLocaleString()}`}
                         </button>
                     </div>
                 )}

@@ -39,7 +39,11 @@ describe('betting screens render', () => {
 
     it('lists live bets, balances and settled results on the Bets page', () => {
         const settled = { ...pending, id: 'b2', market_id: 'k2', status: 'won', payout: 143, snapshot: { bestOf: 1, score1: 5, score2: 3 } }
-        const html = render(<BetsView users={users} wallets={wallets} markets={[market, { ...market, id: 'k2', status: 'settled', winner_side: 1 }]} bets={[pending, settled]} isAdmin adminToken="t" />)
+        const page = tab => render(<BetsView users={users} wallets={wallets} markets={[market, { ...market, id: 'k2', status: 'settled', winner_side: 1 }]} bets={[pending, settled]} isAdmin adminToken="t" initialTab={tab} />)
+        const html = page('standings') + page('history')
+        expect(page('standings')).not.toContain('beat Bor')
+        expect(page('awards')).toContain('Jackpot')
+        expect(page('awards')).toContain('Won +43 with one bet')
         expect(html).toContain('Ana vs Bor')
         expect(html).toContain('Refund all')
         expect(html).toContain('1 bet · 100 points riding')

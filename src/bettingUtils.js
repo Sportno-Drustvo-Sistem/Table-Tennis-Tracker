@@ -62,6 +62,7 @@ export const describeBetResults = (bets, usersById) => {
 export const buildBettingLeaderboard = (users, wallets, bets) => {
     const walletByUser = new Map((wallets || []).map(wallet => [wallet.user_id, wallet]))
     const stats = new Map()
+    const streaks = betStreaks(bets)
     for (const bet of bets || []) {
         const row = stats.get(bet.user_id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
         if (bet.status === 'won') {
@@ -77,7 +78,7 @@ export const buildBettingLeaderboard = (users, wallets, bets) => {
     return (users || []).map(user => {
         const wallet = walletByUser.get(user.id)
         const row = stats.get(user.id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
-        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: Boolean(wallet), ...row }
+        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: Boolean(wallet), streak: streaks.get(user.id) || 0, ...row }
     }).sort((a, b) => (b.hasBet - a.hasBet) || (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
 }
 
@@ -129,4 +130,74 @@ export const betsByMatchId = (matches, markets, bets) => {
         if (paid.length) result.set(match.id, { market, bets: paid })
     }
     return result
+}
+
+const isPaid = bet => bet.status === 'won' || bet.status === 'lost'
+const newestFirst = bets => [...(bets || [])].sort((a, b) => {
+    const [left, right] = [a.created_at || '', b.created_at || '']
+    return left < right ? 1 : left > right ? -1 : 0
+})
+
+// Current run of paid bets per bettor: +3 is three wins in a row, -2 two losses.
+export const betStreaks = (bets) => {
+    const streaks = new Map()
+    const ended = new Set()
+    for (const bet of newestFirst(bets)) {
+        if (!isPaid(bet) || ended.has(bet.user_id)) continue
+        const sign = bet.status === 'won' ? 1 : -1
+        const current = streaks.get(bet.user_id) || 0
+        if (current && Math.sign(current) !== sign) ended.add(bet.user_id)
+        else streaks.set(bet.user_id, current + sign)
+    }
+    return streaks
+}
+
+// Headline numbers for the Bets page.
+export const bettingTotals = (bets) => {
+    const paid = (bets || []).filter(isPaid)
+    return {
+        count: paid.length,
+        wagered: paid.reduce((sum, bet) => sum + bet.stake, 0),
+        biggestWin: paid.reduce((best, bet) => Math.max(best, bet.payout - bet.stake), 0),
+    }
+}
+
+const ORACLE_MIN_BETS = 3
+const LONG_SHOT_MULTIPLIER = 2
+
+// Bragging rights: [{ id, userId, value, total? }]. An award nobody has earned is left out.
+export const buildBettingAwards = (bets) => {
+    const best = (list, score) => list.reduce((top, item) => (top === null || score(item) > score(top) ? item : top), null)
+    const awards = []
+    const add = (id, bet, value, extra) => { if (bet) awards.push({ id, userId: bet.user_id, value, ...extra }) }
+    const paid = (bets || []).filter(isPaid)
+    const wins = paid.filter(bet => bet.status === 'won')
+    const net = bet => bet.payout - bet.stake
+
+    const roller = best((bets || []).filter(bet => bet.status !== 'void'), bet => bet.stake)
+    add('highRoller', roller, roller?.stake)
+    const jackpot = best(wins, net)
+    add('jackpot', jackpot, jackpot && net(jackpot))
+    const longShot = best(wins.filter(bet => Number(bet.multiplier) >= LONG_SHOT_MULTIPLIER), bet => Number(bet.multiplier))
+    add('longShot', longShot, Number(longShot?.multiplier))
+
+    const records = new Map()
+    for (const bet of paid) {
+        const record = records.get(bet.user_id) || { user_id: bet.user_id, won: 0, total: 0 }
+        record.total++
+        if (bet.status === 'won') record.won++
+        records.set(bet.user_id, record)
+    }
+    const oracle = best([...records.values()].filter(record => record.total >= ORACLE_MIN_BETS && record.won > 0), record => record.won / record.total + record.total / 1e6)
+    add('oracle', oracle, oracle?.won, { total: oracle?.total })
+
+    const streaks = [...betStreaks(bets)].map(([user_id, run]) => ({ user_id, run }))
+    const hot = best(streaks.filter(streak => streak.run >= 2), streak => streak.run)
+    add('hot', hot, hot?.run)
+    const cold = best(streaks.filter(streak => streak.run <= -2), streak => -streak.run)
+    add('cold', cold, cold && -cold.run)
+
+    const ouch = best(paid.filter(bet => bet.status === 'lost'), bet => bet.stake)
+    add('ouch', ouch, ouch?.stake)
+    return awards
 }
