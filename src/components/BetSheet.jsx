@@ -3,19 +3,18 @@ import { X, Coins, Trash2 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { getAvatarFallback } from '../utils'
 import { cancelBet, placeBet } from '../betPersistence'
-import { STAKE_CHIPS, allowedSides, betMultiplier, clampBetProbability, potentialPayout, walletBalance } from '../bettingUtils'
+import { STAKE_CHIPS, allowedSides, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
+import { BetAvatar, BetList, BetPool } from './MatchBets'
 
 const SIDE_STYLES = {
     1: {
         idle: 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
         active: 'border-blue-500 bg-blue-500 text-white',
-        text: 'text-blue-600 dark:text-blue-400',
     },
     2: {
         idle: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300',
         active: 'border-red-500 bg-red-500 text-white',
-        text: 'text-red-600 dark:text-red-400',
     },
 }
 
@@ -36,6 +35,12 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
     const multiplier = { 1: betMultiplier(probability[1]), 2: betMultiplier(probability[2]) }
     const usersById = Object.fromEntries(users.map(user => [user.id, user]))
     const bettors = [...users].sort((a, b) => a.name.localeCompare(b.name))
+    const pool = poolTotals(bets)
+    const names = { 1: player1.name, 2: player2.name }
+    const hasBet = new Set(bets.map(bet => bet.user_id))
+    const chip = active => `px-3.5 py-2 rounded-full text-sm font-bold tabular-nums border transition-colors ${active
+        ? 'bg-amber-500 border-amber-500 text-white'
+        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'}`
 
     const balance = bettorId ? walletBalance(wallets, bettorId) : 0
     const sides = bettorId ? allowedSides(bettorId, player1.id, player2.id) : [1, 2]
@@ -90,10 +95,15 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="bet-sheet-title">
             <div className="w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[90dvh] bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden short:max-w-none short:rounded-none short:h-[100dvh]">
                 <div className="flex items-center justify-between px-4 pt-4 pb-2 short:pt-2">
-                    <h3 id="bet-sheet-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-                        <Coins size={20} className="text-amber-500" />
-                        Bets
-                    </h3>
+                    <div className="min-w-0">
+                        <h3 id="bet-sheet-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
+                            <Coins size={20} className="text-amber-500" />
+                            Bets
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums short:hidden">
+                            {pool.count === 0 ? 'Nothing riding yet' : `${pool.count} ${pool.count === 1 ? 'bet' : 'bets'} · ${pool.total.toLocaleString()} points riding`}
+                        </p>
+                    </div>
                     <button onClick={onClose} aria-label="Close bets" className="p-2.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800">
                         <X size={20} />
                     </button>
@@ -121,8 +131,12 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                                 </button>
                             ))}
                         </div>
+                        {pool.total > 0 && <div className="mt-2 short:hidden"><BetPool bets={bets} names={names} /></div>}
                         {closed && (
                             <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Betting is closed at match point.</p>
+                        )}
+                        {!closed && bettorId && !activeSide && (
+                            <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Tap the player {usersById[bettorId]?.name} is backing.</p>
                         )}
                     </div>
                 </div>
@@ -142,7 +156,14 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                                                 ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/30'
                                                 : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                                         >
-                                            <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-12 h-12 rounded-full object-cover" />
+                                            <span className="relative">
+                                                <img src={user.avatar_url || getAvatarFallback(user.name)} alt="" className="w-12 h-12 rounded-full object-cover" />
+                                                {hasBet.has(user.id) && (
+                                                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center ring-2 ring-white dark:ring-gray-900" title="Has a bet on this match">
+                                                        <Coins size={10} />
+                                                    </span>
+                                                )}
+                                            </span>
                                             <span className="w-full truncate text-center text-xs font-bold text-gray-800 dark:text-gray-100">{user.name}</span>
                                             <span className="text-[11px] tabular-nums text-gray-500 dark:text-gray-400">{walletBalance(wallets, user.id)}</span>
                                         </button>
@@ -159,66 +180,58 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         {bets.length === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400">No bets yet.</p>
                         ) : (
-                            <ul className="space-y-1.5">
-                                {bets.map(bet => (
-                                    <li key={bet.id} className="flex items-center gap-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 px-2.5 py-2">
-                                        <img src={usersById[bet.user_id]?.avatar_url || getAvatarFallback(usersById[bet.user_id]?.name)} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-                                        <div className="min-w-0 flex-1 text-sm">
-                                            <div className="font-bold text-gray-900 dark:text-white truncate">{usersById[bet.user_id]?.name || 'Unknown'}</div>
-                                            <div className="text-gray-500 dark:text-gray-400 truncate">
-                                                <span className="tabular-nums">{bet.stake}</span> on <span className={`font-bold ${SIDE_STYLES[bet.side].text}`}>{players[bet.side].name}</span>
-                                                <span className="tabular-nums"> · {Number(bet.multiplier).toFixed(2)}× · pays {potentialPayout(bet.stake, Number(bet.multiplier))}</span>
-                                            </div>
-                                        </div>
-                                        <button type="button" onClick={() => handleCancel(bet)} disabled={busy}
-                                            aria-label={`Remove ${usersById[bet.user_id]?.name || ''} bet`}
-                                            className="p-2.5 text-gray-400 hover:text-red-500 disabled:opacity-40">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
+                            <BetList bets={bets} getUser={id => usersById[id]} names={names} renderAction={bet => (
+                                <button type="button" onClick={() => handleCancel(bet)} disabled={busy}
+                                    aria-label={`Remove ${usersById[bet.user_id]?.name || ''} bet`}
+                                    className="p-2.5 -mr-1.5 text-gray-400 hover:text-red-500 disabled:opacity-40">
+                                    <Trash2 size={16} />
+                                </button>
+                            )} />
                         )}
                     </div>
                 </div>
 
                 {!closed && bettorId && (
                     <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
-                            Stake · {usersById[bettorId]?.name} has {balance}
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                            {STAKE_CHIPS.filter(chip => chip <= balance).map(chip => (
-                                <button key={chip} type="button" onClick={() => setStake(String(chip))}
-                                    className={`px-3.5 py-2 rounded-full text-sm font-bold tabular-nums border ${stakeValue === chip
-                                        ? 'bg-amber-500 border-amber-500 text-white'
-                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'}`}>
-                                    {chip}
-                                </button>
-                            ))}
-                            {balance > 0 && (
-                                <button type="button" onClick={() => setStake(String(balance))}
-                                    className={`px-3.5 py-2 rounded-full text-sm font-bold border ${stakeValue === balance
-                                        ? 'bg-amber-500 border-amber-500 text-white'
-                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'}`}>
+                        <div className="flex items-center gap-2.5 mb-2.5">
+                            <BetAvatar user={usersById[bettorId]} className="w-9 h-9" />
+                            <div className="min-w-0 flex-1 leading-tight">
+                                <div className="font-bold text-gray-900 dark:text-white truncate">{usersById[bettorId]?.name}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{balance.toLocaleString()} points to bet</div>
+                            </div>
+                            <button type="button" onClick={() => pickBettor(null)} aria-label="Pick someone else" className="p-2 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        {balance === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">No points left until their bets are settled.</p>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {STAKE_CHIPS.filter(amount => amount < balance).map(amount => (
+                                    <button key={amount} type="button" onClick={() => setStake(String(amount))} aria-pressed={stakeValue === amount} className={chip(stakeValue === amount)}>
+                                        {amount}
+                                    </button>
+                                ))}
+                                <button type="button" onClick={() => setStake(String(balance))} aria-pressed={stakeValue === balance} className={chip(stakeValue === balance)}>
                                     All in
                                 </button>
-                            )}
-                            <input
-                                type="number" inputMode="numeric" min="1" max={balance} step="1"
-                                value={stake} onChange={e => setStake(e.target.value)}
-                                placeholder="Other" aria-label="Stake in points"
-                                className="w-24 px-3 py-2 rounded-full text-sm font-bold tabular-nums border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                            />
-                        </div>
-                        {!activeSide && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Tap a player above to choose who they back.</p>}
+                                <input
+                                    type="number" inputMode="numeric" min="1" max={balance} step="1"
+                                    value={stake} onChange={e => setStake(e.target.value)}
+                                    placeholder="Other" aria-label="Stake in points"
+                                    className="w-24 px-3 py-2 rounded-full text-sm font-bold tabular-nums border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                />
+                            </div>
+                        )}
+                        {stake !== '' && !stakeValid && balance > 0 && (
+                            <p className="mt-2 text-sm text-red-600 dark:text-red-400">Enter a whole number from 1 to {balance.toLocaleString()}.</p>
+                        )}
                         <button
                             type="button" onClick={handlePlace} disabled={!canPlace}
                             className="mt-3 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            {busy ? 'Placing…' : activeSide && stakeValid
-                                ? `Bet ${stakeValue} on ${players[activeSide].name} · pays ${potentialPayout(stakeValue, multiplier[activeSide])}`
-                                : 'Place bet'}
+                            {busy ? 'Placing…' : !activeSide ? 'Pick who they back' : !stakeValid ? 'Pick a stake'
+                                : `Bet ${stakeValue} on ${players[activeSide].name} · pays ${potentialPayout(stakeValue, multiplier[activeSide])}`}
                         </button>
                     </div>
                 )}

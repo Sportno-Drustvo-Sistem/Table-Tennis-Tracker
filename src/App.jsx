@@ -520,6 +520,8 @@ function App() {
             onMatchDeleted={refreshPingPong}
             isAdmin={isAdmin && canManageSeason}
             adminToken={adminToken}
+            betMarkets={betMarkets}
+            bets={bets}
           />
         ) : isPadel ? (
           <PadelMatches

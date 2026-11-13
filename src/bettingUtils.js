@@ -80,3 +80,53 @@ export const buildBettingLeaderboard = (users, wallets, bets) => {
         return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: Boolean(wallet), ...row }
     }).sort((a, b) => (b.hasBet - a.hasBet) || (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
 }
+
+// Points staked on each side: { 1, 2, total, count }. Refunded bets do not count.
+export const poolTotals = (bets) => {
+    const pool = { 1: 0, 2: 0, total: 0, count: 0 }
+    for (const bet of bets || []) {
+        if (bet.status === 'void') continue
+        pool[bet.side] += bet.stake
+        pool.total += bet.stake
+        pool.count++
+    }
+    return pool
+}
+
+export const groupBetsByMarket = (bets) => {
+    const groups = new Map()
+    for (const bet of bets || []) {
+        if (!groups.has(bet.market_id)) groups.set(bet.market_id, [])
+        groups.get(bet.market_id).push(bet)
+    }
+    return groups
+}
+
+// The score a bet was placed at: "5–3", or "5–3 (1–0)" with games in a longer match.
+export const describeSnapshot = (snapshot) => {
+    if (!snapshot || !Number.isFinite(snapshot.score1) || !Number.isFinite(snapshot.score2)) return ''
+    const points = `${snapshot.score1}–${snapshot.score2}`
+    return snapshot.bestOf > 1 ? `${points} (${snapshot.games1 ?? 0}–${snapshot.games2 ?? 0})` : points
+}
+
+// Paid bets for the match history: match row id -> { market, bets }. A match of
+// several games is several rows; only the first one listed carries the bets.
+export const betsByMatchId = (matches, markets, bets) => {
+    const marketByMatch = new Map()
+    for (const market of markets || []) {
+        if (market.status !== 'settled') continue
+        for (const matchId of market.match_ids || []) marketByMatch.set(matchId, market)
+    }
+    const result = new Map()
+    if (!marketByMatch.size) return result
+    const betsByMarket = groupBetsByMarket(bets)
+    const shown = new Set()
+    for (const match of matches || []) {
+        const market = marketByMatch.get(match.id)
+        if (!market || shown.has(market.id)) continue
+        shown.add(market.id)
+        const paid = (betsByMarket.get(market.id) || []).filter(bet => bet.status === 'won' || bet.status === 'lost')
+        if (paid.length) result.set(match.id, { market, bets: paid })
+    }
+    return result
+}

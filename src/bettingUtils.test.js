@@ -3,7 +3,10 @@ import {
     allowedSides,
     betMultiplier,
     buildBettingLeaderboard,
+    betsByMatchId,
     describeBetResults,
+    describeSnapshot,
+    poolTotals,
     isBettingClosed,
     netResults,
     potentialPayout,
@@ -84,5 +87,32 @@ describe('results', () => {
         expect(board[0]).toMatchObject({ balance: 1120, won: 1, lost: 1, profit: 120, biggestWin: 150 })
         expect(board[1]).toMatchObject({ balance: 930, rebuys: 1, profit: -50, pending: 20 })
         expect(board[2]).toMatchObject({ balance: 1000, hasBet: false })
+    })
+
+    it('totals the pool per side without refunded bets', () => {
+        const pool = poolTotals([{ side: 1, stake: 100, status: 'won' }, { side: 2, stake: 30, status: 'lost' }, { side: 2, stake: 500, status: 'void' }])
+        expect(pool).toEqual({ 1: 100, 2: 30, total: 130, count: 2 })
+    })
+
+    it('describes the score a bet was placed at', () => {
+        expect(describeSnapshot({ bestOf: 1, score1: 5, score2: 3 })).toBe('5–3')
+        expect(describeSnapshot({ bestOf: 3, games1: 1, games2: 0, score1: 4, score2: 6 })).toBe('4–6 (1–0)')
+        expect(describeSnapshot(null)).toBe('')
+    })
+
+    it('attaches paid bets to the first listed row of their match', () => {
+        const markets = [
+            { id: 'k', status: 'settled', match_ids: ['m1', 'm2'] },
+            { id: 'refunded', status: 'void', match_ids: ['m3'] },
+        ]
+        const marketBets = [
+            { id: 'b1', market_id: 'k', status: 'won' },
+            { id: 'b2', market_id: 'k', status: 'void' },
+            { id: 'b3', market_id: 'refunded', status: 'void' },
+        ]
+        const byMatch = betsByMatchId([{ id: 'm2' }, { id: 'm1' }, { id: 'm3' }], markets, marketBets)
+        expect([...byMatch.keys()]).toEqual(['m2'])
+        expect(byMatch.get('m2').bets.map(bet => bet.id)).toEqual(['b1'])
+        expect(betsByMatchId([{ id: 'm2' }], [], []).size).toBe(0)
     })
 })

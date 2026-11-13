@@ -18,8 +18,11 @@ the feature can be removed cleanly.
 - Everyone starts with 1,000 points. A wallet at 0 with nothing riding restarts
   at 100. Players in the match can only bet on themselves.
 - Editing a paid match's score re-pays its bets; deleting it refunds them.
-- The **Bets** tab (ping pong) shows balances, bets on the match in play and
-  recent results. Admins can refund an orphaned open market there.
+- The **Bets** tab (ping pong) shows balances, who bet what on the match in
+  play and on recently paid matches. Admins can refund an orphaned open market
+  there.
+- The ping pong **match history** marks matches that had bets; tapping the
+  marker lists who bet, how much, on whom and what it paid.
 
 ## Database
 
@@ -66,6 +69,7 @@ server range-checks it (0.01–0.99) and derives the multiplier itself.
    - Delete `src/bettingUtils.js`, `src/bettingUtils.test.js`,
      `src/betPersistence.js`, `src/bettingViews.test.jsx`,
      `src/components/BetSheet.jsx`, `src/components/BetsView.jsx`,
+     `src/components/MatchBets.jsx`,
      `supabase/tests/betting.sql`, the migration, the rollback and this file.
    - `src/appData.js`: remove the `betWallets`, `betMarkets` and `bets` sources
      and initial arrays (and `OPTIONAL_REALTIME_TABLES` if nothing else is optional).
@@ -76,8 +80,12 @@ server range-checks it (0.01–0.99) and derives the multiplier itself.
    - `src/components/modals/LiveMatchModal.jsx`: remove the `betting` prop,
      `marketId`, `betSheetOpen`, `matchBets`, `refundBetsThen`, the Bets button
      and `<BetSheet>`; `handleSave` goes back to calling `recordPingPongMatch`.
-   - `src/App.jsx`: remove the `bets` nav item, `liveBetting`, `<BetsView>`
-     and the `betting` prop on `<LiveMatchModal>`.
+   - `src/App.jsx`: remove the `bets` nav item, `liveBetting`, `<BetsView>`,
+     the `betting` prop on `<LiveMatchModal>` and the `betMarkets`/`bets` props
+     on `<Matches>`.
+   - `src/components/Matches.jsx`: remove the `betMarkets`/`bets` props,
+     `openBetsId`, `matchBets`, the bets button under the score and the
+     expanded bets row.
    - `scripts/test-database.mjs`: remove the betting block before the final
      status line.
 

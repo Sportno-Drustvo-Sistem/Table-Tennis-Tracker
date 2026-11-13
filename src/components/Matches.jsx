@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react'
-import { Edit2, Trash2, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search, Skull } from 'lucide-react'
+import { Edit2, Trash2, RefreshCw, Scale, Check, X, CheckSquare, Square, MinusSquare, ListChecks, Search, Skull, Coins } from 'lucide-react'
 import { useToast } from '../contexts/useToast'
 import { supabase } from '../supabaseClient'
 import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../utils'
+import { betsByMatchId, poolTotals } from '../bettingUtils'
 import { PingPongIcon } from './Icons'
+import { BetList, BetPool } from './MatchBets'
 import { LIST_PAGE_SIZE, ShowMore, Spinner } from './layout/AppShell'
 
 const EloChangeDisplay = ({ elo, change }) => (
@@ -16,7 +18,7 @@ const EloChangeDisplay = ({ elo, change }) => (
     </div>
 )
 
-const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
+const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, isAdmin, adminToken, betMarkets = [], bets = [] }) => {
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -25,6 +27,7 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
     const [isBulkMode, setIsBulkMode] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE)
+    const [openBetsId, setOpenBetsId] = useState(null)
     const { showToast } = useToast()
 
     const handleSearchChange = query => {
@@ -143,6 +146,8 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
     const visibleSelectedIds = new Set(filteredMatches.filter(m => selectedIds.has(m.id)).map(m => m.id))
     if (visibleSelectedIds.size !== selectedIds.size) setSelectedIds(visibleSelectedIds)
     const allShownSelected = shownMatches.length > 0 && shownMatches.every(m => visibleSelectedIds.has(m.id))
+    // Points bets paid on a match, shown under its score.
+    const matchBets = betsByMatchId(matches, betMarkets, bets)
 
     return (
         <div className="space-y-6">
@@ -261,8 +266,12 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                     const eloData = matchEloData[match.id]
 
                                     const isSelected = visibleSelectedIds.has(match.id)
+                                    const betting = matchBets.get(match.id)
+                                    const pool = betting && poolTotals(betting.bets)
+                                    const betsOpen = betting && openBetsId === match.id
                                     return (
-                                        <tr key={match.id} className={`transition-colors text-sm ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}>
+                                        <React.Fragment key={match.id}>
+                                        <tr className={`transition-colors text-sm ${isSelected ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-blue-50 dark:hover:bg-gray-700'}`}>
                                             {isAdmin && isBulkMode && (
                                                 <td className="px-2 sm:px-3 py-3 sm:py-4">
                                                     <button onClick={() => toggleSelect(match.id)} className={`p-2 -m-2 transition-colors ${isSelected ? 'text-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400'}`}>
@@ -309,6 +318,20 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                                 </div>
                                                             ))}
                                                         </div>
+                                                    )}
+                                                    {betting && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOpenBetsId(betsOpen ? null : match.id)}
+                                                            aria-expanded={betsOpen}
+                                                            aria-label={`${pool.count} ${pool.count === 1 ? 'bet' : 'bets'}, ${pool.total} points. ${betsOpen ? 'Hide' : 'Show'} bets`}
+                                                            className={`mt-1 flex items-center gap-1 text-xs font-bold leading-tight px-2 py-1 rounded-full tabular-nums whitespace-nowrap transition-colors ${betsOpen
+                                                                ? 'bg-amber-500 text-white'
+                                                                : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50'}`}
+                                                        >
+                                                            <Coins size={12} className="shrink-0" />
+                                                            {pool.count} {pool.count === 1 ? 'bet' : 'bets'} · {pool.total.toLocaleString()}
+                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
@@ -381,6 +404,20 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                 </div>
                                             </td>
                                         </tr>
+                                        {betsOpen && (() => {
+                                            const names = { 1: getPlayerInfo(betting.market.player1_id).name, 2: getPlayerInfo(betting.market.player2_id).name }
+                                            return (
+                                                <tr className="bg-amber-50/60 dark:bg-amber-900/10">
+                                                    <td colSpan={6} className="px-2 sm:px-6 py-3">
+                                                        <div className="max-w-xl mx-auto space-y-3">
+                                                            <BetPool bets={betting.bets} names={names} />
+                                                            <BetList bets={betting.bets} getUser={id => usersById.get(id)} names={names} />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })()}
+                                        </React.Fragment>
                                     )
                                 })}
                             </tbody>
