@@ -225,6 +225,10 @@ const LIVE_HEARTBEAT_MS = 4 * 60 * 1000
 const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, historyMatches, tournamentId, debuffs, adminToken, betting }) => {
     const { showToast, showConfirm } = useToast()
     const [marketId, setMarketId] = useState(newMarketId)
+    // The id of the match actually on screen. The state above briefly holds the
+    // id made at mount before the open effect replaces it; that one must never
+    // be shared, or it would stay "live" on other phones after a cancel.
+    const openedId = useRef(null)
     const [betSheetOpen, setBetSheetOpen] = useState(false)
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
@@ -264,7 +268,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setInitialServer(null)
             setEloChange(null)
             setRefusedRules(new Set())
-            setMarketId(newMarketId())
+            const id = newMarketId()
+            openedId.current = id
+            setMarketId(id)
             setBetSheetOpen(false)
             getActiveDebuffs().then(setAllDebuffs)
         }
@@ -496,7 +502,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
     const handleRematch = () => refundBetsThen(() => {
         unlockAudioAndSpeech()
-        setMarketId(newMarketId())
+        const id = newMarketId()
+        openedId.current = id
+        setMarketId(id)
         setScore1(0)
         setScore2(0)
         setHistory([])
@@ -601,9 +609,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     }, [shareLive, winProb, completedSets, gameWinner, score1, score2, initialServer, bestOf, matchWinner])
 
     // Updates go out one at a time, newest state wins; a failed one is fixed by the next.
-    const liveQueue = useRef({ running: null, next: null, ended: new Set() })
+    const liveQueue = useRef({ running: null, next: null, ended: new Set(), shared: new Set() })
     const sendLive = useCallback((job) => {
         const queue = liveQueue.current
+        if (queue.ended.has(job.marketId)) return
+        queue.shared.add(job.marketId)
         queue.next = job
         if (queue.running) return
         const pump = async () => {
@@ -622,7 +632,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         queue.running = pump()
     }, [])
     useEffect(() => {
-        if (!liveState) return
+        if (!liveState || marketId !== openedId.current) return
         sendLive({ adminToken, marketId, player1Id: player1.id, player2Id: player2.id, state: liveState })
     }, [liveState, heartbeat, sendLive, adminToken, marketId, player1, player2])
 
@@ -634,6 +644,14 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         await queue.running
         return endLiveMatch(supabase, { adminToken, marketId: id })
     }, [adminToken])
+
+    // Safety net: whenever the match id changes or the screen goes away, a match
+    // that was shared and not ended yet is taken off the other phones.
+    useEffect(() => () => {
+        const queue = liveQueue.current
+        if (!queue.shared.has(marketId) || queue.ended.has(marketId)) return
+        endLive(marketId).catch(error => console.warn('Live match not ended:', error.message))
+    }, [marketId, endLive])
 
     if (!isOpen || !player1 || !player2) return null
 
