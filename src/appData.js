@@ -30,6 +30,8 @@ export const DATA_SOURCES = {
     betWallets: { table: 'bet_wallets', optional: true, load: client => client.from('bet_wallets').select('*') },
     betMarkets: { table: 'bet_markets', optional: true, order: byNewest, load: client => client.from('bet_markets').select('*').order('created_at', { ascending: false }).limit(300) },
     bets: { table: 'bets', optional: true, order: byNewest, load: client => client.from('bets').select('*').order('created_at', { ascending: false }).limit(1000) },
+    // The umpire phone's live score, shared so any phone can follow and bet.
+    liveMatches: { table: 'live_matches', optional: true, order: byNewest, load: client => client.from('live_matches').select('*').order('created_at', { ascending: false }) },
 }
 
 export const SPORT_DATA = {
@@ -55,6 +57,7 @@ export const createInitialData = () => ({
     betWallets: [],
     betMarkets: [],
     bets: [],
+    liveMatches: [],
     loaded: {},
     failed: {},
 })

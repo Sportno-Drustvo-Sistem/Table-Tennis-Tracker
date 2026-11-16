@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { X, Coins, Trash2, Flame } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { getAvatarFallback } from '../utils'
-import { cancelBet, placeBet } from '../betPersistence'
+import { cancelBet, placeBet, placeLiveBet } from '../betPersistence'
 import { STAKE_CHIPS, allowedSides, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
 import { BetAvatar, BetList, BetPool } from './MatchBets'
@@ -22,12 +22,24 @@ const SIDE_STYLES = {
     },
 }
 
-// The bookie's sheet on the umpire phone: pick who is betting, on whom and how
-// much. Odds are those of the score at the moment it was opened, because no
-// point can be scored while it covers the table.
-const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets, bets, prob1, closed, snapshot, adminToken }) => {
+const BETTOR_STORAGE_KEY = 'betSheetBettor'
+const rememberedBettor = () => {
+    try { return localStorage.getItem(BETTOR_STORAGE_KEY) } catch { return null }
+}
+
+// The bookie's sheet: pick who is betting, on whom and how much.
+// On the umpire phone odds are those of the score at the moment it was opened,
+// because no point can be scored while it covers the table.
+// `remote` is any other phone: odds follow the live score, the server prices
+// the bet itself, and the phone remembers who used it last. `scoreboard` is
+// drawn under the title.
+const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets, bets, prob1, closed, snapshot, adminToken, remote = false, scoreboard = null }) => {
     const { showToast } = useToast()
-    const [bettorId, setBettorId] = useState(null)
+    const [bettorId, setBettorId] = useState(() => {
+        if (!remote) return null
+        const id = rememberedBettor()
+        return users.some(user => user.id === id) ? id : null
+    })
     const [side, setSide] = useState(null)
     const [stake, setStake] = useState('')
     const [busy, setBusy] = useState(false)
@@ -53,6 +65,9 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
 
     const pickBettor = (id) => {
         setBettorId(id)
+        if (remote && id) {
+            try { localStorage.setItem(BETTOR_STORAGE_KEY, id) } catch { /* private mode */ }
+        }
         setSide(null)
         setStake('')
     }
@@ -61,20 +76,28 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
         if (!canPlace) return
         setBusy(true)
         try {
-            await placeBet(supabase, {
-                adminToken,
-                marketId,
-                player1Id: player1.id,
-                player2Id: player2.id,
-                userId: bettorId,
-                side: activeSide,
-                stake: stakeValue,
-                winProbability: Number(probability[activeSide].toFixed(4)),
-                snapshot,
-            })
+            if (remote) {
+                await placeLiveBet(supabase, { marketId, userId: bettorId, side: activeSide, stake: stakeValue, multiplier: multiplier[activeSide] })
+            } else {
+                await placeBet(supabase, {
+                    adminToken,
+                    marketId,
+                    player1Id: player1.id,
+                    player2Id: player2.id,
+                    userId: bettorId,
+                    side: activeSide,
+                    stake: stakeValue,
+                    winProbability: Number(probability[activeSide].toFixed(4)),
+                    snapshot,
+                })
+            }
             const bettor = usersById[bettorId]?.name || 'Bet'
             showToast(allIn ? `${bettor} is all in on ${players[activeSide].name}!` : `${bettor} put ${stakeValue.toLocaleString()} on ${players[activeSide].name}`, 'success')
-            pickBettor(null)
+            // A phone of your own keeps you picked for the next bet.
+            if (remote) {
+                setSide(null)
+                setStake('')
+            } else pickBettor(null)
         } catch (error) {
             console.error(error)
             showToast('Bet not placed: ' + error.message, 'error')
@@ -113,6 +136,8 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                     </button>
                 </div>
 
+                {scoreboard && <div className="px-4 pb-3">{scoreboard}</div>}
+
                 {/* Odds, doubling as the side picker; stays put above the list */}
                 <div className="px-4 pb-3">
                     <div>
@@ -138,6 +163,9 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         {pool.total > 0 && <div className="mt-2 short:hidden"><BetPool bets={bets} names={names} /></div>}
                         {closed && (
                             <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Betting is closed at match point.</p>
+                        )}
+                        {remote && !closed && (
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 short:hidden">Odds move with every point. Your bet is locked at the odds shown when you tap Bet.</p>
                         )}
                         {!closed && bettorId && !activeSide && (
                             <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Tap the player {usersById[bettorId]?.name} is backing.</p>
@@ -184,7 +212,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         {bets.length === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400">No bets yet.</p>
                         ) : (
-                            <BetList bets={bets} getUser={id => usersById[id]} names={names} renderAction={bet => (
+                            <BetList bets={bets} getUser={id => usersById[id]} names={names} renderAction={remote ? undefined : bet => (
                                 <button type="button" onClick={() => handleCancel(bet)} disabled={busy}
                                     aria-label={`Remove ${usersById[bet.user_id]?.name || ''} bet`}
                                     className="p-2.5 -mr-1.5 text-gray-400 hover:text-red-500 disabled:opacity-40">

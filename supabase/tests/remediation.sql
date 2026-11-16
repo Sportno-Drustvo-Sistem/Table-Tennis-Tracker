@@ -153,10 +153,12 @@ SELECT test.assert(public.create_admin_session('654321')->>'error' LIKE 'Too man
 RESET ROLE;
 
 -- Audit every exposed definer function from this chain for a session guard;
--- explicitly narrow public creation and session lifecycle APIs are exceptions.
+-- explicitly narrow public creation and session lifecycle APIs are exceptions,
+-- as is place_live_bet (points only, priced server-side from the live match;
+-- tested in live_betting.sql).
 SELECT test.assert(NOT EXISTS(
     SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname='public' AND p.prosecdef
-      AND p.proname NOT IN ('create_player','create_admin_session','validate_admin_session','revoke_admin_session')
+      AND p.proname NOT IN ('create_player','create_admin_session','validate_admin_session','revoke_admin_session','place_live_bet')
       AND pg_get_functiondef(p.oid) NOT LIKE '%private.require_admin_session%'
 ),'no alternate unguarded public definer write RPC');

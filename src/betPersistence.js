@@ -9,9 +9,10 @@ export const onBetsChanged = (listener) => {
     return () => changeListeners.delete(listener)
 }
 
-// { market, bets, wallets, deletedBets } -> a change set for the app's reducer.
-export const bettingChanges = ({ market, bets = [], wallets = [], deletedBets = [] }) => {
+// { market, bets, wallets, deletedBets, live, deletedLive } -> a change set for the app's reducer.
+export const bettingChanges = ({ market, bets = [], wallets = [], deletedBets = [], live = null, deletedLive = [] }) => {
     const changes = {}
+    if (live || deletedLive.length) changes.liveMatches = { upserts: live ? [live] : [], deletes: deletedLive }
     if (market) changes.betMarkets = { upserts: [market] }
     if (bets.length || deletedBets.length) changes.bets = { upserts: bets, deletes: deletedBets }
     if (wallets.length) changes.betWallets = { upserts: wallets }
@@ -25,11 +26,11 @@ const announce = (rows) => {
     })
 }
 
-const callBetRpc = async (client, functionName, params) => {
-    if (!params.p_admin_token) throw new Error('Admin mode is required to manage bets')
+const callBetRpc = async (client, functionName, params, { reportExpiry = true } = {}) => {
+    if ('p_admin_token' in params && !params.p_admin_token) throw new Error('Admin mode is required to manage bets')
     const { data, error } = await client.rpc(functionName, params)
     if (error) {
-        if (isAdminSessionError(error)) reportAdminSessionExpired()
+        if (reportExpiry && isAdminSessionError(error)) reportAdminSessionExpired()
         throw error
     }
     return data || {}
@@ -61,5 +62,42 @@ export const cancelBet = async (client, { adminToken, betId }) => {
 export const voidBetMarket = async (client, { adminToken, marketId }) => {
     const data = await callBetRpc(client, 'void_bet_market', { p_admin_token: adminToken, p_market_id: marketId })
     announce(data)
+    return data
+}
+
+// A bet from any phone, no admin needed. The server prices it from the live
+// match row; `multiplier` is what the bettor saw, and the bet is refused if a
+// point has moved the odds since.
+export const placeLiveBet = async (client, { marketId, userId, side, stake, multiplier }) => {
+    const data = await callBetRpc(client, 'place_live_bet', {
+        p_market_id: marketId,
+        p_user_id: userId,
+        p_side: side,
+        p_stake: stake,
+        p_expected_multiplier: multiplier,
+    })
+    announce({ market: data.market, bets: data.bet ? [data.bet] : [], wallets: data.wallet ? [data.wallet] : [] })
+    return data
+}
+
+// The umpire phone shares its score so every phone can follow and bet.
+// Failures are left to the caller: a missed update is fixed by the next point,
+// so an expired session must not interrupt the match with a login prompt.
+export const publishLiveMatch = async (client, { adminToken, marketId, player1Id, player2Id, state }) => {
+    const data = await callBetRpc(client, 'publish_live_match', {
+        p_admin_token: adminToken,
+        p_id: marketId,
+        p_player1_id: player1Id,
+        p_player2_id: player2Id,
+        p_state: state,
+    }, { reportExpiry: false })
+    announce({ live: data?.id ? data : null })
+    return data
+}
+
+// Takes the match off every phone and refunds bets still open on it.
+export const endLiveMatch = async (client, { adminToken, marketId }) => {
+    const data = await callBetRpc(client, 'end_live_match', { p_admin_token: adminToken, p_id: marketId })
+    announce({ ...data, deletedLive: [marketId] })
     return data
 }

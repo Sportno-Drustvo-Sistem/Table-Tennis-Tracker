@@ -53,6 +53,37 @@ describe('betting screens render', () => {
         expect(html).toContain('No bets yet')
     })
 
+    it('shows the live score and lets any phone bet on it', () => {
+        const live = { id: 'k', player1_id: 'a', player2_id: 'b', best_of: 3, games1: 1, games2: 0, score1: 7, score2: 4, sets: [{ s1: 11, s2: 9 }], server: 2, win_probability: 0.8, betting_closed: false, winner_side: null, updated_at: new Date().toISOString() }
+        const html = render(<BetsView users={users} wallets={wallets} markets={[market]} bets={[pending]} liveMatches={[live]} initialTab="standings" />)
+        expect(html).toContain('Ana 7, Bor 4, games 1-0')
+        expect(html).toContain('Games 1–0 · best of 3')
+        expect(html).toContain('Serving')
+        expect(html).toContain('80%')
+        expect(html).toContain('Place a bet')
+        expect(html).toContain('Bet from any phone')
+        // The open market belongs to the live match, so it is not shown twice.
+        expect(html).not.toContain('Bets waiting')
+
+        const closed = render(<BetsView users={users} wallets={wallets} markets={[]} bets={[]} liveMatches={[{ ...live, betting_closed: true }]} />)
+        expect(closed).toContain('Betting closed')
+        expect(closed).toContain('Match point · betting closed')
+
+        // A phone that went quiet long ago no longer shows as live.
+        const stale = render(<BetsView users={users} wallets={wallets} markets={[market]} bets={[pending]} liveMatches={[{ ...live, updated_at: '2026-01-01T00:00:00Z' }]} isAdmin adminToken="t" />)
+        expect(stale).not.toContain('Place a bet')
+        expect(stale).toContain('Bets waiting')
+        expect(stale).toContain('Refund all')
+    })
+
+    it('a bet sheet on another phone shows the score and cannot remove bets', () => {
+        const html = render(<BetSheet isOpen remote onClose={() => {}} marketId="k" player1={users[0]} player2={users[1]} users={users} wallets={wallets} bets={[pending]} prob1={0.7} closed={false} scoreboard={<div>SCOREBOARD</div>} />)
+        expect(html).toContain('SCOREBOARD')
+        expect(html).toContain('Odds move with every point')
+        expect(html).not.toContain('Remove Cene bet')
+        expect(html).toContain('Who is betting?')
+    })
+
     it('marks a match in the history with its bets, once per match', () => {
         const matches = [
             { id: 'm2', player1_id: 'a', player2_id: 'b', score1: 11, score2: 8, created_at: '2026-11-12T10:20:00Z' },

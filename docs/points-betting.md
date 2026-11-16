@@ -8,6 +8,12 @@ the feature can be removed cleanly.
 
 - In a **live ping pong match** (not tournament matches) the admin phone shows a
   **Bets** button. The bookie picks a player, the side they back and a stake.
+- **Any phone can bet too** (added 2026-11-16). The umpire phone shares its
+  score after every point; the **Bets** tab on every phone shows the live score
+  (games, points, server, win probability) and a **Place a bet** button. That
+  phone remembers who bet from it last. No PIN is needed: the server prices the
+  bet from the shared score, never from the phone, and refuses it if a point
+  moved the odds since the bettor looked. Only the umpire phone can remove bets.
 - Odds come from the live win probability (`src/winProbability.js`), so they
   move with every point. Multiplier = 1 ÷ win probability, limited to 1.05×–10×,
   and locked on each bet when it is placed.
@@ -57,7 +63,31 @@ and every other existing function are untouched.
 The win probability is computed on the umpire phone and sent with the bet; the
 server range-checks it (0.01–0.99) and derives the multiplier itself.
 
+### Live score and bets from any phone
+
+Second migration, also **purely additive**:
+`supabase/migrations/20261116120000_live_match_betting.sql`.
+
+Applied to the hosted "Table Tennis Tracker" Supabase project on 2026-11-16,
+where it is recorded as version `20261116061437`, name `live_match_betting`.
+
+| Object | Kind | Purpose |
+|---|---|---|
+| `public.live_matches` | table | one row per match being scored: players, games, score, sets, server, win probability, betting closed, winner. Id = the bet market id |
+| `public.publish_live_match` | function | admin token; the umpire phone upserts its state after every point and every 4 minutes |
+| `public.end_live_match` | function | admin token; removes the row when the umpire leaves the match and refunds bets still open on it |
+| `public.place_live_bet` | function | **no admin token**; prices the bet from the live row, refuses it at match point or when the row is over 20 minutes old |
+
+`live_matches` is public-read and in the realtime publication like the other
+betting tables. Rows older than 6 hours are cleaned up on the next publish.
+When this table is missing the app falls back to umpire-phone-only betting.
+
 ## How to remove the feature
+
+0. **Live score and bets from any phone only.** Run
+   `supabase/rollbacks/20261116120000_live_match_betting_down.sql`. Bets,
+   wallets and markets are kept; the app goes back to umpire-phone betting.
+   When removing everything, run this one first.
 
 1. **Database.** Run `supabase/rollbacks/20261112120000_points_betting_down.sql`
    in the Supabase SQL editor. It drops the trigger, the eight functions and the
@@ -97,6 +127,7 @@ To bring it back after a rollback, apply the migration again.
 - `npm test`: `bettingUtils.test.js` (multiplier, cutoff, leaderboard),
   `bettingViews.test.jsx` (both screens render), `matchPersistence.test.js`
   (save-with-bets call).
-- `npm run test:db` (needs Docker): runs `supabase/tests/betting.sql` against a
-  disposable database, then runs the rollback, checks that no betting object is
+- `npm run test:db` (needs Docker): runs `supabase/tests/betting.sql` and
+  `supabase/tests/live_betting.sql` against a disposable database, then runs
+  both rollbacks, checks that no betting object is
   left and that plain match saving still works, and re-applies the migration.

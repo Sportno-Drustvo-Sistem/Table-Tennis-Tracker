@@ -1,10 +1,12 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { voidBetMarket } from '../betPersistence'
-import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, poolTotals } from '../bettingUtils'
+import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, poolTotals } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
 import { BetAvatar, BetList, BetPool } from './MatchBets'
+import BetSheet from './BetSheet'
+import LiveScoreboard from './LiveScoreboard'
 
 const RECENT_MATCHES = 15
 const card = 'bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700'
@@ -48,9 +50,26 @@ const Streak = ({ run }) => {
     )
 }
 
-const BetsView = ({ users, wallets, markets, bets, isAdmin, adminToken, initialTab = 'standings' }) => {
+const LiveDot = () => (
+    <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+    </span>
+)
+
+// `liveMatches` are the umpire phones' shared scores; when given, anyone can
+// bet on them from this phone.
+const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, adminToken, initialTab = 'standings' }) => {
     const { showToast, showConfirm } = useToast()
     const [tab, setTab] = useState(initialTab)
+    const [betLiveId, setBetLiveId] = useState(null)
+    // Live matches whose phone went quiet drop off; the clock re-checks that.
+    const [now, setNow] = useState(() => Date.now())
+    useEffect(() => {
+        if (!liveMatches?.length) return undefined
+        const timer = setInterval(() => setNow(Date.now()), 30 * 1000)
+        return () => clearInterval(timer)
+    }, [liveMatches?.length])
     const usersById = Object.fromEntries(users.map(user => [user.id, user]))
     const getUser = id => usersById[id]
     const name = id => usersById[id]?.name || 'Unknown'
@@ -62,7 +81,14 @@ const BetsView = ({ users, wallets, markets, bets, isAdmin, adminToken, initialT
     const earned = buildBettingAwards(bets)
     const awards = Object.keys(AWARDS).map(id => earned.find(award => award.id === id)).filter(Boolean)
     const betsByMarket = groupBetsByMarket(bets)
-    const openMarkets = markets.filter(market => market.status === 'open')
+    const live = (liveMatches || []).filter(match => isLiveFresh(match, now) && getUser(match.player1_id) && getUser(match.player2_id))
+    const liveIds = new Set(live.map(match => match.id))
+    const marketStatus = Object.fromEntries(markets.map(market => [market.id, market.status]))
+    const pendingBets = id => (betsByMarket.get(id) || []).filter(bet => bet.status === 'pending').reverse()
+    // Bets open on a match nobody is scoring any more (the admin can refund them).
+    const openMarkets = markets.filter(market => market.status === 'open' && !liveIds.has(market.id))
+    const betLive = live.find(match => match.id === betLiveId)
+    const canBetOn = match => liveBettingOpen(match) && (marketStatus[match.id] || 'open') === 'open'
     const paidMatches = markets
         .filter(market => market.status === 'settled')
         .map(market => ({ market, bets: (betsByMarket.get(market.id) || []).filter(bet => bet.status === 'won' || bet.status === 'lost').sort((a, b) => net(b) - net(a)) }))
@@ -83,6 +109,58 @@ const BetsView = ({ users, wallets, markets, bets, isAdmin, adminToken, initialT
 
     return (
         <div className="space-y-5 sm:space-y-6">
+            {live.map(match => {
+                const marketBets = pendingBets(match.id)
+                const pool = poolTotals(marketBets)
+                const names = sideNames(match)
+                const open = canBetOn(match)
+                return (
+                    <section key={match.id} className={`${card} border-amber-300 dark:border-amber-600 bg-gradient-to-b from-amber-50 to-white dark:from-amber-900/20 dark:to-gray-800 shadow-md shadow-amber-500/10`}>
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                                <LiveDot />
+                                Live now
+                            </span>
+                            {pool.count > 0 && (
+                                <span className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 tabular-nums">
+                                    {pool.count} {pool.count === 1 ? 'bet' : 'bets'} · {points(pool.total)} riding
+                                </span>
+                            )}
+                        </div>
+                        <LiveScoreboard live={match} getUser={getUser} />
+                        <button type="button" onClick={() => setBetLiveId(match.id)} disabled={!open}
+                            className="mt-3 w-full py-3 rounded-xl flex items-center justify-center gap-2 text-white font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed">
+                            <Coins size={18} />
+                            {open ? 'Place a bet' : 'Betting closed'}
+                        </button>
+                        {marketBets.length > 0 && (
+                            <div className="mt-4 space-y-3">
+                                <BetPool bets={marketBets} names={names} />
+                                <BetList bets={marketBets} getUser={getUser} names={names} />
+                            </div>
+                        )}
+                    </section>
+                )
+            })}
+
+            {betLive && (
+                <BetSheet
+                    key={betLive.id}
+                    isOpen
+                    remote
+                    onClose={() => setBetLiveId(null)}
+                    marketId={betLive.id}
+                    player1={getUser(betLive.player1_id)}
+                    player2={getUser(betLive.player2_id)}
+                    users={users}
+                    wallets={wallets}
+                    bets={pendingBets(betLive.id)}
+                    prob1={Number(betLive.win_probability ?? 0.5)}
+                    closed={!canBetOn(betLive)}
+                    scoreboard={<LiveScoreboard live={betLive} getUser={getUser} />}
+                />
+            )}
+
             {openMarkets.map(market => {
                 const marketBets = (betsByMarket.get(market.id) || []).filter(bet => bet.status === 'pending').reverse()
                 const pool = poolTotals(marketBets)
@@ -91,11 +169,8 @@ const BetsView = ({ users, wallets, markets, bets, isAdmin, adminToken, initialT
                     <section key={market.id} className={`${card} border-amber-300 dark:border-amber-600 bg-gradient-to-b from-amber-50 to-white dark:from-amber-900/20 dark:to-gray-800 shadow-md shadow-amber-500/10`}>
                         <div className="flex items-center justify-between gap-3 mb-4">
                             <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                                <span className="relative flex h-2.5 w-2.5">
-                                    <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping" />
-                                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
-                                </span>
-                                Live now
+                                <LiveDot />
+                                {liveMatches ? 'Bets waiting' : 'Live now'}
                             </span>
                             {isAdmin && (
                                 <button onClick={() => handleVoid(market)} className="flex-shrink-0 px-3 py-1.5 text-sm font-bold rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -160,7 +235,9 @@ const BetsView = ({ users, wallets, markets, bets, isAdmin, adminToken, initialT
                         Points
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        Everyone starts with 1,000 points. Bets are placed on the umpire&apos;s phone during a live match. No real money.
+                        Everyone starts with 1,000 points. {liveMatches
+                            ? 'Bet from any phone while a match is live, until match point.'
+                            : <>Bets are placed on the umpire&apos;s phone during a live match.</>} No real money.
                     </p>
 
                     {bettors.length >= 3 && (

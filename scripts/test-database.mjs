@@ -70,13 +70,21 @@ try {
         sql(db,read('betting.sql'))
         const bettingObjects="SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname ~ '^bets?(_|$)')+(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN('public','private') AND p.proname ~ 'bet')+(SELECT count(*) FROM pg_trigger WHERE tgname ~ 'bets');"
         assert.notEqual(sql(db,bettingObjects),'0')
+        // Live score and bets from any phone sit on top of betting: test, then roll back first.
+        sql(db,read('live_betting.sql'))
+        const liveFile=files.find(file=>file.includes('live_match_betting'))
+        sql(db,fs.readFileSync(path.join('supabase/rollbacks',liveFile.split('_')[0]+'_live_match_betting_down.sql'),'utf8'))
+        assert.equal(sql(db,"SELECT count(*) FROM pg_proc WHERE proname IN('publish_live_match','end_live_match','place_live_bet')"),'0','live betting rollback left functions behind')
+        assert.equal(sql(db,"SELECT to_regclass('public.live_matches') IS NULL"),'t','live betting rollback left its table behind')
         const bettingVersion=files.find(file=>file.includes('points_betting')).split('_')[0]
         sql(db,fs.readFileSync(path.join('supabase/rollbacks',bettingVersion+'_points_betting_down.sql'),'utf8'))
         assert.equal(sql(db,bettingObjects),'0','betting rollback left objects behind')
         sql(db,"SET ROLE anon; SELECT public.delete_pingpong_matches('valid',ARRAY[(public.record_pingpong_match('valid',(SELECT id FROM test.players WHERE n=1),(SELECT id FROM test.players WHERE n=2),'[{\"s1\":11,\"s2\":8}]')->'match'->>'id')::uuid]);")
         sql(db,fs.readFileSync(path.join('supabase/migrations',files.find(file=>file.includes('points_betting'))),'utf8'))
+        sql(db,fs.readFileSync(path.join('supabase/migrations',liveFile),'utf8'))
         assert.equal(sql(db,'SELECT count(*) FROM public.bets'),'0')
-        process.stdout.write(mode+': migration chain, authorization, transactions, throttling, archive, SQL/JS parity, betting and its rollback passed\n')
+        assert.equal(sql(db,'SELECT count(*) FROM public.live_matches'),'0')
+        process.stdout.write(mode+': migration chain, authorization, transactions, throttling, archive, SQL/JS parity, betting, live betting and their rollbacks passed\n')
     }
 } finally {
     if(started)docker(['rm','-f',name])

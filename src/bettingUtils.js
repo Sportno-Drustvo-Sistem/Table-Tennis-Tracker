@@ -201,3 +201,13 @@ export const buildBettingAwards = (bets) => {
     add('ouch', ouch, ouch?.stake)
     return awards
 }
+
+// How long a live match stays on other phones after the umpire phone's last
+// update (it re-sends every 4 minutes). The server stops taking bets at the
+// same age.
+export const LIVE_FRESH_MS = 20 * 60 * 1000
+
+export const isLiveFresh = (live, now) => Boolean(live?.updated_at) && now - Date.parse(live.updated_at) < LIVE_FRESH_MS
+
+// Other phones may bet until match point, and only once the odds are known.
+export const liveBettingOpen = live => Boolean(live) && !live.betting_closed && !live.winner_side && live.win_probability != null

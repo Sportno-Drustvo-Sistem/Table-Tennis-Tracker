@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw, Coins } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, getAvatarFallback } from '../../utils'
 import { estimatePointProbability, liveWinProbability, pointProbabilityFromGameProbability } from '../../winProbability'
 import { recordPingPongMatch, recordPingPongMatchWithBets } from '../../matchPersistence'
-import { voidBetMarket } from '../../betPersistence'
+import { endLiveMatch, publishLiveMatch, voidBetMarket } from '../../betPersistence'
 import { describeBetResults, isBettingClosed } from '../../bettingUtils'
 import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
@@ -217,8 +217,11 @@ const newMarketId = () => (globalThis.crypto?.randomUUID
     ? globalThis.crypto.randomUUID()
     : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16)))
 
-// `betting` ({ users, bets, wallets }) turns on points betting; tournament
-// matches never pass it.
+// `betting` ({ users, bets, wallets, live }) turns on points betting; tournament
+// matches never pass it. With `live`, the score is shared after every point so
+// other phones can follow the match and bet on it themselves.
+const LIVE_HEARTBEAT_MS = 4 * 60 * 1000
+
 const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, historyMatches, tournamentId, debuffs, adminToken, betting }) => {
     const { showToast, showConfirm } = useToast()
     const [marketId, setMarketId] = useState(newMarketId)
@@ -434,7 +437,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 handicapRule: acceptedRules.length > 0 ? acceptedRules : null,
             }
             // With bets on the match, the save and the payout are one transaction.
-            const { match: lastSavedMatch, changes, betting: settled } = matchBets.length > 0
+            // Other phones may have bet a moment ago, before their bet reached this one.
+            const { match: lastSavedMatch, changes, betting: settled } = matchBets.length > 0 || betting?.live
                 ? await recordPingPongMatchWithBets(supabase, { ...payload, marketId })
                 : await recordPingPongMatch(supabase, { ...payload, tournamentId: tournamentId || null })
             if (settled) {
@@ -442,6 +446,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 const summary = describeBetResults(settled.bets, usersById)
                 if (summary) showToast(summary, 'success')
             }
+            if (betting?.live) endLive(marketId).catch(error => console.warn('Live match not ended:', error.message))
             const p1Change = changes[player1.id] || 0
             const p2Change = changes[player2.id] || 0
 
@@ -470,10 +475,16 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
     // Leaving a match that will not be saved gives every stake back first.
     const refundBetsThen = (action) => {
-        if (matchBets.length === 0) return action()
+        if (matchBets.length === 0) {
+            // Nothing to refund here, but bets from other phones may still be on
+            // their way: ending the live match refunds those too.
+            if (betting?.live) endLive(marketId).catch(error => console.warn('Live match not ended:', error.message))
+            return action()
+        }
         showConfirm(`${matchBets.length} ${matchBets.length === 1 ? 'bet' : 'bets'} on this match will be refunded. Continue?`, async () => {
             try {
-                await voidBetMarket(supabase, { adminToken, marketId })
+                if (betting?.live) await endLive(marketId)
+                else await voidBetMarket(supabase, { adminToken, marketId })
                 action()
             } catch (error) {
                 console.error(error)
@@ -558,6 +569,71 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         const percent = Math.min(99, Math.max(1, Math.round(p1 * 100)))
         return { p1: percent, p2: 100 - percent, exact: p1 }
     }, [pointProb, bestOf, completedSets, gameWinner, score1, score2])
+
+    // --- Shared live score ---
+    const shareLive = Boolean(isOpen && betting?.live && adminToken && player1 && player2)
+    // Re-sent every few minutes so other phones know the match is still on.
+    const [heartbeat, setHeartbeat] = useState(0)
+    useEffect(() => {
+        if (!shareLive) return undefined
+        const timer = setInterval(() => setHeartbeat(n => n + 1), LIVE_HEARTBEAT_MS)
+        return () => clearInterval(timer)
+    }, [shareLive])
+
+    const liveState = useMemo(() => {
+        if (!shareLive || !winProb) return null
+        const games1 = completedSets.filter(s => s.s1 > s.s2).length
+        const games2 = completedSets.filter(s => s.s2 > s.s1).length
+        // Between games the finished game is already counted, so the next starts at 0-0.
+        const live1 = gameWinner ? 0 : score1
+        const live2 = gameWinner ? 0 : score2
+        const totalPoints = live1 + live2
+        const server = !initialServer ? null : (live1 >= 10 && live2 >= 10)
+            ? ((totalPoints % 2 === 0) ? initialServer : 3 - initialServer)
+            : ((Math.floor(totalPoints / 2) % 2 === 0) ? initialServer : 3 - initialServer)
+        return {
+            bestOf, games1, games2, score1: live1, score2: live2,
+            sets: completedSets, server,
+            winProbability: Number(winProb.exact.toFixed(4)),
+            bettingClosed: isBettingClosed({ score1, score2, games1, games2, bestOf, gameWinner, matchWinner }),
+            winnerSide: matchWinner,
+        }
+    }, [shareLive, winProb, completedSets, gameWinner, score1, score2, initialServer, bestOf, matchWinner])
+
+    // Updates go out one at a time, newest state wins; a failed one is fixed by the next.
+    const liveQueue = useRef({ running: null, next: null, ended: new Set() })
+    const sendLive = useCallback((job) => {
+        const queue = liveQueue.current
+        queue.next = job
+        if (queue.running) return
+        const pump = async () => {
+            while (queue.next) {
+                const current = queue.next
+                queue.next = null
+                if (queue.ended.has(current.marketId)) continue
+                try {
+                    await publishLiveMatch(supabase, current)
+                } catch (error) {
+                    console.warn('Live score not shared:', error.message)
+                }
+            }
+            queue.running = null
+        }
+        queue.running = pump()
+    }, [])
+    useEffect(() => {
+        if (!liveState) return
+        sendLive({ adminToken, marketId, player1Id: player1.id, player2Id: player2.id, state: liveState })
+    }, [liveState, heartbeat, sendLive, adminToken, marketId, player1, player2])
+
+    // Takes the match off the other phones; open bets on it are refunded.
+    const endLive = useCallback(async (id) => {
+        const queue = liveQueue.current
+        queue.ended.add(id)
+        queue.next = null
+        await queue.running
+        return endLiveMatch(supabase, { adminToken, marketId: id })
+    }, [adminToken])
 
     if (!isOpen || !player1 || !player2) return null
 

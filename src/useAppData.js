@@ -124,9 +124,13 @@ export const useAppData = (showToast, activeSport = 'pingpong') => {
         })
         const channel = supabase.channel('public:db_changes')
         listen(channel, REALTIME_TABLES)
-        const optionalChannel = supabase.channel('public:optional_changes')
-        listen(optionalChannel, OPTIONAL_REALTIME_TABLES)
-        optionalChannel.subscribe()
+        // One channel per optional table, so a table that is not there yet
+        // (its migration not applied) cannot stop the others' updates.
+        const optionalChannels = OPTIONAL_REALTIME_TABLES.map(table => {
+            const optionalChannel = supabase.channel(`public:optional_${table}`)
+            listen(optionalChannel, [table])
+            return optionalChannel.subscribe()
+        })
         channel.subscribe((status) => {
             if (status !== 'SUBSCRIBED') return
             // Changes made while the socket was down were never delivered.
@@ -138,7 +142,7 @@ export const useAppData = (showToast, activeSport = 'pingpong') => {
             clearTimeout(initialLoad)
             clearTimeout(flushTimer)
             supabase.removeChannel(channel)
-            supabase.removeChannel(optionalChannel)
+            optionalChannels.forEach(optionalChannel => supabase.removeChannel(optionalChannel))
         }
     }, [applyChanges, refresh])
 
@@ -150,5 +154,8 @@ export const useAppData = (showToast, activeSport = 'pingpong') => {
     const bettingReady = Boolean(data.loaded.betWallets && data.loaded.betMarkets && data.loaded.bets)
         && !data.failed.betWallets && !data.failed.betMarkets && !data.failed.bets
 
-    return { ...data, loading, historyFailed, bettingReady, refresh, refreshSport }
+    // Live score shared between phones (a later migration than betting itself).
+    const liveBettingReady = bettingReady && Boolean(data.loaded.liveMatches) && !data.failed.liveMatches
+
+    return { ...data, loading, historyFailed, bettingReady, liveBettingReady, refresh, refreshSport }
 }

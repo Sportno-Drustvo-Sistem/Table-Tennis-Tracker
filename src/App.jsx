@@ -113,6 +113,8 @@ function App() {
     betMarkets,
     bets,
     bettingReady,
+    liveBettingReady,
+    liveMatches,
     loaded,
     loading,
     historyFailed,
@@ -383,7 +385,8 @@ function App() {
   const canManageSeason = !activeSeason || String(selectedSeasonId) === String(activeSeason.id)
 
   // Points betting on live matches; off until its tables exist.
-  const liveBetting = useMemo(() => bettingReady ? { users, bets, wallets: betWallets } : null, [bettingReady, users, bets, betWallets])
+  // With `live`, the umpire phone shares its score and any phone can bet.
+  const liveBetting = useMemo(() => bettingReady ? { users, bets, wallets: betWallets, live: liveBettingReady } : null, [bettingReady, liveBettingReady, users, bets, betWallets])
 
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
@@ -573,7 +576,7 @@ function App() {
       )}
 
       {currentTab === 'bets' && (
-        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} isAdmin={isAdmin} adminToken={adminToken} />
+        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} />
       )}
 
       {currentTab === 'settings' && (

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+    isLiveFresh,
+    liveBettingOpen,
     allowedSides,
     betMultiplier,
     buildBettingLeaderboard,
@@ -137,5 +139,22 @@ describe('results', () => {
         expect(awards.cold).toMatchObject({ userId: 'b', value: 2 })
         expect(awards.ouch).toMatchObject({ userId: 'b', value: 500 })
         expect(buildBettingAwards([])).toEqual([])
+    })
+})
+
+describe('live matches on other phones', () => {
+    it('drops a live match whose phone went quiet', () => {
+        const now = Date.parse('2026-11-16T12:00:00Z')
+        expect(isLiveFresh({ updated_at: '2026-11-16T11:50:00Z' }, now)).toBe(true)
+        expect(isLiveFresh({ updated_at: '2026-11-16T11:30:00Z' }, now)).toBe(false)
+        expect(isLiveFresh(null, now)).toBe(false)
+    })
+
+    it('takes bets until match point, once odds are known', () => {
+        const live = { betting_closed: false, winner_side: null, win_probability: 0.5 }
+        expect(liveBettingOpen(live)).toBe(true)
+        expect(liveBettingOpen({ ...live, betting_closed: true })).toBe(false)
+        expect(liveBettingOpen({ ...live, winner_side: 1 })).toBe(false)
+        expect(liveBettingOpen({ ...live, win_probability: null })).toBe(false)
     })
 })
