@@ -178,6 +178,7 @@ function App() {
   // Modal States — Padel
   const [isPadelSelectionOpen, setIsPadelSelectionOpen] = useState(false)
   const [isPadelMatchModalOpen, setIsPadelMatchModalOpen] = useState(false)
+  const [isPadelImport, setIsPadelImport] = useState(false)
   const [padelTeams, setPadelTeams] = useState({ team1: null, team2: null })
   const [editingPadelMatch, setEditingPadelMatch] = useState(null)
   const [isPadelLiveMatchOpen, setIsPadelLiveMatchOpen] = useState(false)
@@ -332,7 +333,15 @@ function App() {
   }
 
   // Padel handlers
+  const handlePadelImport = () => {
+    setIsPadelSelectionOpen(false)
+    setPadelTeams({ team1: null, team2: null })
+    setIsPadelImport(true)
+    setIsPadelMatchModalOpen(true)
+  }
+
   const handlePadelTeamsSelected = (team1, team2) => {
+    setIsPadelImport(false)
     setPadelTeams({ team1, team2 })
     setIsPadelSelectionOpen(false)
     setIsPadelMatchModalOpen(true)
@@ -344,8 +353,10 @@ function App() {
     setIsPadelLiveMatchOpen(true)
   }
 
-  const handlePadelMatchSaved = () => {
+  const handlePadelMatchSaved = ({ keepOpen = false } = {}) => {
+    if (keepOpen) return
     setIsPadelMatchModalOpen(false)
+    setIsPadelImport(false)
     setPadelTeams({ team1: null, team2: null })
   }
 
@@ -548,6 +559,7 @@ function App() {
             historyLoading={!loaded.padelMatches}
             onEditMatch={setEditingPadelMatch}
             onMatchDeleted={refreshPadel}
+            onImportWorkout={handlePadelImport}
             isAdmin={isAdmin}
             adminToken={adminToken}
           />
@@ -681,6 +693,7 @@ function App() {
         users={users}
         mode={selectionMode}
         onTeamsSelected={handlePadelTeamsSelected}
+        onImport={handlePadelImport}
         onLiveTeamsSelected={handlePadelLiveTeamsSelected}
         padelStats={padelStats}
       />
@@ -697,12 +710,14 @@ function App() {
       </Suspense>
       )}
 
-      {padelTeams.team1 && padelTeams.team2 && (
+      {(isPadelImport || (padelTeams.team1 && padelTeams.team2)) && (
         <Suspense fallback={null}>
         <PadelMatchModal
           isOpen={isPadelMatchModalOpen}
+          importOnly={isPadelImport}
           onClose={() => {
             setIsPadelMatchModalOpen(false)
+            setIsPadelImport(false)
             setPadelTeams({ team1: null, team2: null })
           }}
           team1={padelTeams.team1}

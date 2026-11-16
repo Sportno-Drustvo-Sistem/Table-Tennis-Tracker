@@ -38,7 +38,7 @@ const TeamDisplay = ({ player1, player2, eloData, align = 'left' }) => {
     )
 }
 
-const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, isAdmin, adminToken }) => {
+const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, onImportWorkout, isAdmin, adminToken }) => {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(false)
     const [recalculating, setRecalculating] = useState(false)
@@ -197,6 +197,10 @@ const PadelMatches = ({ matches, users, historyLoading, onEditMatch, onMatchDele
                 <div className="flex self-stretch shrink-0 gap-2 sm:gap-3">
                     {isAdmin && (
                         <>
+                            {onImportWorkout && <button
+                                onClick={onImportWorkout}
+                                className="px-3 py-2 rounded-lg text-sm font-bold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30"
+                            >Import Suunto workout</button>}
                             <button
                                 aria-label="Bulk actions" onClick={() => { setIsBulkMode(!isBulkMode); setSelectedIds(new Set()); setBulkDeleteConfirm(false) }}
                                 className={`flex items-center text-sm font-bold transition-colors px-3 py-2 rounded-lg ${isBulkMode ? 'bg-green-600 text-white shadow-inner' : 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 bg-green-50 dark:bg-green-900/30'}`}

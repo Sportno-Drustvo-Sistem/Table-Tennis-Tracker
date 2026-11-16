@@ -5,14 +5,15 @@ import { validatePadelSets } from '../../padelUtils'
 import { recordPadelMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
 import { getAvatarFallback } from '../../utils'
+import { parseSuuntoPadelFile } from '../../suuntoPadelImport'
 
-const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, adminToken }) => {
+const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, adminToken, importOnly = false }) => {
     const { showToast } = useToast()
     const [matchFormat, setMatchFormat] = useState('best_of_3') // 'best_of_1', 'best_of_3', 'best_of_5'
     const [setsData, setSetsData] = useState([{ team1Games: '', team2Games: '' }])
 
-    const [localTeam1, setLocalTeam1] = useState(team1)
-    const [localTeam2, setLocalTeam2] = useState(team2)
+    const [localTeam1, setLocalTeam1] = useState(team1 || [null, null])
+    const [localTeam2, setLocalTeam2] = useState(team2 || [null, null])
     const [saving, setSaving] = useState(false)
     const [importing, setImporting] = useState(false)
     const [importedMatches, setImportedMatches] = useState([])
@@ -24,8 +25,8 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
         setImporting(false)
         setImportedMatches([])
         setImportIndex(0)
-        if (team1) setLocalTeam1(team1)
-        if (team2) setLocalTeam2(team2)
+        setLocalTeam1(team1 || [null, null])
+        setLocalTeam2(team2 || [null, null])
         if (isOpen) {
             setMatchFormat('best_of_3')
             setSetsData([{ team1Games: '', team2Games: '' }])
@@ -35,8 +36,8 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     const loadImportedMatch = (result, index) => {
         setMatchFormat(result.matchFormat)
         setSetsData(result.setsData.map(set => ({ ...set })))
-        if (result.team1) setLocalTeam1(result.team1)
-        if (result.team2) setLocalTeam2(result.team2)
+        setLocalTeam1(result.team1 || [null, null])
+        setLocalTeam2(result.team2 || [null, null])
         setImportIndex(index)
     }
 
@@ -55,8 +56,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
         const version = ++importVersion.current
         setImporting(true)
         try {
-            if (file.size > MAX_SUUNTO_IMPORT_BYTES) throw new Error('Workout JSON must be smaller than 10 MB.')
-            const matches = parseSuuntoPadelWorkoutMatches(await file.text())
+            const matches = await parseSuuntoPadelFile(file)
             if (version !== importVersion.current) return
             setImportedMatches(matches.map(match => ({ ...match, saved: false })))
             loadImportedMatch(matches[0], 0)
@@ -68,7 +68,10 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
         }
     }
 
-    if (!isOpen || !team1 || !team2 || team1.length !== 2 || team2.length !== 2) return null
+    if (!isOpen || (!importOnly && (!team1 || !team2 || team1.length !== 2 || team2.length !== 2))) return null
+
+    const assignedIds = [...localTeam1, ...localTeam2].map(player => player?.id)
+    const profilesAssigned = assignedIds.every(Boolean) && new Set(assignedIds).size === 4
 
     const handleSwapTeams = () => {
         const temp = localTeam1
@@ -112,6 +115,10 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     const handleSave = async () => {
         if (saving || importing) return
         if (importedMatches[importIndex]?.saved) return
+        if (!profilesAssigned || (importOnly && !importedMatches.length)) {
+            showToast('Assign four different players before saving.', 'error')
+            return
+        }
         // Validation
         const cleanSets = setsData.map(s => ({
             team1Games: s.team1Games === '' ? 0 : s.team1Games,
@@ -160,14 +167,14 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
 
     const getAllSelectedIds = () => {
         return [
-            ...localTeam1.map(p => p.id),
-            ...localTeam2.map(p => p.id)
+            ...localTeam1.map(p => p?.id),
+            ...localTeam2.map(p => p?.id)
         ]
     }
 
     const handlePlayerChange = (teamNum, playerIndex, newUserId) => {
         const newUser = users.find(u => u.id === newUserId)
-        if (!newUser) return
+        if (!newUser || getAllSelectedIds().includes(newUserId)) return
 
         if (teamNum === 1) {
             const newTeam = [...localTeam1]
@@ -181,26 +188,27 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     }
 
     const PlayerSelect = ({ player, teamNum, index }) => {
-        const selectedIds = getAllSelectedIds().filter(id => id !== player.id)
+        const selectedIds = getAllSelectedIds().filter(id => id !== player?.id)
 
         return (
             <div className="flex flex-col items-center group relative">
                 <div className="relative">
                     <img loading="lazy" decoding="async"
-                        src={player.avatar_url || getAvatarFallback(player.name)}
+                        src={player?.avatar_url || getAvatarFallback(player?.name || 'Player')}
                         className="w-14 h-14 rounded-full border-2 border-white dark:border-gray-800 object-cover bg-gray-200"
-                        alt={player.name}
+                        alt={player?.name || 'Unassigned player'}
                     />
                     <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
                         <span className="text-white text-xs font-bold">Change</span>
                     </div>
                     <select
-                        value={player.id}
+                        aria-label={`Player ${(teamNum - 1) * 2 + index + 1} profile`}
+                        value={player?.id || ''}
                         onChange={(e) => handlePlayerChange(teamNum, index, e.target.value)}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         title="Click to change player"
                     >
-                        <option value={player.id}>{player.name}</option>
+                        <option value="">Choose player</option>
                         {users
                             .filter(u => !selectedIds.includes(u.id))
                             .sort((a, b) => a.name.localeCompare(b.name))
@@ -211,7 +219,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                     </select>
                 </div>
                 <div className="font-bold text-sm text-gray-900 dark:text-white mt-1 text-center truncate w-24">
-                    {player.name}
+                    {player?.name || 'Choose player'}
                 </div>
             </div>
         )
@@ -222,10 +230,11 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
     return (
         <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
             <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
+                <fieldset disabled={saving || importing} className="min-w-0 border-0 p-0 m-0">
                 <h2 className="text-2xl font-bold mb-2 text-center text-gray-900 dark:text-white">🎾 Record Padel Match</h2>
                 <p className="text-center text-gray-500 dark:text-gray-400 text-sm mb-6">Click on a player to change them</p>
 
-                <div className="flex justify-between items-center mb-8">
+                {(!importOnly || importedMatches.length > 0) && <div className="flex justify-between items-center mb-8">
                     {/* Team 1 */}
                     <div className="flex flex-col items-center w-2/5">
                         <div className="text-xs font-bold text-green-600 dark:text-green-400 uppercase mb-2">Team 1</div>
@@ -256,12 +265,12 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                             ))}
                         </div>
                     </div>
-                </div>
+                </div>}
 
-                <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-600 p-3 text-sm">
+                {importOnly && <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-600 p-3 text-sm">
                     <label className="block font-bold text-gray-900 dark:text-white mb-2" htmlFor="suunto-padel-workout">Import Suunto padel scores</label>
-                    <p className="text-gray-500 dark:text-gray-400 mb-2">Use workout JSON exported from SuuntoPlus Editor with the Tracker Padel watch app. Team 1 is the top button; Team 2 is the bottom button.</p>
-                    <input id="suunto-padel-workout" type="file" accept=".json,application/json" disabled={saving || importing || importedMatches.length > 0} onChange={handleWatchImport} className="block w-full text-gray-700 dark:text-gray-300" />
+                    <p className="text-gray-500 dark:text-gray-400 mb-2">Upload a workout JSON or FIT file from the Tracker Padel watch app. Team 1 is the top button; Team 2 is the bottom button.</p>
+                    <input id="suunto-padel-workout" type="file" accept=".json,.fit,application/json,application/octet-stream" disabled={saving || importing || importedMatches.length > 0} onChange={handleWatchImport} className="block w-full text-gray-700 dark:text-gray-300" />
                     {importing && <p role="status" className="mt-2 text-gray-500">Reading workout…</p>}
                     {importedMatches.length > 0 && <>
                         <p role="status" className="mt-2 text-green-600 dark:text-green-400">Reviewing match {importIndex + 1} of {importedMatches.length}. Check the four players and team order before saving.</p>
@@ -275,7 +284,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                         </div>
                         <p className="mt-2 text-gray-500 dark:text-gray-400">Each save adds one match. Saved matches are disabled here; importing this workout again later can create duplicates. Finish reviewing before closing this window.</p>
                     </>}
-                </div>
+                </div>}
 
                 {/* Match Format */}
                 <div className="mb-6 flex justify-center">
@@ -360,7 +369,7 @@ const PadelMatchModal = ({ isOpen, onClose, team1, team2, users, onMatchSaved, a
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={saving || importing || importedMatches[importIndex]?.saved}
+                        disabled={saving || importing || !profilesAssigned || (importOnly && !importedMatches.length) || importedMatches[importIndex]?.saved}
                         className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
                     >
                         {saving ? 'Saving...' : importedMatches.length ? `Save match ${importIndex + 1}` : 'Finish Match'}

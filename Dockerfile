@@ -22,7 +22,7 @@ FROM nginx:alpine
 # Copy the built files from the previous stage
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY docker/runtime-config.js.template/etc/nginx/templates/runtime-config.js.template
+COPY docker/runtime-config.js.template /etc/nginx/templates/runtime-config.js.template
 COPY docker/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
 RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
 

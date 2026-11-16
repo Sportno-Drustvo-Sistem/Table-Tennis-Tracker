@@ -3,7 +3,7 @@ import { X, Shuffle, Check, ArrowRight, ArrowLeft, Zap } from 'lucide-react'
 import UserCard from '../UserCard'
 import { getAvatarFallback } from '../../utils'
 
-const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', onTeamsSelected, onLiveTeamsSelected, padelStats }) => {
+const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', onTeamsSelected, onLiveTeamsSelected, onImport, padelStats }) => {
     const [selectedPlayers, setSelectedPlayers] = useState([])
     const [phase, setPhase] = useState('select') // 'select' or 'assign'
     const [team1, setTeam1] = useState([])
@@ -115,6 +115,10 @@ const PadelPlayerSelectionModal = ({ isOpen, onClose, users, mode = 'record', on
                             }
                         </p>
                     </div>
+                    {mode === 'record' && onImport && <button
+                        onClick={() => { resetState(); onImport() }}
+                        className="px-3 py-2 text-sm font-bold text-green-700 dark:text-green-300 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20"
+                    >Import Suunto</button>}
                     <button
                         onClick={handleClose}
                         aria-label="Close"
