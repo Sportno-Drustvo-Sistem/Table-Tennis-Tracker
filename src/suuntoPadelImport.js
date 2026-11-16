@@ -1,5 +1,7 @@
 export const SUUNTO_PADEL_APP_NAME = 'Tracker Padel'
 export const MAX_SUUNTO_IMPORT_BYTES = 10 * 1024 * 1024
+// SuuntoPlus prefix followed by the eight ASCII bytes of private app ID ttpadel1.
+export const SUUNTO_PADEL_FIT_APP_ID = [222, 19, 214, 168, 153, 195, 193, 157, 116, 116, 112, 97, 100, 101, 108, 49]
 
 // Decode the compact numeric summary, independently of the workout container.
 // This can also be reused by a future FIT/Cloud API adapter.
@@ -100,7 +102,7 @@ export const decodeSuuntoPadelMatches = (summary) => {
 }
 
 export const parseSuuntoPadelWorkoutMatches = (text) => {
-    if (typeof text !== 'string' || text.length > MAX_SUUNTO_IMPORT_BYTES) throw new Error('Workout JSON must be smaller than 10 MB.')
+    if (typeof text !== 'string' || new TextEncoder().encode(text).length > MAX_SUUNTO_IMPORT_BYTES) throw new Error('Workout JSON must be smaller than 10 MB.')
     const workout = JSON.parse(text)
     // Editor exports wrap the documented Zapps header differently across versions.
     // Walk JSON containers only; never infer a score from an unrelated activity.
@@ -129,4 +131,50 @@ export const parseSuuntoPadelWorkout = (text) => {
     const matches = parseSuuntoPadelWorkoutMatches(text)
     if (matches.length !== 1) throw new Error('Use the multiple-match importer for this workout.')
     return matches[0]
+}
+
+export const parseSuuntoPadelFit = async (buffer) => {
+    if (!(buffer instanceof ArrayBuffer) || buffer.byteLength > MAX_SUUNTO_IMPORT_BYTES) {
+        throw new Error('Workout FIT must be smaller than 10 MB.')
+    }
+    // Load the official decoder only when a FIT file is uploaded.
+    const { Decoder, Stream } = await import('@garmin/fitsdk')
+    const decoder = new Decoder(Stream.fromArrayBuffer(buffer))
+    if (!decoder.isFIT() || !decoder.checkIntegrity()) throw new Error('Invalid or damaged FIT workout.')
+    const header = new DataView(buffer)
+    if (buffer.byteLength !== header.getUint8(0) + header.getUint32(4, true) + 2) {
+        throw new Error('Import one FIT workout file without trailing data.')
+    }
+    const descriptions = new Map()
+    const { messages, errors } = decoder.read({
+        convertTypesToStrings: false,
+        fieldDescriptionListener: (key, developer, field) => {
+            const id = developer.applicationId
+            if (!Array.isArray(id) || id.length !== 16 || !id.every((byte, i) => byte === SUUNTO_PADEL_FIT_APP_ID[i])) return
+            if (descriptions.has(key)) throw new Error('Duplicate padel FIT field description.')
+            if ((field.fitBaseTypeId & 31) !== 8) throw new Error('Padel FIT summary fields must be float32.')
+            descriptions.set(key, { name: field.fieldName, developerIndex: developer.developerDataIndex })
+        },
+    })
+    if (errors.length) throw new Error('Could not decode FIT workout: ' + errors[0].message)
+    const sessions = messages.sessionMesgs || []
+    if (sessions.length !== 1) throw new Error('Import one padel workout session at a time.')
+    if (!descriptions.size) throw new Error('No Tracker Padel scores found in this FIT workout.')
+    if (new Set([...descriptions.values()].map(field => field.developerIndex)).size !== 1) {
+        throw new Error('Import one Tracker Padel app at a time.')
+    }
+    const summary = []
+    for (const [key, field] of descriptions) {
+        if (Object.hasOwn(sessions[0].developerFields || {}, key)) {
+            summary.push({ Id: field.name, SummaryValue: sessions[0].developerFields[key] })
+        }
+    }
+    return decodeSuuntoPadelMatches(summary)
+}
+
+export const parseSuuntoPadelFile = async (file) => {
+    if (file.size > MAX_SUUNTO_IMPORT_BYTES) throw new Error('Workout file must be smaller than 10 MB.')
+    if (/\.fit$/i.test(file.name)) return parseSuuntoPadelFit(await file.arrayBuffer())
+    if (/\.json$/i.test(file.name)) return parseSuuntoPadelWorkoutMatches(await file.text())
+    throw new Error('Choose a Suunto workout JSON or FIT file.')
 }

@@ -80,7 +80,7 @@ A modern, high-performance web application for tracking sports leagues, tourname
 
     For a brand-new Supabase backend, follow [Fresh Supabase Instance Setup](docs/supabase-fresh-instance.md).
 
-    For the Suunto 9 Peak Pro padel prototype and manual workout import, see [Suunto Padel Setup](docs/suunto-padel.md).
+    For the independent Suunto 9 Peak Pro scorer and JSON/FIT upload with Player 1–4 profile assignment, see [Suunto Padel Setup](docs/suunto-padel.md).
     Development status and next steps are tracked in [Suunto Integration Handoff](SUUNTO_INTEGRATION_HANDOFF.md).
 
 3. **Run Development Server**

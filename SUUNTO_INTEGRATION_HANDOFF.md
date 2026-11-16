@@ -1,149 +1,128 @@
 # Suunto padel integration — handoff and progress tracker
 
-Last updated: 2026-09-29. This file is the continuation record for this integration.
-Update it after implementation, testing, a changed decision, or a commit. Confirm
-Git state and relevant source before relying on its snapshot. Usage and encoding
-details live in [docs/suunto-padel.md](docs/suunto-padel.md).
+Last updated: 2026-09-29. Read this file and [usage/export details](docs/suunto-padel.md)
+when continuing; verify Git state and relevant source before relying on this snapshot.
 
-## Objective and agreed scope
+## Current decision and objective
 
-Track padel points on the user's **Suunto 9 Peak Pro**, calculate games and sets,
-preserve several matches within one workout, and transfer the results to
-PingpongTracker's database with the correct four players and ranking updates.
+The user changed the architecture to an **independent watch scorer plus manual
+file upload**. The watch uses anonymous Player 1, 2, 3, and 4 positions, scores
+padel games/sets, and preserves up to eight matches per workout. After playing,
+export workout JSON/FIT and upload to PingpongTracker. Assign the actual profiles
+to each position for each match in the tracker, then review and save.
 
-- Padel only; point-by-point entry with automatic game/set scoring.
-- Keep the watch app private. No SuuntoPlus Store publication is requested.
-- After a win, finish that match and start another without stopping the workout.
-- Preserve completed results locally; transfer them after playing. Immediate
-  watch-to-database sending is outside the currently chosen approach.
-- User reports that Suunto also allows JSON workout exports. Prioritize testing
-  this route; do not assume FIT import or Cloud API access is required.
-- User wants this file to preserve context and progress between sessions.
+- Player 1+2 are Team 1 (top point button); Player 3+4 are Team 2 (bottom).
+- No profile selection, tracker account, backend, credential, or network is needed
+  on the watch. Its folder opens/builds independently in SuuntoPlus Editor.
+- SuuntoPlus still operates within a watch workout; this is an independent scorer,
+  not an operating-system app outside workout mode.
+- Keep the watch app private. No Store publication is requested.
+- After winning, start another match without stopping the workout.
+- The tracker has a separate **Import Suunto workout** entry point in admin mode
+  under Padel → Matches. Upload comes before profile assignment.
+- JSON and FIT are supported for the documented scoring-summary contracts.
+  Real device/export validation is still pending.
+- Automatic Cloud API/OAuth sync is outside the chosen workflow.
 
-## Current status
+## Current implementation and verification
 
-**An eight-match prototype and manual JSON importer exist. Real watch/export
-validation is outstanding. Automatic cloud sync is not implemented.**
+Watch UI version **0.3** shows `P1+P2 / P3+P4`. App name `Tracker Padel`, private
+app ID `ttpadel1`, and numeric v0.2 queue contract stay unchanged to preserve
+compatibility. The watch folder has its own README and no dependency on web code.
 
-| Milestone | Status | Evidence or next action |
+The importer opens without preselected teams. Each result starts with four empty
+profile slots. Four distinct existing profiles are required before saving.
+Switching unsaved results retains each result's mappings and score draft. Saving
+one result advances to the next and refreshes matches/rankings. Failed saves keep
+the result available for retry; the final successful save closes the window.
+Manual Record Match remains separate and keeps its existing selection-first flow.
+
+FIT imports use the lazily loaded official `@garmin/fitsdk` in the browser. The
+adapter verifies CRC/integrity, exact file size, the SuuntoPlus prefix and ASCII
+`ttpadel1` application ID, named float32 summaries, and a single session. It
+ignores other apps' identically named fields. It rejects corrupt/missing scores,
+ambiguous inputs, and unsupported decoding features. Current SDK compressed
+timestamp records are unsupported; actual exports must be inspected for this.
+JSON continues to target the Editor's nested `Zapps`/`Zapp`/`SummaryOutputs` shape.
+A different JSON shape needs an explicit adapter and tests.
+
+| Check | Evidence | Remaining limit |
 | --- | --- | --- |
-| Single-match scoring and JSON import | Committed | `5d20e24` on `main` |
-| Up to eight matches per workout | Included in the commit containing this handoff | Watch source v0.2 and queue decoder |
-| Separate match review and save | Included in the commit containing this handoff | Padel record modal and `keepOpen` callback |
-| Automated scoring/import tests | Passed in this conversation | 58 tests across 8 test files |
-| Lint and web production build | Passed in this conversation | Build has bundle-size and old Browserslist-data warnings |
-| Official Suunto validation/build | Passed in this conversation | Editor 1.42.0 tools, display `n` |
-| Compiled queue/capacity/undo checks | Passed in this conversation | Compiled package exercised through all eight matches |
-| Physical watch controls and layout | Pending | Install v0.2 and test on the 9 Peak Pro |
-| Actual JSON export compatibility | Pending — next priority | Obtain an export and inspect app summary fields |
-| Live database import verification | Pending | Prior tests do not prove a live database round trip |
-| Durable duplicate protection | Pending | Saved markers currently last only while modal is open |
-| FIT file import | Optional, not implemented | Consider only if useful or JSON lacks the needed fields |
-| Automatic Cloud API sync | Optional, not implemented | Eligibility and API credentials are unresolved |
+| Full automated suite | 78 tests across 10 files | Synthetic watch/FIT data and mocked UI persistence |
+| React import UI | Upload without teams, four slots, per-match drafts, ordered saves, retry, manual flow | No browser visual or live backend round trip |
+| FIT decoder | Actual binary fixtures encoded with official Garmin SDK; identity/integrity/legacy/queue/error checks | No real Suunto export yet |
+| Lint and production build | Passed | Existing Browserslist, empty vendor chunk, and bundle-size warnings |
+| Official Suunto build/validation | Display n, v0.3 passed | No physical device validation |
+| Compiled scoring | Eight-match queue, capacity, decoding and final-point undo passed | Watch controls/layout unverified |
+| Duplicate protection | Current-window saved markers only | Repeat import/reopening can still create duplicate matches |
+| Live save/rankings | Uses existing authorized recordPadelMatch transaction | Test on a suitable backend before relying on it |
 
-## Git and artifact snapshot
+## Git and artifacts
 
 Repository: `C:\Users\maksimilijan.stajer\Ping Pong\PingpongTracker`.
-Branch at handoff: `main`. The v0.1 base commit is `5d20e24`
-(`Add private Suunto padel scoring prototype and workout import`). The v0.2 work
-and this handoff are included in the subsequent commit containing this file;
-use `git log -1` to obtain its hash.
+Git was clean at the start of the separation work. Last existing commit:
+`7e05d47 Add multi-match Suunto padel import and integration handoff` on main;
+original v0.1 was `5d20e24`. This separation work is uncommitted; no push or
+publication was requested/performed. Recheck status before subsequent work.
+The earlier search-path migration is already in history; it was not modified here.
 
-The later eight-match work is recorded in these files:
+Relevant files:
 
-- `integrations/suunto-padel/main.js`
-- `integrations/suunto-padel/manifest.json`
-- `integrations/suunto-padel/t.html`
-- `src/suuntoPadelImport.js`
-- `src/suuntoPadelImport.test.js`
-- `src/components/modals/PadelMatchModal.jsx`
-- `src/App.jsx`
-- `docs/suunto-padel.md`
+- `integrations/suunto-padel/{README.md,manifest.json,main.js,t.html,data.json}`
+- `src/suuntoPadelImport.js` — JSON decoder, shared queue decoder, FIT/file adapter
+- `src/suuntoPadelImport.test.js` — watch and summary regression tests
+- `src/suuntoPadelFit.test.js` — binary FIT and file-dispatch tests
+- `src/components/modals/PadelMatchModal.jsx` — separate import-mode review/mapping
+- `src/components/modals/PadelMatchModal.test.jsx` — React workflow regression tests
+- `src/App.jsx` — separate import entry point
+- `package.json` / `package-lock.json` — FIT runtime and React/jsdom test dependencies
+- `docs/suunto-padel.md` — current use, player positions, export contract, limitations
 
-This handoff and its README/documentation links are included as documentation
-changes. The user requested committing everything, including the existing
-migration below. No push was performed in this conversation. Recheck Git and
-remote state before future publication.
+Generated private package: `integrations/suunto-padel/dist/ttpadel1-n.fea`.
+It was rebuilt for v0.3 and is ignored by Git; fresh checkouts need to rebuild.
 
-**Unrelated existing work:**
-`supabase/migrations/20260929120000_fix_mutable_function_search_paths.sql` was
-already untracked before this integration. The user's subsequent "Commit
-everything" instruction includes it in this commit. It pins function search
-paths; it has not been applied to or verified against a live database here.
+## Scoring and data safeguards
 
-Generated watch package: `integrations/suunto-padel/dist/ttpadel1-n.fea`.
-The v0.2 package was rebuilt and copied there after successful validation. It is
-ignored by Git because `dist` directories are ignored. A fresh checkout will
-need a rebuild; source files are the maintainable artifact.
+- `main.js` is ES5; helper functions are expressions assigned to variables. The
+  Suunto minifier dropped ordinary named helpers in earlier development. Preserve
+  this convention and verify compiled code after scoring changes.
+- Holding during play undoes one of the last eight points. After a win, holding
+  top undoes the winning point; holding bottom commits and starts next. Prior
+  committed matches are locked. A ninth match cannot overwrite the queue.
+- Advantage scoring; sets to six by two; seven-point tiebreak by two at 6–6;
+  single set or best of three. Golden point and deciding match tiebreaks unsupported.
+- Final completed match exports without pressing next. Unfinished final match is
+  omitted while preserving earlier results. Crash recovery is not implemented.
+- `q1`–`q4` each contain two ordered match codes, packed below 2^24 for float32
+  precision. Legacy `v/a/b/c` is also supported. See usage document for digits.
+- File limit: 10 MB. Upload reads locally and does not create database records.
+  User review/save uses existing admin-authorized match persistence and rankings.
+  No new schema, cloud service, watch identity/profile data, or credential is added.
+- The score export is team based, not individual point attribution/serving order.
+  Profile assignments can differ per match; watch positions remain fixed.
+- Do not commit raw personal workouts. Strip GPS, heart rate, identifiers and
+  unrelated fields from any future regression fixtures.
 
-## How the implementation works
+## Next-session priorities
 
-- `main.js` is an ES5 SuuntoPlus script. Callbacks use native event IDs; helpers
-  are **function expressions assigned to variables**. The Suunto minifier dropped
-  ordinary named helper functions during initial development. Preserve this
-  convention and test the compiled package, not just the uncompiled source.
-- Top/bottom clicks add points to Team 1/2. During play, holding either undoes.
-  After a win, holding top undoes the winning point; holding bottom commits the
-  result in memory and starts the next match. Eight points of undo are retained
-  only within the current match. Committed earlier matches cannot be undone.
-- Default rules: advantage scoring, sets to six by two, seven-point tiebreak by
-  two at 6–6, best of three. Single-set format is configurable for the workout.
-  Golden point and deciding match tiebreaks are not implemented.
-- A workout stores at most eight complete matches. At capacity it shows
-  `SAVE WORKOUT` and refuses a ninth. The last complete match exports even if
-  next was never pressed. An unfinished last match is omitted without losing
-  earlier results. Watch/app crash recovery is not implemented.
-- Four summary fields `q1`–`q4` store two results each. Legal set outcomes use
-  base-15 digits; each match fits in 12 bits. Pair values stay below 2^24, exactly
-  representable in Suunto's float32 export fields. See the usage document for
-  the exact contract. The legacy `v/a/b/c` single-match export is still accepted.
-- `parseSuuntoPadelWorkoutMatches(text)` returns ordered match objects with
-  `matchFormat` and `setsData`. It expects exactly one `Tracker Padel` entry in a
-  `Zapps` array, wrapped as `{ Zapp: { Name, SummaryOutputs } }`; summary entries
-  use `Id` and `SummaryValue`. It finds this header inside nested JSON containers.
-  **A differently structured JSON export needs an explicit adapter and tests.**
-- `parseSuuntoPadelWorkout(text)` remains a single-match compatibility wrapper
-  and rejects multi-match exports instead of discarding results.
-- File size is limited to 10 MB. Corrupt fields, gaps, extra sets, incomplete
-  results, mixed protocols, and ambiguous multi-workout files are rejected.
-- The record modal lets the user review scores and assign four players per
-  result. Draft selections survive switching among unsaved results. Saving one
-  advances to the next; saved results are disabled in the current modal session.
-- `handlePadelMatchSaved({ keepOpen })` refreshes data after each save and closes
-  only after the final result. Failed saves remain available to retry.
-- Saving reuses `recordPadelMatch` → `record_padel_match` with existing admin
-  authorization. No new schema, cloud service, or watch credential was added.
-  Repeat imports or reopening the modal can still produce duplicates.
+1. Read this file and docs; check Git. Preserve all existing changes. Commit only
+   if requested. Do not publish the private watch app.
+2. Install the v0.3 package on the 9 Peak Pro. Test Player 1+2 / Player 3+4 labels,
+   buttons, holds, readability, win undo, next match, capacity, and mobile sync.
+3. Obtain actual JSON and FIT exports with known scores. Verify custom summaries
+   survive the user's export route. Inspect JSON structure and whether FIT uses
+   features the SDK rejects. Add narrowly scoped adapters/fixtures if necessary;
+   never assume compatibility from the extension alone.
+4. Exercise the separate upload/profile review in a real browser and save against
+   an appropriate test backend. Verify rankings refresh, profile order, and retry.
+   Do not silently add fabricated results to production rankings.
+5. If durable duplicate protection is requested, identify workout + match ordinal
+   and enforce uniqueness atomically with match/ranking updates. Existing markers
+   only prevent re-saving within the currently open modal.
+6. Run the suite, lint, production build, whitespace checks, and watch build after
+   changes; update this tracker with evidence and honest remaining limitations.
 
-## Next-session work, in order
-
-1. Read this file and the usage document; run `git status --short`. Preserve all
-   existing changes, including the unrelated migration.
-2. Test the watch package if the device is available. Check buttons, long-press
-   behavior, screen readability, multiple matches, final-point undo, capacity,
-   and whether a locally installed app remains available after normal syncing.
-3. Get a real JSON export through the user's available Suunto export route.
-   Confirm where it comes from (mobile app, another Suunto interface, or Editor),
-   its shape, and whether `Tracker Padel` and all four queue fields survive.
-   The user has reported JSON availability; this conversation has not examined
-   a real export. Do not equate all JSON export formats or claim compatibility
-   solely because their file extension is `.json`.
-4. If the existing parser matches, verify decoding against known watch scores.
-   Otherwise add a narrowly scoped adapter and regression fixtures. Remove
-   personal identifiers, GPS, heart rate, and unrelated data from committed
-   fixtures. Do not commit a raw personal workout.
-5. Exercise the review UI and authorized database saving with different players
-   across matches. Verify the modal stays open, rankings refresh correctly, and
-   failures preserve unsaved results. Use test data and an appropriate backend;
-   do not silently add fabricated matches to production rankings.
-6. Address duplicate protection before describing import as robust across
-   sessions/retries: identify the workout and match ordinal, and enforce
-   uniqueness with the save transaction if the backend is changed.
-7. Run appropriate checks, rebuild the watch package after watch-source changes,
-   and update this tracker with evidence and remaining gaps. Create a scoped
-   commit when requested. Do not publish the private watch app.
-
-## Validation and build notes
+## Build commands
 
 From the repository root:
 
@@ -154,70 +133,27 @@ npm run build
 git diff --check
 ```
 
-Last full suite: **58 passed**. The Suunto test file has 25 tests, including
-exhaustive decoding of all 1,484 legal single-set/best-of-three outcomes and
-checks for exact float32 round trips. These are synthetic tests, not device data.
-Tests warn about missing Supabase environment configuration; no live database
-verification was performed. The full 58-test suite, lint, and production build
-were rerun successfully before the requested commit. Git whitespace checks
-also passed. The build retains its existing Browserslist and chunk-size warnings.
-
-Use the official VS Code SuuntoPlus Editor to validate/build for display `n`,
-then deploy privately or load the `.fea` using its binary-to-watch command.
-The development tools downloaded in this conversation also exposed this CLI:
+SuuntoPlus Editor can validate/build display n and privately deploy by USB.
+The current temporary SDK also provides:
 
 ```powershell
-# Set this to the actual installed/extracted package directory; do not assume
-# the previous session's temporary SDK files still exist.
-$suuntoToolsDir = '<path to @suunto-internal/suuntoplus-tools>'
+$suuntoToolsDir = '<actual @suunto-internal/suuntoplus-tools directory>'
 New-Item -ItemType Directory -Path integrations/suunto-padel/dist -Force | Out-Null
 node "$suuntoToolsDir/bin/build-app.js" --appID ttpadel1 --input integrations/suunto-padel --output integrations/suunto-padel/dist --displayID n
 ```
 
-The prior extracted SDK was under
+Temporary SDK used this session:
 `$env:TEMP/suuntoplus-inspect/extension/node_modules/@suunto-internal/suuntoplus-tools`.
-The compiled-package verification helper was `$env:TEMP/verify-padel-sdk.cjs`.
-Both are temporary, untracked aids, not durable project dependencies. Native
-compiler/esbuild subprocesses required sandbox escalation in this environment.
-For Python work, follow the user's preference for UV rather than pip.
+Compiled verification helper: `$env:TEMP/verify-standalone-padel-sdk.cjs`.
+Verify these paths still exist before reuse. The official validator enforces a
+100-character manifest description; a successful build alone does not check it.
+Native compiler/esbuild subprocesses required sandbox escalation in this session.
+Use UV for Python, per user preference.
 
-## Cloud access findings and optional future route
-
-Official pages checked on 2026-09-29 distinguish local watch development from
-Cloud API access. Private local deployment does not require Store submission.
-The published Cloud API policy excludes personal use and targets services for
-an audience; solo-developer eligibility without a company was not confirmed.
-The current application mentions local community concepts. Ask Suunto honestly
-about eligibility if pursuing this route; do not assume access is guaranteed.
-
-Automatic sync would need account linking, OAuth credentials, secure server-side
-token refresh/storage, workout notifications/fetching, a data adapter, player
-assignment, and durable per-workout/per-match duplicate protection. None of those
-cloud components exists yet. Do not put admin or service-role credentials on the
-watch. Treat cloud sync as optional while validating the API-free JSON path.
-
-- [SuuntoPlus development guide](https://forum.suunto.com/topic/14651/how-to-get-started)
-- [Editor and workout JSON export](https://apizone.suunto.com/suuntoplusEditor)
-- [SuuntoPlus export fields](https://apizone.suunto.com/fit-description)
-- [Cloud eligibility FAQ](https://apizone.suunto.com/faq)
-- [Partner application](https://survey.alchemer.eu/s3/90553908/PARTNER-Become-a-Suunto-Partner)
-- [Partner questions](https://survey.alchemer.eu/s3/90553911/Partner-Questions)
-
-## Copy-ready continuation prompt
-
-> Continue the private Suunto 9 Peak Pro padel integration in this repository.
-> Read SUUNTO_INTEGRATION_HANDOFF.md and docs/suunto-padel.md first, then verify
-> Git state. Preserve the existing eight-match implementation and unrelated
-> migration. Prioritize real JSON-export compatibility and device validation;
-> the user says Suunto supports JSON exports. Do not assume Cloud API access or
-> FIT support is required. Complete available work, distinguish synthetic tests
-> from hardware/live database verification, and update the handoff with progress.
-
-## Session log
+## Session history
 
 | Date | Change | Verification / remaining work |
 | --- | --- | --- |
-| 2026-09-29 | Private v0.1 prototype committed as `5d20e24` | 52 tests, lint, web build, native compilation and compiled scoring/undo passed; hardware/export unverified |
-| 2026-09-29 | v0.2 eight-match queue and individual review implemented, not committed | 58 tests, lint, web build, native validation/build and compiled queue checks passed; actual export, UI interaction and live saving unverified |
-| 2026-09-29 | User confirmed interest in API-free JSON transfer; this handoff created | Next: inspect a real JSON export, preserve context, and update this tracker after subsequent work |
-| 2026-09-29 | User requested committing everything; v0.2, handoff and existing search-path migration included | Full suite: 58 passed; lint, production build and whitespace checks passed; hardware/export/live database gaps remain |
+| 2026-09-29 | Private v0.1 committed as 5d20e24 | 52 tests, lint, web build, native compilation and compiled scoring/undo; hardware/export unverified |
+| 2026-09-29 | v0.2 eight-match queue, review and handoff committed as 7e05d47 | 58 tests, lint, web build, native validation/build, compiled queue/capacity/undo; hardware/export/live saves unverified |
+| 2026-09-29 | User changed scope to independent anonymous watch scorer → JSON/FIT upload → profile mapping | v0.3 labels, separate upload entry, FIT adapter and UI tests implemented; 78 tests, lint/build, official watch validation/build and compiled checks passed; real device/export/live saves remain pending; uncommitted |

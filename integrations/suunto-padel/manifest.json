@@ -1,8 +1,8 @@
 {
   "name": "Tracker Padel",
-  "version": "0.2",
+  "version": "0.3",
   "author": "PingpongTracker",
-  "description": "Track up to eight padel matches per workout. Hold bottom after a win to start the next.",
+  "description": "Score Player 1+2 vs Player 3+4. Export up to eight matches; assign profiles after playing.",
   "type": "feature",
   "usage": "workout",
   "modificationTime": 1790640000,

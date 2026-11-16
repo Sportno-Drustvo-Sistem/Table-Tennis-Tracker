@@ -1,7 +1,7 @@
 <uiView>
   <div id="suuntoplus">
     <div class="cm-fg sp-t-m p-hc" style="top:12%">PADEL #<eval input="Zapp/{zapp_index}/Output/m" outputFormat="Count_Twodigits" /></div>
-    <div class="cm-mid sp-t-s p-hc" style="top:25%"><eval input="Zapp/{zapp_index}/Output/h" outputFormat="keyValue 0=TEAM 1 / TEAM 2|1=HOLD BOTTOM: NEXT|2=SAVE WORKOUT" /></div>
+    <div class="cm-mid sp-t-s p-hc" style="top:25%"><eval input="Zapp/{zapp_index}/Output/h" outputFormat="keyValue 0=P1+P2 / P3+P4|1=HOLD BOTTOM: NEXT|2=SAVE WORKOUT" /></div>
     <div class="cm-fg sp-d-m f-num p-hc" style="top:39%">
       <eval input="Zapp/{zapp_index}/Output/p1" outputFormat="script x =&gt; x === -1 ? 'AD' : x" />
       -
@@ -14,7 +14,7 @@
       SETS <eval input="Zapp/{zapp_index}/Output/n1" outputFormat="Count_Twodigits" />-<eval input="Zapp/{zapp_index}/Output/n2" outputFormat="Count_Twodigits" />
     </div>
     <div class="cm-fg sp-t-s p-hc" style="top:87%">
-      <eval input="Zapp/{zapp_index}/Output/w" outputFormat="keyValue 0=HOLD: UNDO|1=TEAM 1 WINS|2=TEAM 2 WINS" />
+      <eval input="Zapp/{zapp_index}/Output/w" outputFormat="keyValue 0=HOLD: UNDO|1=P1+P2 WIN|2=P3+P4 WIN" />
     </div>
     <userInput>
       <pushButton name="up" onClick="$.put('/Zapp/{zapp_index}/Event', 1, null, 'int32');" onLongPressStart="$.put('/Zapp/{zapp_index}/Event', 2, null, 'int32');" />
