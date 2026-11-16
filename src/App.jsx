@@ -1,69 +1,135 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Plus, Trophy, BarChart2, LayoutGrid, Moon, Sun, Calendar, Swords, Settings, Ghost, Zap } from 'lucide-react'
-import { PingPongIcon, TennisIcon } from './components/Icons'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
+import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins } from 'lucide-react'
+import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
-import { recalculatePlayerStats } from './utils'
+import { filterSeasonMatches, getSeasonUsers } from './seasonUtils'
 import {
   ADMIN_SESSION_STORAGE_KEY,
+  checkAdminSession,
   createAdminSession,
+  onAdminSessionExpired,
   revokeAdminSession,
   validateAdminSession,
 } from './adminSession'
-import UserCard from './components/UserCard'
+import { describeRecordedMatch, onMatchRecorded } from './matchPersistence'
+import { useAppData } from './useAppData'
+import AppShell, { PageHeader, Button, Spinner } from './components/layout/AppShell'
+import PlayersView from './components/PlayersView'
 import Leaderboard from './components/Leaderboard'
-import PlayerStats from './components/PlayerStats'
 import Matches from './components/Matches'
+import BetsView from './components/BetsView'
 import AddUserModal from './components/modals/AddUserModal'
 import EditUserModal from './components/modals/EditUserModal'
 import EditMatchModal from './components/modals/EditMatchModal'
 import PlayerSelectionModal from './components/modals/PlayerSelectionModal'
 import MatchModal from './components/modals/MatchModal'
 import MatchGeneratorModal from './components/modals/MatchGeneratorModal'
-import LiveMatchModal from './components/modals/LiveMatchModal'
 import LoginModal from './components/modals/LoginModal'
-import AdminButton from './components/AdminButton'
-import DebuffSettings from './components/DebuffSettings'
-import DiscordSettings from './components/DiscordSettings'
 
-// Padel imports
-import PadelLeaderboard from './components/PadelLeaderboard'
-import PadelPlayerStats from './components/PadelPlayerStats'
-import PadelMatches from './components/PadelMatches'
-import PadelPlayerSelectionModal from './components/modals/PadelPlayerSelectionModal'
-import PadelMatchModal from './components/modals/PadelMatchModal'
-import PadelEditMatchModal from './components/modals/PadelEditMatchModal'
-import PadelLiveMatchModal from './components/modals/PadelLiveMatchModal'
-import TennisLeaderboard from './components/TennisLeaderboard'
-import TennisPlayerStats from './components/TennisPlayerStats'
-import TennisMatches from './components/TennisMatches'
-import TennisMatchModal from './components/modals/TennisMatchModal'
-import TennisEditMatchModal from './components/modals/TennisEditMatchModal'
-import TennisLiveMatchModal from './components/modals/TennisLiveMatchModal'
-import Tournament from './components/tournament/Tournament'
 import { useToast } from './contexts/useToast'
+
+// Charts (recharts), tournaments, settings, live scoring and the padel and
+// tennis screens load on demand so the first paint only needs the players,
+// rankings and match lists of the sport that is open.
+const loadPlayerStats = () => import('./components/PlayerStats')
+const loadPadelPlayerStats = () => import('./components/PadelPlayerStats')
+const loadTennisPlayerStats = () => import('./components/TennisPlayerStats')
+const loadTournament = () => import('./components/tournament/Tournament')
+const loadDebuffSettings = () => import('./components/DebuffSettings')
+const loadDiscordSettings = () => import('./components/DiscordSettings')
+const loadLiveMatchModal = () => import('./components/modals/LiveMatchModal')
+const loadPadelLiveMatchModal = () => import('./components/modals/PadelLiveMatchModal')
+const loadTennisLiveMatchModal = () => import('./components/modals/TennisLiveMatchModal')
+const loadPadelLeaderboard = () => import('./components/PadelLeaderboard')
+const loadPadelMatches = () => import('./components/PadelMatches')
+const loadTennisLeaderboard = () => import('./components/TennisLeaderboard')
+const loadTennisMatches = () => import('./components/TennisMatches')
+const loadPadelPlayerSelectionModal = () => import('./components/modals/PadelPlayerSelectionModal')
+const loadPadelMatchModal = () => import('./components/modals/PadelMatchModal')
+const loadPadelEditMatchModal = () => import('./components/modals/PadelEditMatchModal')
+const loadTennisMatchModal = () => import('./components/modals/TennisMatchModal')
+const loadTennisEditMatchModal = () => import('./components/modals/TennisEditMatchModal')
+const DEFERRED_MODULES = [
+  loadPlayerStats, loadPadelPlayerStats, loadTennisPlayerStats, loadTournament, loadDebuffSettings,
+  loadDiscordSettings, loadLiveMatchModal, loadPadelLiveMatchModal, loadTennisLiveMatchModal,
+  loadPadelLeaderboard, loadPadelMatches, loadTennisLeaderboard, loadTennisMatches,
+  loadPadelPlayerSelectionModal, loadPadelMatchModal, loadPadelEditMatchModal, loadTennisMatchModal, loadTennisEditMatchModal,
+]
+
+const PlayerStats = lazy(loadPlayerStats)
+const PadelPlayerStats = lazy(loadPadelPlayerStats)
+const TennisPlayerStats = lazy(loadTennisPlayerStats)
+const Tournament = lazy(loadTournament)
+const DebuffSettings = lazy(loadDebuffSettings)
+const DiscordSettings = lazy(loadDiscordSettings)
+const LiveMatchModal = lazy(loadLiveMatchModal)
+const PadelLiveMatchModal = lazy(loadPadelLiveMatchModal)
+const TennisLiveMatchModal = lazy(loadTennisLiveMatchModal)
+const PadelLeaderboard = lazy(loadPadelLeaderboard)
+const PadelMatches = lazy(loadPadelMatches)
+const TennisLeaderboard = lazy(loadTennisLeaderboard)
+const TennisMatches = lazy(loadTennisMatches)
+const PadelPlayerSelectionModal = lazy(loadPadelPlayerSelectionModal)
+const PadelMatchModal = lazy(loadPadelMatchModal)
+const PadelEditMatchModal = lazy(loadPadelEditMatchModal)
+const TennisMatchModal = lazy(loadTennisMatchModal)
+const TennisEditMatchModal = lazy(loadTennisEditMatchModal)
+
+const SPORTS = [
+  { id: 'pingpong', label: 'Ping Pong', shortLabel: 'Ping Pong', Icon: PingPongIcon, tagline: 'Track your garage glory.' },
+  { id: 'padel', label: 'Padel', shortLabel: 'Padel', Icon: PadelIcon, tagline: 'Track your doubles domination.' },
+  { id: 'tennis', label: 'Tennis', shortLabel: 'Tennis', Icon: TennisIcon, tagline: 'Track your court command.' },
+]
+
+const NAV_ITEMS = [
+  // `primary` tabs sit in the phone's bottom bar; the rest open from its "More" sheet.
+  { id: 'grid', label: 'Players', Icon: Users, primary: true },
+  { id: 'leaderboard', label: 'Leaderboard', shortLabel: 'Ranks', Icon: Trophy, primary: true },
+  { id: 'matches', label: 'Matches', Icon: Calendar, primary: true },
+  { id: 'bets', label: 'Bets', Icon: Coins, sports: ['pingpong'], betting: true, primary: true },
+  { id: 'stats', label: 'Stats', description: 'Charts, streaks and head-to-heads', Icon: BarChart2 },
+  { id: 'tournament', label: 'Tournament', description: 'Brackets and cup history', Icon: Swords, sports: ['pingpong'] },
+  { id: 'settings', label: 'Settings', description: 'Debuffs and Discord', Icon: Settings, adminOnly: true },
+]
 
 // --- Main App ---
 
 function App() {
   const { showToast } = useToast()
-
-  const [users, setUsers] = useState([])
-  const [matches, setMatches] = useState([])
-  const [padelMatches, setPadelMatches] = useState([])
-  const [padelStats, setPadelStats] = useState([])
-  const [tennisMatches, setTennisMatches] = useState([])
-  const [tennisStats, setTennisStats] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [migrating, setMigrating] = useState(false)
-  const migrationAttempted = useRef(false)
-
   // Sport Switcher State
   const [activeSport, setActiveSport] = useState(() => {
-    return localStorage.getItem('activeSport') || 'pingpong'
+    const stored = localStorage.getItem('activeSport')
+    return SPORTS.some(sport => sport.id === stored) ? stored : 'pingpong'
   })
+  const {
+    users,
+    matches,
+    padelMatches,
+    padelStats,
+    tennisMatches,
+    tennisStats,
+    seasonData: { seasons, snapshots: seasonSnapshots },
+    betWallets,
+    betMarkets,
+    bets,
+    bettingReady,
+    liveBettingReady,
+    liveMatches,
+    loaded,
+    loading,
+    historyFailed,
+    refresh,
+    refreshSport,
+  } = useAppData(showToast, activeSport)
+  const [seasonScope, setSeasonScope] = useState('current')
+
+  const refreshUsers = useCallback(() => refresh(['users']), [refresh])
+  const refreshPingPong = useCallback(() => refreshSport('pingpong'), [refreshSport])
+  const refreshPadel = useCallback(() => refreshSport('padel'), [refreshSport])
+  const refreshTennis = useCallback(() => refreshSport('tennis'), [refreshSport])
 
   // Dark Mode State
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light')
 
   // Admin State
   const [adminToken, setAdminToken] = useState(null)
@@ -100,6 +166,8 @@ function App() {
   const [isPlayerSelectionOpen, setIsPlayerSelectionOpen] = useState(false)
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false)
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false)
+  // Which action the player pickers offer: 'live' scoring or 'record' a final score.
+  const [selectionMode, setSelectionMode] = useState('record')
   const [selectedPlayers, setSelectedPlayers] = useState([null, null])
   const [isLiveMatchOpen, setIsLiveMatchOpen] = useState(false)
   const [liveMatchPlayers, setLiveMatchPlayers] = useState([null, null])
@@ -109,7 +177,6 @@ function App() {
 
   // Modal States — Padel
   const [isPadelSelectionOpen, setIsPadelSelectionOpen] = useState(false)
-  const [padelSelectionMode, setPadelSelectionMode] = useState('record')
   const [isPadelMatchModalOpen, setIsPadelMatchModalOpen] = useState(false)
   const [padelTeams, setPadelTeams] = useState({ team1: null, team2: null })
   const [editingPadelMatch, setEditingPadelMatch] = useState(null)
@@ -124,9 +191,10 @@ function App() {
   const [tennisLivePlayers, setTennisLivePlayers] = useState([null, null])
   const [editingTennisMatch, setEditingTennisMatch] = useState(null)
 
-  // Persist sport selection
+  // Persist sport selection and expose it to CSS for the accent colour
   useEffect(() => {
     localStorage.setItem('activeSport', activeSport)
+    document.documentElement.dataset.sport = activeSport
   }, [activeSport])
 
   // Persist active tab
@@ -141,8 +209,15 @@ function App() {
       localStorage.removeItem('isAdmin')
       if (!storedSession) return
 
+      let session
       try {
-        const session = JSON.parse(storedSession)
+        session = JSON.parse(storedSession)
+      } catch {
+        localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
+        return
+      }
+
+      try {
         const isValid = await validateAdminSession(supabase, session?.token)
         if (cancelled) return
 
@@ -152,8 +227,9 @@ function App() {
           localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
         }
       } catch (error) {
+        // A failed request (e.g. a flaky phone connection) does not mean the
+        // session expired; keep it so the next load can validate it again.
         console.error('Failed to restore admin session:', error)
-        localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
       }
     }
 
@@ -162,6 +238,24 @@ function App() {
       cancelled = true
     }
   }, [])
+
+  // Leave admin mode when the session has run out, so the app stops offering
+  // saves that would fail. When a save found out, ask for the PIN on the spot.
+  useEffect(() => onAdminSessionExpired(({ prompt }) => {
+    setAdminToken(null)
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
+    if (prompt) setIsLoginModalOpen(true)
+  }), [])
+
+  // Phones keep the tab open for days: re-check each time the app comes back to the front.
+  useEffect(() => {
+    if (!adminToken) return undefined
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkAdminSession(supabase, adminToken, { prompt: false })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [adminToken])
 
   // Apply Dark Mode
   useEffect(() => {
@@ -172,123 +266,30 @@ function App() {
       document.documentElement.classList.remove('dark')
       localStorage.setItem('theme', 'light')
     }
+    // Match the mobile browser bar to the app's top bar.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', darkMode ? '#0c0c0e' : '#ffffff')
   }, [darkMode])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const usersById = useMemo(() => Object.fromEntries(users.map(user => [user.id, user])), [users])
 
-    // Fetch all data in parallel for ~3x faster load
-    const [
-      { data: userData, error: userError },
-      { data: matchData, error: matchError },
-      { data: padelMatchData, error: padelMatchError },
-      { data: padelStatsData, error: padelStatsError },
-      { data: tennisMatchData, error: tennisMatchError },
-      { data: tennisStatsData, error: tennisStatsError },
-    ] = await Promise.all([
-      supabase.from('users').select('*').order('total_wins', { ascending: false }),
-      supabase.from('matches').select('*').order('created_at', { ascending: false }).limit(2000),
-      supabase.from('padel_matches').select('*').order('created_at', { ascending: false }).limit(2000),
-      supabase.from('padel_stats').select('*'),
-      supabase.from('tennis_matches').select('*').order('created_at', { ascending: false }).limit(2000),
-      supabase.from('tennis_stats').select('*'),
-    ])
+  // One confirmation for every save, wherever it started (including brackets).
+  useEffect(() => onMatchRecorded(result => {
+    showToast(describeRecordedMatch(result, usersById), 'success')
+  }), [showToast, usersById])
 
-    if (userError) console.error('Error fetching users:', userError)
-    else setUsers(userData || [])
-
-    if (matchError) console.error('Error fetching matches:', matchError)
-    else setMatches(matchData || [])
-
-    if (padelMatchError) console.error('Error fetching padel matches:', padelMatchError)
-    else setPadelMatches(padelMatchData || [])
-
-    if (padelStatsError) console.error('Error fetching padel stats:', padelStatsError)
-    else setPadelStats(padelStatsData || [])
-
-    if (tennisMatchError) console.error('Error fetching tennis matches:', tennisMatchError)
-    else setTennisMatches(tennisMatchData || [])
-
-    if (tennisStatsError) console.error('Error fetching tennis stats:', tennisStatsError)
-    else setTennisStats(tennisStatsData || [])
-
-    setLoading(false)
-  }, [])
-
+  // Fetch the deferred screens once the first data is in, so switching tabs stays instant.
   useEffect(() => {
-    const initialFetchTimer = setTimeout(fetchData, 0)
-
-    // Realtime Subscription with Debounce
-    let debounceTimer
-    const debouncedFetch = () => {
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        console.log('Refreshing data from realtime update...')
-        fetchData()
-      }, 1000)
+    if (loading) return
+    // Data saver on: fetch each screen only when it is opened.
+    if (navigator.connection?.saveData) return
+    const prefetch = () => DEFERRED_MODULES.forEach(load => load().catch(() => {}))
+    if (window.requestIdleCallback) {
+      const handle = window.requestIdleCallback(prefetch, { timeout: 4000 })
+      return () => window.cancelIdleCallback(handle)
     }
-
-    const subscription = supabase
-      .channel('public:db_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
-        console.log('Match change received!', payload)
-        debouncedFetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-        console.log('User change received!', payload)
-        debouncedFetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'padel_matches' }, (payload) => {
-        console.log('Padel match change received!', payload)
-        debouncedFetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'padel_stats' }, (payload) => {
-        console.log('Padel stats change received!', payload)
-        debouncedFetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tennis_matches' }, (payload) => {
-        console.log('Tennis match change received!', payload)
-        debouncedFetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tennis_stats' }, (payload) => {
-        console.log('Tennis stats change received!', payload)
-        debouncedFetch()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(subscription)
-      clearTimeout(initialFetchTimer)
-      if (debounceTimer) clearTimeout(debounceTimer)
-    }
-  }, [fetchData])
-
-  // Automatic Migration Check: Recalculate stats if matches exist but stats are empty
-  useEffect(() => {
-    if (!loading && matches.length > 0 && users.length > 0 && !migrationAttempted.current) {
-      const totalMatchesPlayed = users.reduce((acc, user) => acc + (user.matches_played || 0), 0)
-
-      if (totalMatchesPlayed === 0) {
-        console.log('Detected uninitialized stats. Running recalculation...')
-        migrationAttempted.current = true
-        queueMicrotask(() => {
-          setMigrating(true)
-          recalculatePlayerStats()
-            .then(() => {
-              console.log('Recalculation complete.')
-              fetchData()
-            })
-            .catch(err => {
-              console.error('Migration failed:', err)
-              if (err.message && err.message.includes('column')) {
-                showToast('Automatic update failed: Missing database columns. Please run the SQL migration.', 'error')
-              }
-            })
-            .finally(() => setMigrating(false))
-          })
-      }
-    }
-  }, [loading, matches.length, users, fetchData, showToast])
+    const timer = setTimeout(prefetch, 1500)
+    return () => clearTimeout(timer)
+  }, [loading])
 
   const handleUserClick = (user) => {
     setStatsPlayerId(user.id)
@@ -315,16 +316,15 @@ function App() {
     setIsLiveMatchOpen(true)
   }
 
+  // Saved rows are merged into the cached history by useAppData; handlers only close modals.
   const handleMatchSaved = () => {
     setIsMatchModalOpen(false)
     setSelectedPlayers([null, null])
-    fetchData()
   }
 
   const handleLiveMatchSaved = () => {
     setIsLiveMatchOpen(false)
     setLiveMatchPlayers([null, null])
-    fetchData()
     if (isLiveMatchFromGenerator) {
       setIsLiveMatchFromGenerator(false)
       setIsGeneratorOpen(true)
@@ -344,18 +344,14 @@ function App() {
     setIsPadelLiveMatchOpen(true)
   }
 
-  const handlePadelMatchSaved = ({ keepOpen = false } = {}) => {
-    if (!keepOpen) {
-      setIsPadelMatchModalOpen(false)
-      setPadelTeams({ team1: null, team2: null })
-    }
-    fetchData()
+  const handlePadelMatchSaved = () => {
+    setIsPadelMatchModalOpen(false)
+    setPadelTeams({ team1: null, team2: null })
   }
 
   const handlePadelLiveMatchSaved = () => {
     setIsPadelLiveMatchOpen(false)
     setPadelLiveMatchTeams({ team1: null, team2: null })
-    fetchData()
   }
 
   // Tennis handlers
@@ -374,21 +370,40 @@ function App() {
   const handleTennisMatchSaved = () => {
     setIsTennisMatchModalOpen(false)
     setTennisPlayers([null, null])
-    fetchData()
   }
 
   const handleTennisLiveMatchSaved = () => {
     setIsTennisLiveMatchOpen(false)
     setTennisLivePlayers([null, null])
-    fetchData()
   }
+
+  const activeSeason = seasons.find(s => s.is_active)
+  const selectedSeasonId = seasonScope === 'current' ? activeSeason?.id : seasonScope
+  const currentMatches = useMemo(() => activeSeason ? filterSeasonMatches(matches, activeSeason.id) : matches, [matches, activeSeason])
+  const scopedMatches = useMemo(() => activeSeason ? filterSeasonMatches(matches, selectedSeasonId) : matches, [matches, activeSeason, selectedSeasonId])
+  const scopedUsers = useMemo(() => activeSeason ? getSeasonUsers(users, matches, seasonSnapshots, selectedSeasonId, activeSeason.id) : users, [users, matches, seasonSnapshots, selectedSeasonId, activeSeason])
+  const canManageSeason = !activeSeason || String(selectedSeasonId) === String(activeSeason.id)
+
+  // Points betting on live matches; off until its tables exist.
+  // With `live`, the umpire phone shares its score and any phone can bet.
+  const liveBetting = useMemo(() => bettingReady ? { users, bets, wallets: betWallets, live: liveBettingReady } : null, [bettingReady, liveBettingReady, users, bets, betWallets])
 
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
   const isTennis = activeSport === 'tennis'
-  const sportEmoji = isPingPong ? <PingPongIcon size={24} /> : <TennisIcon size={24} />
-  const sportName = isPingPong ? 'Ping Pong' : isPadel ? 'Padel' : 'Tennis'
-  const sportSubtitle = isPingPong ? 'Track your garage glory.' : isPadel ? 'Track your doubles domination.' : 'Track your court command.'
+  const sport = SPORTS.find(s => s.id === activeSport) || SPORTS[0]
+
+  const navItems = NAV_ITEMS.filter(item =>
+    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin) && (!item.betting || bettingReady)
+  )
+  // Fall back to Players when the stored tab isn't available (e.g. Tournament outside ping pong).
+  const currentTab = navItems.some(item => item.id === activeTab) ? activeTab : 'grid'
+  const currentNav = navItems.find(item => item.id === currentTab)
+
+  useEffect(() => {
+    document.title = `${sport.label} · Sport Tracker`
+  }, [sport.label])
+
   // Build a padel stats lookup map for UserCards
   const padelStatsMap = useMemo(() => {
     const map = {}
@@ -402,388 +417,244 @@ function App() {
     return map
   }, [tennisStats])
 
+  const openSelection = (mode) => {
+    setSelectionMode(mode)
+    if (isPingPong) setIsPlayerSelectionOpen(true)
+    else if (isPadel) setIsPadelSelectionOpen(true)
+    else setIsTennisSelectionOpen(true)
+  }
+  const openLiveMatch = () => openSelection('live')
+  const openRecordMatch = () => openSelection('record')
+  const openGenerator = () => setIsGeneratorOpen(true)
+  // Saving needs an admin session, so locked actions lead to the login instead of a dead end.
+  const adminOnly = (action) => isAdmin ? action : () => setIsLoginModalOpen(true)
+
+  const playActions = [
+    isPingPong && { id: 'generate', label: 'Generate match', description: 'Pick who is here and draw a random pairing', Icon: Shuffle, onClick: openGenerator },
+    { id: 'live', label: 'Live match', description: 'Keep score point by point', Icon: Zap, locked: !isAdmin, onClick: adminOnly(openLiveMatch) },
+    { id: 'record', label: 'Record result', description: 'Enter the score of a finished match', Icon: PencilLine, locked: !isAdmin, onClick: adminOnly(openRecordMatch) },
+  ].filter(Boolean)
+
+  // Phones and tablets start matches from the Play button in the bottom bar.
+  const pageActions = currentTab === 'grid' && users.length > 0 ? (
+    <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>Add Player</Button>
+  ) : currentTab === 'matches' ? (
+    <>
+      {isPingPong && <Button icon={Shuffle} onClick={openGenerator} className="hidden lg:inline-flex">Generate Match</Button>}
+      {isAdmin && <Button variant="live" icon={Zap} onClick={openLiveMatch} className="hidden lg:inline-flex">Live Match</Button>}
+      {isAdmin && <Button variant="primary" icon={Plus} onClick={openRecordMatch} className="hidden lg:inline-flex">Record Match</Button>}
+    </>
+  ) : null
+
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors duration-200`}>
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center md:justify-start gap-3">
-              <span className={`${isPingPong ? 'bg-blue-600' : isPadel ? 'bg-green-600' : 'bg-emerald-600'} text-white p-2 rounded-lg shadow-lg flex-shrink-0`}>{sportEmoji}</span>
-              <span>{sportName}</span>
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2 md:ml-1 w-full">{sportSubtitle}</p>
-            {migrating && (
-              <div className="mt-2 text-sm font-bold text-amber-600 dark:text-amber-400 animate-pulse flex items-center justify-center md:justify-start">
-                <Settings size={16} className="mr-1 animate-spin" /> Updating historical stats...
-              </div>
-            )}
-          </div>
+    <AppShell
+      sports={SPORTS}
+      activeSport={activeSport}
+      onSportChange={setActiveSport}
+      navItems={navItems}
+      activeTab={currentTab}
+      onTabChange={setActiveTab}
+      darkMode={darkMode}
+      onToggleDarkMode={() => setDarkMode(!darkMode)}
+      isAdmin={isAdmin}
+      onAdminClick={() => isAdmin ? handleAdminLogout() : setIsLoginModalOpen(true)}
+      playActions={playActions}
+    >
+      <PageHeader
+        title={currentNav.label}
+        subtitle={
+          <>
+            {sport.label} · {sport.tagline}
 
-          <div className="flex flex-wrap justify-center gap-3">
-            {/* Sport Switcher */}
-            <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => setActiveSport('pingpong')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all ${activeSport === 'pingpong'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <PingPongIcon size={18} /> <span className="ml-2">Ping Pong</span>
-              </button>
-              <button
-                onClick={() => setActiveSport('padel')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all ${activeSport === 'padel'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <TennisIcon size={18} /> <span className="ml-2">Padel</span>
-              </button>
-              <button
-                onClick={() => setActiveSport('tennis')}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all ${activeSport === 'tennis'
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-              >
-                <TennisIcon size={18} /> <span className="ml-2">Tennis</span>
-              </button>
-            </div>
+          </>
+        }
+      >
+        {pageActions}
+      </PageHeader>
 
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-yellow-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-all"
-              title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+      {historyFailed && (
+        <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+          Complete match history could not be loaded. Refresh to retry; statistics may be out of date.
+        </div>
+      )}
 
-            {/* Admin Button */}
-            <AdminButton
-              isAdmin={isAdmin}
-              onClick={() => isAdmin ? handleAdminLogout() : setIsLoginModalOpen(true)}
-            />
+      {isPingPong && activeSeason && ['grid', 'leaderboard', 'stats', 'matches'].includes(currentTab) && (
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <label htmlFor="pingpong-season" className="font-medium text-gray-700 dark:text-gray-200">Stats for</label>
+          <select id="pingpong-season" value={seasonScope} onChange={e => setSeasonScope(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+            <option value="current">{activeSeason.name} (current)</option>
+            {seasons.filter(s => !s.is_active).map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            <option value="all">All-time</option>
+          </select>
+          <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400">New games count toward {activeSeason.name}. All-time ratings continue across seasons.</p>
+        </div>
+      )}
 
-            {/* Navigation Tabs */}
-            <div className="basis-full flex justify-center">
-              <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] md:max-w-none">
-                <button
-                  onClick={() => setActiveTab('grid')}
-                  aria-label="Players Tab"
-                  title="Players"
-                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grid'
-                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : isPadel ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200')
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                >
-                  <LayoutGrid size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Players</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('leaderboard')}
-                  aria-label="Leaderboard Tab"
-                  title="Leaderboard"
-                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'leaderboard'
-                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : isPadel ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200')
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                >
-                  <Trophy size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Leaderboard</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('stats')}
-                  aria-label="Stats Tab"
-                  title="Stats"
-                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'stats'
-                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : isPadel ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200')
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                >
-                  <BarChart2 size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Stats</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('matches')}
-                  aria-label="Matches Tab"
-                  title="Matches"
-                  className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'matches'
-                    ? (isPingPong ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : isPadel ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200')
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                >
-                  <Calendar size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Matches</span>
-                </button>
-                {isPingPong && (
-                  <button
-                    onClick={() => setActiveTab('tournament')}
-                    aria-label="Tournament Tab"
-                    title="Tournament"
-                    className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'tournament'
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                  >
-                    <Swords size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Tournament</span>
-                  </button>
-                )}
-                {isAdmin && (
-                  <button
-                    onClick={() => setActiveTab('settings')}
-                    aria-label="Settings Tab"
-                    title="Settings"
-                    className={`px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'settings'
-                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                  >
-                    <Settings size={18} className="mr-0 md:mr-2" /> <span className="hidden md:inline">Settings</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center px-3 md:px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium shadow-sm transition-all hover:shadow-md shrink-0"
-            >
-              <Plus size={20} className="md:mr-2" />
-              <span className="hidden md:inline">Add Player</span>
-            </button>
-
-            {activeTab === 'matches' && isAdmin && (
-              <div className="basis-full flex justify-center gap-2 shrink-0">
-                {isPingPong && (
-                  <button
-                    onClick={() => setIsGeneratorOpen(true)}
-                    aria-label="Live Match"
-                    title="Live Match"
-                    className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md"
-                  >
-                    <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
-                  </button>
-                )}
-                {isPadel && (
-                  <button
-                    onClick={() => {
-                      setPadelSelectionMode('live')
-                      setIsPadelSelectionOpen(true)
-                    }}
-                    aria-label="Live Match"
-                    title="Live Match"
-                    className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md"
-                  >
-                    <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
-                  </button>
-                )}
-                {isTennis && (
-                  <button
-                    onClick={() => setIsTennisSelectionOpen(true)}
-                    aria-label="Live Match"
-                    title="Live Match"
-                    className="flex items-center px-4 md:px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md"
-                  >
-                    <Zap size={20} className="md:mr-2" /> <span className="hidden md:inline">Live Match</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (isPingPong) {
-                      setIsPlayerSelectionOpen(true)
-                    } else if (isPadel) {
-                      setPadelSelectionMode('record')
-                      setIsPadelSelectionOpen(true)
-                    } else {
-                      setIsTennisSelectionOpen(true)
-                    }
-                  }}
-                  aria-label="Record Match"
-                  title="Record Match"
-                  className={`flex items-center px-4 md:px-6 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500' : isPadel ? 'bg-green-600 hover:bg-green-700 dark:hover:bg-green-500' : 'bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500'} text-white rounded-lg font-bold shadow-sm transition-all hover:shadow-md`}
-                >
-                  <Plus size={20} className="md:mr-2" /> <span className="hidden md:inline">Record Match</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main>
-          {activeTab === 'grid' && (
-            <>
-              {loading ? (
-                <div className="text-center py-20 text-gray-400 dark:text-gray-500">Loading players...</div>
-              ) : users.length === 0 ? (
-                <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                  <div className="mb-4 flex justify-center text-gray-400 dark:text-gray-500"><Ghost size={64} /></div>
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">No players found</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-6">Add some colleagues to get started!</p>
-                  <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className={`inline-flex items-center px-4 py-2 ${isPingPong ? 'bg-blue-600 hover:bg-blue-700' : isPadel ? 'bg-green-600 hover:bg-green-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-lg`}
-                  >
-                    <Plus size={20} className="mr-2" />
-                    Add Player
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {users.map(user => (
-                    <UserCard
-                      key={user.id}
-                      user={user}
-                      selectionMode={false}
-                      isSelected={false}
-                      onClick={() => handleUserClick(user)}
-                      onEdit={setEditingUser}
-                      isAdmin={isAdmin}
-                      sport={activeSport}
-                      padelStats={padelStatsMap[user.id]}
-                      tennisStats={tennisStatsMap[user.id]}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === 'leaderboard' && (
-            isPingPong ? (
-              <Leaderboard users={users} matches={matches} isAdmin={isAdmin} />
-            ) : isPadel ? (
-              <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} isAdmin={isAdmin} />
-            ) : (
-              <TennisLeaderboard users={users} matches={tennisMatches} tennisStats={tennisStats} isAdmin={isAdmin} />
-            )
-          )}
-
-          {activeTab === 'stats' && (
-            isPingPong ? (
-              <PlayerStats users={users} matches={matches} initialPlayerId={statsPlayerId} />
-            ) : isPadel ? (
-              <PadelPlayerStats users={users} matches={padelMatches} padelStats={padelStats} initialPlayerId={statsPlayerId} />
-            ) : (
-              <TennisPlayerStats users={users} matches={tennisMatches} tennisStats={tennisStats} initialPlayerId={statsPlayerId} />
-            )
-          )}
-
-          {activeTab === 'matches' && (
-            isPingPong ? (
-              <Matches
-                matches={matches}
-                users={users}
-                onEditMatch={setEditingMatch}
-                onMatchDeleted={fetchData}
-                onGenerateMatch={() => setIsGeneratorOpen(true)}
-                isAdmin={isAdmin}
-                adminToken={adminToken}
-              />
-            ) : isPadel ? (
-              <PadelMatches
-                matches={padelMatches}
-                users={users}
-                padelStats={padelStats}
-                onEditMatch={setEditingPadelMatch}
-                onMatchDeleted={fetchData}
-                isAdmin={isAdmin}
-                adminToken={adminToken}
-              />
-            ) : (
-              <TennisMatches
-                matches={tennisMatches}
-                users={users}
-                tennisStats={tennisStats}
-                onEditMatch={setEditingTennisMatch}
-                onMatchDeleted={fetchData}
-                isAdmin={isAdmin}
-                adminToken={adminToken}
-              />
-            )
-          )
-          }
-
-          {activeTab === 'tournament' && (
-            <Tournament
-              users={users}
-              matches={matches}
-              fetchData={fetchData}
-              isAdmin={isAdmin}
-              adminToken={adminToken}
-            />
-          )}
-
-          {activeTab === 'settings' && isAdmin && (
-            <div className="space-y-6">
-              <DebuffSettings isAdmin={isAdmin} />
-              <DiscordSettings />
-            </div>
-          )}
-        </main>
-
-        {/* Shared Modals */}
-        <AddUserModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onUserAdded={fetchData}
+      <Suspense fallback={<Spinner />}>
+      {currentTab === 'grid' && (
+        <PlayersView
+          users={isPingPong ? scopedUsers : users}
+          loading={loading}
+          sport={activeSport}
+          padelStatsMap={padelStatsMap}
+          tennisStatsMap={tennisStatsMap}
+          isAdmin={isAdmin}
+          onUserClick={handleUserClick}
+          onEditUser={setEditingUser}
+          onAddPlayer={() => setIsAddModalOpen(true)}
         />
+      )}
 
-        <EditUserModal
-          isOpen={!!editingUser}
-          user={editingUser}
-          onClose={() => setEditingUser(null)}
-          onUserUpdated={fetchData}
+      {currentTab === 'leaderboard' && (
+        isPingPong ? (
+          <Leaderboard key={seasonScope} users={scopedUsers} matches={scopedMatches} isAdmin={isAdmin} />
+        ) : isPadel ? (
+          <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} isAdmin={isAdmin} />
+        ) : (
+          <TennisLeaderboard users={users} matches={tennisMatches} tennisStats={tennisStats} isAdmin={isAdmin} />
+        )
+      )}
+
+      {currentTab === 'stats' && (
+        isPingPong ? (
+          <PlayerStats key={seasonScope} users={scopedUsers} matches={scopedMatches} initialPlayerId={statsPlayerId} seasonId={selectedSeasonId} />
+        ) : isPadel ? (
+          <PadelPlayerStats users={users} matches={padelMatches} padelStats={padelStats} initialPlayerId={statsPlayerId} />
+        ) : (
+          <TennisPlayerStats users={users} matches={tennisMatches} tennisStats={tennisStats} initialPlayerId={statsPlayerId} />
+        )
+      )}
+
+      {currentTab === 'matches' && (
+        isPingPong ? (
+          <Matches
+            key={seasonScope}
+            matches={scopedMatches}
+            users={scopedUsers}
+            historyLoading={!loaded.matches}
+            onEditMatch={setEditingMatch}
+            onMatchDeleted={refreshPingPong}
+            isAdmin={isAdmin && canManageSeason}
+            adminToken={adminToken}
+            betMarkets={betMarkets}
+            bets={bets}
+          />
+        ) : isPadel ? (
+          <PadelMatches
+            matches={padelMatches}
+            users={users}
+            padelStats={padelStats}
+            historyLoading={!loaded.padelMatches}
+            onEditMatch={setEditingPadelMatch}
+            onMatchDeleted={refreshPadel}
+            isAdmin={isAdmin}
+            adminToken={adminToken}
+          />
+        ) : (
+          <TennisMatches
+            matches={tennisMatches}
+            users={users}
+            tennisStats={tennisStats}
+            historyLoading={!loaded.tennisMatches}
+            onEditMatch={setEditingTennisMatch}
+            onMatchDeleted={refreshTennis}
+            isAdmin={isAdmin}
+            adminToken={adminToken}
+          />
+        )
+      )}
+
+      {currentTab === 'tournament' && (
+        <Tournament
+          users={users}
+          matches={currentMatches}
+          fetchData={refreshPingPong}
           isAdmin={isAdmin}
           adminToken={adminToken}
         />
+      )}
 
-        <LoginModal
-          isOpen={isLoginModalOpen}
-          onClose={() => setIsLoginModalOpen(false)}
-          onLogin={handleAdminLogin}
+      {currentTab === 'bets' && (
+        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} />
+      )}
+
+      {currentTab === 'settings' && (
+        <div className="space-y-6">
+          <DebuffSettings isAdmin={isAdmin} adminToken={adminToken} />
+          <DiscordSettings adminToken={adminToken} />
+        </div>
+      )}
+      </Suspense>
+
+      {/* Shared Modals */}
+      <AddUserModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onUserAdded={refreshUsers}
+      />
+
+      <EditUserModal
+        isOpen={!!editingUser}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onUserUpdated={refreshUsers}
+        isAdmin={isAdmin}
+        adminToken={adminToken}
+      />
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={handleAdminLogin}
+      />
+
+      {/* Ping Pong Modals */}
+      <PlayerSelectionModal
+        isOpen={isPlayerSelectionOpen}
+        onClose={() => setIsPlayerSelectionOpen(false)}
+        users={users}
+        onPlayersSelected={handlePlayersSelected}
+        onLiveMatchSelected={handleLiveMatchFromSelection}
+        mode={selectionMode}
+      />
+
+      <MatchGeneratorModal
+        isOpen={isGeneratorOpen}
+        onClose={() => setIsGeneratorOpen(false)}
+        users={users}
+        matches={currentMatches}
+        onMatchGenerated={handleMatchGenerated}
+        canStart={isAdmin}
+        onLogin={() => { setIsGeneratorOpen(false); setIsLoginModalOpen(true) }}
+      />
+
+      <EditMatchModal
+        isOpen={!!editingMatch}
+        match={editingMatch}
+        onClose={() => setEditingMatch(null)}
+        onMatchUpdated={refreshPingPong}
+        isAdmin={isAdmin}
+        adminToken={adminToken}
+      />
+
+      {selectedPlayers[0] && selectedPlayers[1] && (
+        <MatchModal
+          isOpen={isMatchModalOpen}
+          onClose={() => {
+            setIsMatchModalOpen(false)
+            setSelectedPlayers([null, null])
+          }}
+          player1={selectedPlayers[0]}
+          player2={selectedPlayers[1]}
+          onMatchSaved={handleMatchSaved}
+          matches={currentMatches}
+          adminToken={adminToken}
         />
+      )}
 
-        {/* Ping Pong Modals */}
-        <PlayerSelectionModal
-          isOpen={isPlayerSelectionOpen}
-          onClose={() => setIsPlayerSelectionOpen(false)}
-          users={users}
-          onPlayersSelected={handlePlayersSelected}
-          onLiveMatchSelected={handleLiveMatchFromSelection}
-        />
-
-        <MatchGeneratorModal
-          isOpen={isGeneratorOpen}
-          onClose={() => setIsGeneratorOpen(false)}
-          users={users}
-          matches={matches}
-          onMatchGenerated={handleMatchGenerated}
-        />
-
-        <EditMatchModal
-          isOpen={!!editingMatch}
-          match={editingMatch}
-          onClose={() => setEditingMatch(null)}
-          onMatchUpdated={fetchData}
-          isAdmin={isAdmin}
-        />
-
-        {selectedPlayers[0] && selectedPlayers[1] && (
-          <MatchModal
-            isOpen={isMatchModalOpen}
-            onClose={() => {
-              setIsMatchModalOpen(false)
-              setSelectedPlayers([null, null])
-            }}
-            player1={selectedPlayers[0]}
-            player2={selectedPlayers[1]}
-            onMatchSaved={handleMatchSaved}
-            matches={matches}
-            adminToken={adminToken}
-          />
-        )}
-
-        {liveMatchPlayers[0] && liveMatchPlayers[1] && (
+      {liveMatchPlayers[0] && liveMatchPlayers[1] && (
+        <Suspense fallback={null}>
           <LiveMatchModal
             isOpen={isLiveMatchOpen}
             onClose={() => {
@@ -793,46 +664,58 @@ function App() {
             player1={liveMatchPlayers[0]}
             player2={liveMatchPlayers[1]}
             onMatchSaved={handleLiveMatchSaved}
-            matches={matches}
+            matches={currentMatches}
+            historyMatches={matches}
             adminToken={adminToken}
+            betting={liveBetting}
           />
-        )}
+        </Suspense>
+      )}
 
-        {/* Padel Modals */}
-        <PadelPlayerSelectionModal
-          isOpen={isPadelSelectionOpen}
-          onClose={() => setIsPadelSelectionOpen(false)}
+      {/* Padel Modals */}
+      {isPadel && (
+      <Suspense fallback={null}>
+      <PadelPlayerSelectionModal
+        isOpen={isPadelSelectionOpen}
+        onClose={() => setIsPadelSelectionOpen(false)}
+        users={users}
+        mode={selectionMode}
+        onTeamsSelected={handlePadelTeamsSelected}
+        onLiveTeamsSelected={handlePadelLiveTeamsSelected}
+        padelStats={padelStats}
+      />
+
+      <PadelEditMatchModal
+        isOpen={!!editingPadelMatch}
+        match={editingPadelMatch}
+        users={users}
+        adminToken={adminToken}
+        onClose={() => setEditingPadelMatch(null)}
+        onMatchUpdated={refreshPadel}
+        isAdmin={isAdmin}
+      />
+      </Suspense>
+      )}
+
+      {padelTeams.team1 && padelTeams.team2 && (
+        <Suspense fallback={null}>
+        <PadelMatchModal
+          isOpen={isPadelMatchModalOpen}
+          onClose={() => {
+            setIsPadelMatchModalOpen(false)
+            setPadelTeams({ team1: null, team2: null })
+          }}
+          team1={padelTeams.team1}
+          team2={padelTeams.team2}
           users={users}
-          mode={padelSelectionMode}
-          onTeamsSelected={handlePadelTeamsSelected}
-          onLiveTeamsSelected={handlePadelLiveTeamsSelected}
-          padelStats={padelStats}
+          onMatchSaved={handlePadelMatchSaved}
+          adminToken={adminToken}
         />
+        </Suspense>
+      )}
 
-        <PadelEditMatchModal
-          isOpen={!!editingPadelMatch}
-          match={editingPadelMatch}
-          onClose={() => setEditingPadelMatch(null)}
-          onMatchUpdated={fetchData}
-          isAdmin={isAdmin}
-        />
-
-        {padelTeams.team1 && padelTeams.team2 && (
-          <PadelMatchModal
-            isOpen={isPadelMatchModalOpen}
-            onClose={() => {
-              setIsPadelMatchModalOpen(false)
-              setPadelTeams({ team1: null, team2: null })
-            }}
-            team1={padelTeams.team1}
-            team2={padelTeams.team2}
-            users={users}
-            onMatchSaved={handlePadelMatchSaved}
-            adminToken={adminToken}
-          />
-        )}
-
-        {padelLiveMatchTeams.team1 && padelLiveMatchTeams.team2 && (
+      {padelLiveMatchTeams.team1 && padelLiveMatchTeams.team2 && (
+        <Suspense fallback={null}>
           <PadelLiveMatchModal
             isOpen={isPadelLiveMatchOpen}
             onClose={() => {
@@ -845,44 +728,54 @@ function App() {
             padelStats={padelStats}
             adminToken={adminToken}
           />
-        )}
+        </Suspense>
+      )}
 
-        {/* Tennis Modals */}
-        <PlayerSelectionModal
-          isOpen={isTennisSelectionOpen}
-          onClose={() => setIsTennisSelectionOpen(false)}
-          users={users}
-          onPlayersSelected={handleTennisPlayersSelected}
-          onLiveMatchSelected={handleTennisLiveMatchSelected}
-          sport="tennis"
-          sportStatsMap={tennisStatsMap}
-          title="Select Players for Tennis Match"
-          accent="emerald"
+      {/* Tennis Modals */}
+      <PlayerSelectionModal
+        isOpen={isTennisSelectionOpen}
+        onClose={() => setIsTennisSelectionOpen(false)}
+        users={users}
+        onPlayersSelected={handleTennisPlayersSelected}
+        onLiveMatchSelected={handleTennisLiveMatchSelected}
+        mode={selectionMode}
+        sport="tennis"
+        sportStatsMap={tennisStatsMap}
+        title="Select Players for Tennis Match"
+        accent="emerald"
+      />
+
+      {isTennis && (
+      <Suspense fallback={null}>
+      <TennisEditMatchModal
+        isOpen={!!editingTennisMatch}
+        match={editingTennisMatch}
+        adminToken={adminToken}
+        onClose={() => setEditingTennisMatch(null)}
+        onMatchUpdated={refreshTennis}
+        users={users}
+      />
+      </Suspense>
+      )}
+
+      {tennisPlayers[0] && tennisPlayers[1] && (
+        <Suspense fallback={null}>
+        <TennisMatchModal
+          isOpen={isTennisMatchModalOpen}
+          onClose={() => {
+            setIsTennisMatchModalOpen(false)
+            setTennisPlayers([null, null])
+          }}
+          player1={tennisPlayers[0]}
+          player2={tennisPlayers[1]}
+          onMatchSaved={handleTennisMatchSaved}
+          adminToken={adminToken}
         />
+        </Suspense>
+      )}
 
-        <TennisEditMatchModal
-          isOpen={!!editingTennisMatch}
-          match={editingTennisMatch}
-          onClose={() => setEditingTennisMatch(null)}
-          onMatchUpdated={fetchData}
-          users={users}
-        />
-
-        {tennisPlayers[0] && tennisPlayers[1] && (
-          <TennisMatchModal
-            isOpen={isTennisMatchModalOpen}
-            onClose={() => {
-              setIsTennisMatchModalOpen(false)
-              setTennisPlayers([null, null])
-            }}
-            player1={tennisPlayers[0]}
-            player2={tennisPlayers[1]}
-            onMatchSaved={handleTennisMatchSaved}
-            adminToken={adminToken}
-          />
-        )}
-
-        {tennisLivePlayers[0] && tennisLivePlayers[1] && (
+      {tennisLivePlayers[0] && tennisLivePlayers[1] && (
+        <Suspense fallback={null}>
           <TennisLiveMatchModal
             isOpen={isTennisLiveMatchOpen}
             onClose={() => {
@@ -894,9 +787,9 @@ function App() {
             onMatchSaved={handleTennisLiveMatchSaved}
             adminToken={adminToken}
           />
-        )}
-      </div>
-    </div>
+        </Suspense>
+      )}
+    </AppShell>
   )
 }
 

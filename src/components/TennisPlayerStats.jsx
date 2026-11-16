@@ -1,3 +1,5 @@
+import { usePlayerSelection } from '../usePlayerSelection'
+import { inLocalDateRange } from '../dateRange'
 import React, { useMemo, useState } from 'react'
 import { Activity, Calendar, Users } from 'lucide-react'
 import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -7,10 +9,9 @@ import { buildTennisEloHistory, getTennisMatchWinner, getTennisScoreSummary } fr
 import { getAvatarFallback, getEloRank } from '../utils'
 
 const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => {
-    const [selectedPlayerId, setSelectedPlayerId] = useState('')
+    const [activePlayerId, setSelectedPlayerId] = usePlayerSelection(users, initialPlayerId)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
-    const activePlayerId = selectedPlayerId || initialPlayerId || (users[0]?.id || '')
 
     const selectedPlayer = users.find(user => user.id === activePlayerId)
     const playerTennisStats = useMemo(() => {
@@ -25,12 +26,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
         const relevantMatches = matches.filter(match => {
             const isParticipant = match.player1_id === activePlayerId || match.player2_id === activePlayerId
             if (!isParticipant) return false
-
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         let matchWins = 0
@@ -144,22 +140,22 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
     if (!users.length) {
         return <div className="text-center py-20 text-gray-500 dark:text-gray-400">No players available.</div>
     }
-    if (!selectedPlayer) return <div>Select a player</div>
+    if (!selectedPlayer) return <div>No players available for this season. Add a player or choose another season.</div>
 
     const elo = Math.round(playerTennisStats?.elo_rating || 1200)
     const playerRank = getEloRank(elo)
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-emerald-500 flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center space-x-4">
-                    <img
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md border-2 border-emerald-500 flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <img loading="lazy" decoding="async"
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
-                        className="w-20 h-20 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
+                        className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white [overflow-wrap:anywhere]">{selectedPlayer.name}</h2>
                         <div className="flex items-center gap-2">
                             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{stats?.matchesPlayed || 0} Tennis Matches Played</span>
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: playerRank.color, backgroundColor: `${playerRank.color}22` }}>{playerRank.label}</span>
@@ -167,11 +163,11 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
                     </div>
                 </div>
 
-                <div>
+                <div className="w-full sm:w-auto">
                     <select
                         value={activePlayerId}
                         onChange={event => setSelectedPlayerId(event.target.value)}
-                        className="p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
+                        className="w-full sm:w-auto p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
                     >
                         {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
                     </select>
@@ -230,7 +226,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
             </div>
 
             {stats?.eloHistory?.length > 1 && (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Activity className="mr-2 text-blue-500" size={20} /> ELO History
                     </h3>
@@ -255,8 +251,8 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
 
             <TrophyCase playerId={activePlayerId} />
 
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white"><Users className="mr-2 text-blue-500" size={20} /> Head to Head</h3>
                     <div className="space-y-3">
                         {Object.entries(stats?.headToHead || {}).length === 0 && <div className="text-gray-400 dark:text-gray-500">No data in this period</div>}
@@ -269,7 +265,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
                                 return (
                                     <div key={opponentId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img loading="lazy" decoding="async" src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-10 h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{opponent.name}</span>
                                         </div>
                                         <div className="text-right">
@@ -282,7 +278,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Calendar className="mr-2 text-emerald-500" size={20} />
                         Match History
@@ -320,7 +316,7 @@ const TennisPlayerStats = ({ users, matches, tennisStats, initialPlayerId }) => 
 
                                     <div className="flex items-center justify-end w-32 truncate">
                                         <span className="text-gray-600 dark:text-gray-300 mr-2 truncate">{opponent?.name}</span>
-                                        <img src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
+                                        <img loading="lazy" decoding="async" src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-8 h-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
                                     </div>
                                 </div>
                             )

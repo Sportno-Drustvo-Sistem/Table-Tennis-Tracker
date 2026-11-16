@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Undo2, Trophy, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { validatePadelSets } from '../../padelUtils'
 import { calculateExpectedScore, getAvatarFallback } from '../../utils'
 import { recordPadelMatch } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
+import KeepAwake from '../KeepAwake'
 
 // --- Padel Scoring Constants ---
 const PADEL_POINTS = ['0', '15', '30', '40'] // Standard point sequence
@@ -125,7 +126,15 @@ const unlockAudioAndSpeech = () => {
     audioUnlocked = true
 }
 
+// Once a clip fails to load, the voice pack is missing: speak directly instead
+// of requesting (and waiting on) a missing file before every announcement.
+let voiceClipsUnavailable = false
+
 const playAudioSequence = async (paths, fallbackText) => {
+    if (voiceClipsUnavailable) {
+        if (fallbackText) speak(fallbackText)
+        return
+    }
     let hasError = false
     if (!sharedVoicesAudio) sharedVoicesAudio = new Audio()
 
@@ -136,10 +145,12 @@ const playAudioSequence = async (paths, fallbackText) => {
             sharedVoicesAudio.onended = resolve
             sharedVoicesAudio.onerror = () => {
                 hasError = true
+                voiceClipsUnavailable = true
                 resolve() // skip on error
             }
-            sharedVoicesAudio.play().catch(() => {
+            sharedVoicesAudio.play().catch((error) => {
                 hasError = true
+                if (error?.name === 'NotSupportedError') voiceClipsUnavailable = true
                 resolve()
             })
         })
@@ -157,6 +168,10 @@ const playAudioSequence = async (paths, fallbackText) => {
  */
 const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, padelStats, adminToken }) => {
     const { showToast } = useToast()
+
+    const [setTransition, setSetTransition] = useState(null)
+    const transitionActive = useRef(false)
+    const matchIdentity = [isOpen, team1?.[0]?.id, team1?.[1]?.id, team2?.[0]?.id, team2?.[1]?.id].join(':')
 
     // --- Match state ---
     const [matchFormat, setMatchFormat] = useState(3) // 1 (single set) or 3 (best of 3)
@@ -198,6 +213,8 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // Reset everything when modal opens
     useEffect(() => {
+        transitionActive.current = false
+        setSetTransition(null)
         if (isOpen) {
             setT1Points(0)
             setT2Points(0)
@@ -218,7 +235,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             setTiebreakPointCount(0)
             setTiebreakServingTeam(1)
         }
-    }, [isOpen])
+    }, [isOpen, matchIdentity])
 
     useEffect(() => {
         localStorage.setItem('liveMatchSound', soundEnabled ? 'on' : 'off')
@@ -302,16 +319,26 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
         setT1Points(0)
         setT2Points(0)
         setIsTiebreak(false)
-        setHistory([])
         setTotalGamesInSet(0)
         // At the start of a new set, the team that didn't serve first last set gets to serve
         // Players within a team can re-choose who serves first (we auto-advance)
     }, [])
 
+    useEffect(() => {
+        if (!setTransition || !isOpen) return
+        const timer = setTimeout(() => {
+            startNewSet()
+            setServingTeam(setTransition.nextServer)
+            transitionActive.current = false
+            setSetTransition(null)
+        }, 1800)
+        return () => clearTimeout(timer)
+    }, [setTransition, isOpen, matchIdentity, startNewSet])
+
     // --- Score a point ---
     const scorePoint = useCallback((teamNum) => {
         unlockAudioAndSpeech()
-        if (matchWinner) return
+        if (!isOpen || matchWinner || transitionActive.current) return
 
         if (!matchStarted) setMatchStarted(true)
 
@@ -428,11 +455,8 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 setT1Points(newT1Pts)
                 setT2Points(newT2Pts)
 
-                setTimeout(() => {
-                    startNewSet()
-                    // Serve alternation: the team that received in the last game of the set serves first
-                    setServingTeam(servingTeam === 1 ? 2 : 1)
-                }, 1800)
+                transitionActive.current = true
+                setSetTransition({ nextServer: servingTeam === 1 ? 2 : 1 })
                 return
             }
 
@@ -474,12 +498,14 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
     }, [t1Points, t2Points, t1Games, t2Games, completedSets, isTiebreak,
         servingTeam, t1ServeIndex, t2ServeIndex, totalGamesInSet,
         tiebreakPointCount, tiebreakServingTeam, matchWinner, matchStarted,
-        soundEnabled, setsNeeded, advanceServe, startNewSet, getScoreAnnouncement])
+        isOpen, soundEnabled, setsNeeded, advanceServe, getScoreAnnouncement])
 
     // --- Undo last point ---
     const undoLast = useCallback(() => {
         unlockAudioAndSpeech()
         if (history.length === 0 || matchWinner) return
+        transitionActive.current = false
+        setSetTransition(null)
         const prev = history[history.length - 1]
         setT1Points(prev.t1Points)
         setT2Points(prev.t2Points)
@@ -534,7 +560,6 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
             })
             setTimeout(() => setEloChange(null), 3000)
 
-            showToast('Padel match saved!', 'success')
             if (onMatchSaved) onMatchSaved()
         } catch (error) {
             console.error(error)
@@ -546,6 +571,8 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     // --- Rematch ---
     const handleRematch = () => {
+        transitionActive.current = false
+        setSetTransition(null)
         unlockAudioAndSpeech()
         setT1Points(0)
         setT2Points(0)
@@ -602,20 +629,23 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+            {/* Full screen on phones in either orientation; `short` is a phone held sideways. */}
+            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95dvh] short:h-[100dvh] short:max-h-none short:max-w-none short:mx-0 short:rounded-none">
+                <KeepAwake />
 
                 {/* Close button */}
                 {!matchWinner && (
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-2"
+                        aria-label="Close"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 short:top-2 short:right-2 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-2.5 sm:p-2"
                     >
                         <X size={20} />
                     </button>
                 )}
 
                 {/* Header */}
-                <div className="text-center pt-6 pb-2 px-4">
+                <div className="text-center pt-6 pb-2 px-4 short:pt-2 short:pb-1">
                     <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                         {matchWinner ? '🏆 Match Complete' : isTiebreak ? '⚡ Tiebreak!' : isDeuce ? '🔥 Deuce!' : isAdvantage ? '💪 Advantage' : 'Padel Live Match'}
                     </h2>
@@ -641,7 +671,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
 
                     {/* Win probability bar */}
                     {winProb && !matchWinner && (
-                        <div className="mt-2 mx-auto max-w-xs">
+                        <div className="mt-2 mx-auto max-w-xs short:hidden">
                             <div className="flex justify-between text-[10px] font-bold mb-0.5">
                                 <span className="text-emerald-500">{winProb.p1}%</span>
                                 <span className="text-gray-400 dark:text-gray-500">Win Prob</span>
@@ -698,13 +728,13 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 </div>
 
                 {/* Score Area */}
-                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 gap-3 min-h-0">
+                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 short:pb-2 short:pt-1 gap-3 min-h-0">
                     {/* Team 1 Side */}
                     <button
                         onClick={() => scorePoint(1)}
-                        disabled={!!matchWinner}
+                        disabled={!!matchWinner || !!setTransition}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 1
                                 ? 'bg-gradient-to-b from-emerald-500 to-emerald-700 ring-4 ring-emerald-400 shadow-xl shadow-emerald-500/30'
                                 : matchWinner === 2
@@ -721,12 +751,12 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                             </div>
                         )}
 
-                        <div className="flex items-center gap-1 mb-2">
-                            <img src={team1[0].avatar_url || getAvatarFallback(team1[0].name)} alt={team1[0].name}
-                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-3 border-white' : 'border-2 border-emerald-300 dark:border-emerald-600'} ${currentServer === 1 && currentServerPlayer === 0 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+                        <div className="flex items-center gap-1 mb-2 short:mb-1">
+                            <img loading="lazy" decoding="async" src={team1[0].avatar_url || getAvatarFallback(team1[0].name)} alt={team1[0].name}
+                                className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-3 border-white' : 'border-2 border-emerald-300 dark:border-emerald-600'} ${currentServer === 1 && currentServerPlayer === 0 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
-                            <img src={team1[1].avatar_url || getAvatarFallback(team1[1].name)} alt={team1[1].name}
-                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-3 border-white' : 'border-2 border-emerald-300 dark:border-emerald-600'} ${currentServer === 1 && currentServerPlayer === 1 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+                            <img loading="lazy" decoding="async" src={team1[1].avatar_url || getAvatarFallback(team1[1].name)} alt={team1[1].name}
+                                className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-3 border-white' : 'border-2 border-emerald-300 dark:border-emerald-600'} ${currentServer === 1 && currentServerPlayer === 1 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
                             {currentServer === 1 && !matchWinner && (
                                 <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce ml-1">
@@ -737,11 +767,11 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                         <div className={`font-bold text-xs truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             {team1[0].name} & {team1[1].name}
                         </div>
-                        <div className={`text-5xl sm:text-7xl font-black tabular-nums mt-1 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        <div className={`text-5xl sm:text-7xl short:text-5xl font-black tabular-nums mt-1 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             {t1PointDisplay}
                         </div>
                         {matchWinner === 1 && (
-                            <div className="mt-3 flex items-center gap-2 text-white">
+                            <div className="mt-3 short:mt-1 flex items-center gap-2 text-white">
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
@@ -756,9 +786,9 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                     {/* Team 2 Side */}
                     <button
                         onClick={() => scorePoint(2)}
-                        disabled={!!matchWinner}
+                        disabled={!!matchWinner || !!setTransition}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 2
                                 ? 'bg-gradient-to-b from-red-500 to-red-700 ring-4 ring-red-400 shadow-xl shadow-red-500/30'
                                 : matchWinner === 1
@@ -775,27 +805,27 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                             </div>
                         )}
 
-                        <div className="flex items-center gap-1 mb-2">
+                        <div className="flex items-center gap-1 mb-2 short:mb-1">
                             {currentServer === 2 && !matchWinner && (
                                 <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce mr-1">
                                     <div className="w-2 h-2 bg-white rounded-full"></div>
                                 </div>
                             )}
-                            <img src={team2[0].avatar_url || getAvatarFallback(team2[0].name)} alt={team2[0].name}
-                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-3 border-white' : 'border-2 border-red-300 dark:border-red-600'} ${currentServer === 2 && currentServerPlayer === 0 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+                            <img loading="lazy" decoding="async" src={team2[0].avatar_url || getAvatarFallback(team2[0].name)} alt={team2[0].name}
+                                className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-3 border-white' : 'border-2 border-red-300 dark:border-red-600'} ${currentServer === 2 && currentServerPlayer === 0 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
-                            <img src={team2[1].avatar_url || getAvatarFallback(team2[1].name)} alt={team2[1].name}
-                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-3 border-white' : 'border-2 border-red-300 dark:border-red-600'} ${currentServer === 2 && currentServerPlayer === 1 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+                            <img loading="lazy" decoding="async" src={team2[1].avatar_url || getAvatarFallback(team2[1].name)} alt={team2[1].name}
+                                className={`w-10 h-10 sm:w-12 sm:h-12 short:w-10 short:h-10 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-3 border-white' : 'border-2 border-red-300 dark:border-red-600'} ${currentServer === 2 && currentServerPlayer === 1 && !matchWinner ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                             />
                         </div>
                         <div className={`font-bold text-xs truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {team2[0].name} & {team2[1].name}
                         </div>
-                        <div className={`text-5xl sm:text-7xl font-black tabular-nums mt-1 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
+                        <div className={`text-5xl sm:text-7xl short:text-5xl font-black tabular-nums mt-1 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {t2PointDisplay}
                         </div>
                         {matchWinner === 2 && (
-                            <div className="mt-3 flex items-center gap-2 text-white">
+                            <div className="mt-3 short:mt-1 flex items-center gap-2 text-white">
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
@@ -804,7 +834,7 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                 </div>
 
                 {/* Bottom Bar */}
-                <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 short:py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-2">
                     {!matchWinner ? (
                         <>
                             <button
@@ -817,12 +847,13 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                             </button>
                             <div className="flex items-center gap-2">
                                 <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                    Tap or use ← → keys to score
+                                    <span className="can-hover:hidden">Tap a side to score</span>
+                                    <span className="hidden can-hover:inline">Tap or use ← → keys to score</span>
                                 </div>
                                 <button
                                     onClick={() => setSoundEnabled(!soundEnabled)}
                                     aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
-                                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
+                                    className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
                                     title={soundEnabled ? 'Mute' : 'Unmute'}
                                 >
                                     {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -834,13 +865,13 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                             <div className="flex gap-2">
                                 <button
                                     onClick={onClose}
-                                    className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    className="px-3 sm:px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                 >
                                     Discard
                                 </button>
                                 <button
                                     onClick={handleRematch}
-                                    className="px-4 py-2 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-emerald-200 dark:border-emerald-800"
+                                    className="px-3 sm:px-4 py-2 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-emerald-200 dark:border-emerald-800"
                                 >
                                     <RefreshCw size={14} />
                                     Rematch
@@ -849,9 +880,9 @@ const PadelLiveMatchModal = ({ isOpen, onClose, team1, team2, onMatchSaved, pade
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all text-sm flex items-center gap-2"
+                                className="px-5 sm:px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all text-sm whitespace-nowrap flex items-center gap-2"
                             >
-                                <Trophy size={18} />
+                                <Trophy size={18} className="hidden min-[400px]:block" />
                                 {saving ? 'Saving...' : 'Save Match'}
                             </button>
                         </>

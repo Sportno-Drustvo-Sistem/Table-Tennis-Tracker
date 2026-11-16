@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Undo2, Trophy, Scale, Skull, X, Volume2, VolumeX, RefreshCw, Coins } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, calculateExpectedScore, getAvatarFallback } from '../../utils'
-import { recordPingPongMatch } from '../../matchPersistence'
+import { estimatePointProbability, liveWinProbability, pointProbabilityFromGameProbability } from '../../winProbability'
+import { recordPingPongMatch, recordPingPongMatchWithBets } from '../../matchPersistence'
+import { endLiveMatch, publishLiveMatch, voidBetMarket } from '../../betPersistence'
+import { describeBetResults, isBettingClosed } from '../../bettingUtils'
+import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
+import KeepAwake from '../KeepAwake'
+import BetSheet from '../BetSheet'
 
 const WINNING_SCORE = 11
 const MIN_LEAD = 2
@@ -172,7 +178,15 @@ const unlockAudioAndSpeech = () => {
     audioUnlocked = true
 }
 
+// Once a clip fails to load, the voice pack is missing: speak directly instead
+// of requesting (and waiting on) a missing file before every announcement.
+let voiceClipsUnavailable = false
+
 const playAudioSequence = async (paths, fallbackText) => {
+    if (voiceClipsUnavailable) {
+        if (fallbackText) speak(fallbackText)
+        return
+    }
     let hasError = false
     if (!sharedVoicesAudio) sharedVoicesAudio = new Audio()
 
@@ -183,10 +197,12 @@ const playAudioSequence = async (paths, fallbackText) => {
             sharedVoicesAudio.onended = resolve
             sharedVoicesAudio.onerror = () => {
                 hasError = true
+                voiceClipsUnavailable = true
                 resolve() // skip on error
             }
-            sharedVoicesAudio.play().catch(() => {
+            sharedVoicesAudio.play().catch((error) => {
                 hasError = true
+                if (error?.name === 'NotSupportedError') voiceClipsUnavailable = true
                 resolve()
             })
         })
@@ -196,8 +212,24 @@ const playAudioSequence = async (paths, fallbackText) => {
     }
 }
 
-const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, adminToken }) => {
-    const { showToast } = useToast()
+// Bets are grouped by an id made up when the match screen opens.
+const newMarketId = () => (globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16)))
+
+// `betting` ({ users, bets, wallets, live }) turns on points betting; tournament
+// matches never pass it. With `live`, the score is shared after every point so
+// other phones can follow the match and bet on it themselves.
+const LIVE_HEARTBEAT_MS = 4 * 60 * 1000
+
+const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, historyMatches, tournamentId, debuffs, adminToken, betting }) => {
+    const { showToast, showConfirm } = useToast()
+    const [marketId, setMarketId] = useState(newMarketId)
+    // The id of the match actually on screen. The state above briefly holds the
+    // id made at mount before the open effect replaces it; that one must never
+    // be shared, or it would stay "live" on other phones after a cancel.
+    const openedId = useRef(null)
+    const [betSheetOpen, setBetSheetOpen] = useState(false)
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
     const [history, setHistory] = useState([]) // array of 1 or 2 indicating who scored
@@ -233,22 +265,14 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             setCompletedSets([])
             setBestOf(1)
             setMatchStarted(false)
+            setInitialServer(null)
             setEloChange(null)
             setRefusedRules(new Set())
+            const id = newMarketId()
+            openedId.current = id
+            setMarketId(id)
+            setBetSheetOpen(false)
             getActiveDebuffs().then(setAllDebuffs)
-
-            // Determine initial server: Higher seed (Lower Elo) serves first
-            if (player1 && player2) {
-                const p1Elo = player1.elo_rating || 1200
-                const p2Elo = player2.elo_rating || 1200
-                if (p1Elo < p2Elo) {
-                    setInitialServer(1)
-                } else if (p2Elo < p1Elo) {
-                    setInitialServer(2)
-                } else {
-                    setInitialServer(Math.random() > 0.5 ? 1 : 2)
-                }
-            }
         }
     }, [isOpen, player1, player2])
 
@@ -264,22 +288,29 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         return null
     }, [])
 
+    // Head-to-head streak between these two players.
+    const { streak: h2hStreak, winnerId: h2hWinnerId } = useMemo(() => (
+        isOpen && player1 && player2 && matches
+            ? getHeadToHeadStreak(player1.id, player2.id, matches)
+            : { streak: 0, winnerId: null }
+    ), [isOpen, player1, player2, matches])
+
+    // The streak rule is drawn at random, so it depends on the streak itself and
+    // not on `matches`: a match saved elsewhere must not re-roll it mid-game.
+    const streakRule = useMemo(() => {
+        if (!isOpen || !player1 || !player2 || h2hStreak < 8 || !h2hWinnerId) return null
+        const winnerName = h2hWinnerId === player1.id ? player1.name : player2.name
+        const loserName = h2hWinnerId === player1.id ? player2.name : player1.name
+        const rule = getHandicapRule(h2hStreak, winnerName, loserName, allDebuffs)
+        return rule ? { ...rule, type: 'streak', targetPlayerId: h2hWinnerId, targetPlayerName: winnerName } : null
+    }, [isOpen, player1, player2, h2hStreak, h2hWinnerId, allDebuffs])
+
     // Handicap / debuff rules
     const activeRules = useMemo(() => {
         if (!isOpen || !player1 || !player2) return []
 
-        const { streak, winnerId } = matches ? getHeadToHeadStreak(player1.id, player2.id, matches) : { streak: 0, winnerId: null }
-        let streakRule = null
-        let winnerName = null
-
-        if (streak >= 8 && winnerId) {
-            winnerName = winnerId === player1.id ? player1.name : player2.name
-            const loserName = winnerId === player1.id ? player2.name : player1.name
-            streakRule = getHandicapRule(streak, winnerName, loserName, allDebuffs)
-        }
-
         const rules = []
-        if (streakRule) rules.push({ ...streakRule, type: 'streak', targetPlayerId: winnerId, targetPlayerName: winnerName })
+        if (streakRule) rules.push(streakRule)
 
         if (debuffs) {
             if (debuffs[player1.id]) rules.push({ ...debuffs[player1.id], targetPlayerId: player1.id, targetPlayerName: player1.name, type: 'mayhem' })
@@ -287,7 +318,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         }
 
         return rules
-    }, [isOpen, player1, player2, matches, allDebuffs, debuffs])
+    }, [isOpen, player1, player2, streakRule, debuffs])
 
     // How many games needed to win the match
     const gamesNeeded = Math.ceil(bestOf / 2)
@@ -297,8 +328,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const gamesWon2 = completedSets.filter(s => s.s2 > s.s1).length
 
     const scorePoint = useCallback((playerNum) => {
+        if (!initialServer || gameWinner || matchWinner) return
         unlockAudioAndSpeech()
-        if (gameWinner || matchWinner) return
 
         let newS1 = score1
         let newS2 = score2
@@ -328,6 +359,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 const mw = newGamesWon1 >= gamesNeeded ? 1 : 2
                 setGameWinner(w)
                 setMatchWinner(mw)
+                // Nothing was sent during the match, so the connection is cold and the
+                // session may have run out: warm it up and re-check before Save is pressed.
+                checkAdminSession(supabase, adminToken)
                 if (soundEnabled) {
                     playWinSound()
                     const winnerName = mw === 1 ? 'Blue' : 'Red'
@@ -379,7 +413,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 }
             }
         }
-    }, [checkGameWin, completedSets, gameWinner, gamesNeeded, initialServer, matchStarted, matchWinner, score1, score2, soundEnabled])
+    }, [adminToken, checkGameWin, completedSets, gameWinner, gamesNeeded, initialServer, matchStarted, matchWinner, score1, score2, soundEnabled])
 
     const undoLast = useCallback(() => {
         unlockAudioAndSpeech()
@@ -392,27 +426,39 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         else setScore2(prev => prev - 1)
     }, [gameWinner, history, matchWinner])
 
+    // Bets still riding on this match.
+    const matchBets = betting ? betting.bets.filter(bet => bet.market_id === marketId && bet.status === 'pending') : []
+
     const handleSave = async () => {
         if (!matchWinner) return
         setSaving(true)
         try {
             const allSets = completedSets
             const acceptedRules = activeRules.filter((_, idx) => !refusedRules.has(idx))
-            const { match: lastSavedMatch, changes } = await recordPingPongMatch(supabase, {
+            const payload = {
                 adminToken,
                 player1Id: player1.id,
                 player2Id: player2.id,
                 sets: allSets,
                 handicapRule: acceptedRules.length > 0 ? acceptedRules : null,
-                tournamentId: tournamentId || null,
-            })
+            }
+            // With bets on the match, the save and the payout are one transaction.
+            // Other phones may have bet a moment ago, before their bet reached this one.
+            const { match: lastSavedMatch, changes, betting: settled } = matchBets.length > 0 || betting?.live
+                ? await recordPingPongMatchWithBets(supabase, { ...payload, marketId })
+                : await recordPingPongMatch(supabase, { ...payload, tournamentId: tournamentId || null })
+            if (settled) {
+                const usersById = Object.fromEntries(betting.users.map(user => [user.id, user]))
+                const summary = describeBetResults(settled.bets, usersById)
+                if (summary) showToast(summary, 'success')
+            }
+            if (betting?.live) endLive(marketId).catch(error => console.warn('Live match not ended:', error.message))
             const p1Change = changes[player1.id] || 0
             const p2Change = changes[player2.id] || 0
 
             setEloChange({ p1: Math.round(p1Change), p2: Math.round(p2Change) })
             setTimeout(() => setEloChange(null), 3000)
 
-            showToast('Match saved!', 'success')
             if (onMatchSaved) {
                 const setsWon1 = allSets.filter(set => set.s1 > set.s2).length
                 const setsWon2 = allSets.filter(set => set.s2 > set.s1).length
@@ -433,8 +479,32 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         }
     }
 
-    const handleRematch = () => {
+    // Leaving a match that will not be saved gives every stake back first.
+    const refundBetsThen = (action) => {
+        if (matchBets.length === 0) {
+            // Nothing to refund here, but bets from other phones may still be on
+            // their way: ending the live match refunds those too.
+            if (betting?.live) endLive(marketId).catch(error => console.warn('Live match not ended:', error.message))
+            return action()
+        }
+        showConfirm(`${matchBets.length} ${matchBets.length === 1 ? 'bet' : 'bets'} on this match will be refunded. Continue?`, async () => {
+            try {
+                if (betting?.live) await endLive(marketId)
+                else await voidBetMarket(supabase, { adminToken, marketId })
+                action()
+            } catch (error) {
+                console.error(error)
+                showToast('Bets not refunded: ' + error.message, 'error')
+            }
+        })
+    }
+    const handleClose = () => refundBetsThen(onClose)
+
+    const handleRematch = () => refundBetsThen(() => {
         unlockAudioAndSpeech()
+        const id = newMarketId()
+        openedId.current = id
+        setMarketId(id)
         setScore1(0)
         setScore2(0)
         setHistory([])
@@ -442,23 +512,15 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         setMatchWinner(null)
         setCompletedSets([])
         setMatchStarted(false)
+        setInitialServer(null)
         setEloChange(null)
-
-        // Re-determine server
-        if (player1 && player2) {
-            const p1Elo = player1.elo_rating || 1200
-            const p2Elo = player2.elo_rating || 1200
-            if (p1Elo < p2Elo) setInitialServer(1)
-            else if (p2Elo < p1Elo) setInitialServer(2)
-            else setInitialServer(Math.random() > 0.5 ? 1 : 2)
-        }
-    }
+    })
 
     // Keyboard scoring — placed before the early return to respect React rules of hooks
     useEffect(() => {
         if (!isOpen) return
         const onKey = (e) => {
-            if (gameWinner || matchWinner) return
+            if (gameWinner || matchWinner || betSheetOpen) return
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
             if (e.key === 'ArrowLeft' || e.key === '1') scorePoint(1)
             else if (e.key === 'ArrowRight' || e.key === '2') scorePoint(2)
@@ -466,7 +528,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
-    }, [isOpen, gameWinner, matchWinner, scorePoint, undoLast])
+    }, [isOpen, gameWinner, matchWinner, betSheetOpen, scorePoint, undoLast])
 
     const isDeuce = score1 >= 10 && score2 >= 10
     const matchPoint1 = !gameWinner && !matchWinner && score1 >= 10 && score1 > score2 && score1 - score2 >= 1
@@ -486,39 +548,140 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         }
     }, [score1, score2, initialServer])
 
-    // Win Probability
+    // Pre-match chance that player 1 wins a point, fitted from the full match
+    // history (Elo stands in for players who have none yet).
+    const pointProb = useMemo(() => {
+        if (!isOpen || !player1 || !player2) return null
+        const estimate = estimatePointProbability(historyMatches || matches, player1.id, player2.id)
+        if (estimate.hasHistory) return estimate.pointProb
+        return pointProbabilityFromGameProbability(calculateExpectedScore(player1.elo_rating || 1200, player2.elo_rating || 1200))
+    }, [isOpen, player1, player2, historyMatches, matches])
+
+    // Live win probability: moves with every point.
     const winProb = useMemo(() => {
-        if (!player1 || !player2) return null
-        const p1Elo = player1.elo_rating || 1200
-        const p2Elo = player2.elo_rating || 1200
-        const p1Expected = calculateExpectedScore(p1Elo, p2Elo)
-        return { p1: Math.round(p1Expected * 100), p2: Math.round((1 - p1Expected) * 100) }
-    }, [player1, player2])
+        if (pointProb === null) return null
+        // Between games the finished game is already in completedSets.
+        const live1 = gameWinner ? 0 : score1
+        const live2 = gameWinner ? 0 : score2
+        const p1 = liveWinProbability({
+            pointProb,
+            bestOf,
+            games1: completedSets.filter(s => s.s1 > s.s2).length,
+            games2: completedSets.filter(s => s.s2 > s.s1).length,
+            score1: live1,
+            score2: live2,
+            points1: completedSets.reduce((sum, s) => sum + s.s1, live1),
+            points2: completedSets.reduce((sum, s) => sum + s.s2, live2),
+        })
+        // Nothing is certain until the match is over.
+        const percent = Math.min(99, Math.max(1, Math.round(p1 * 100)))
+        return { p1: percent, p2: 100 - percent, exact: p1 }
+    }, [pointProb, bestOf, completedSets, gameWinner, score1, score2])
+
+    // --- Shared live score ---
+    const shareLive = Boolean(isOpen && betting?.live && adminToken && player1 && player2)
+    // Re-sent every few minutes so other phones know the match is still on.
+    const [heartbeat, setHeartbeat] = useState(0)
+    useEffect(() => {
+        if (!shareLive) return undefined
+        const timer = setInterval(() => setHeartbeat(n => n + 1), LIVE_HEARTBEAT_MS)
+        return () => clearInterval(timer)
+    }, [shareLive])
+
+    const liveState = useMemo(() => {
+        if (!shareLive || !winProb) return null
+        const games1 = completedSets.filter(s => s.s1 > s.s2).length
+        const games2 = completedSets.filter(s => s.s2 > s.s1).length
+        // Between games the finished game is already counted, so the next starts at 0-0.
+        const live1 = gameWinner ? 0 : score1
+        const live2 = gameWinner ? 0 : score2
+        const totalPoints = live1 + live2
+        const server = !initialServer ? null : (live1 >= 10 && live2 >= 10)
+            ? ((totalPoints % 2 === 0) ? initialServer : 3 - initialServer)
+            : ((Math.floor(totalPoints / 2) % 2 === 0) ? initialServer : 3 - initialServer)
+        return {
+            bestOf, games1, games2, score1: live1, score2: live2,
+            sets: completedSets, server,
+            winProbability: Number(winProb.exact.toFixed(4)),
+            bettingClosed: isBettingClosed({ score1, score2, games1, games2, bestOf, gameWinner, matchWinner }),
+            winnerSide: matchWinner,
+        }
+    }, [shareLive, winProb, completedSets, gameWinner, score1, score2, initialServer, bestOf, matchWinner])
+
+    // Updates go out one at a time, newest state wins; a failed one is fixed by the next.
+    const liveQueue = useRef({ running: null, next: null, ended: new Set(), shared: new Set() })
+    const sendLive = useCallback((job) => {
+        const queue = liveQueue.current
+        if (queue.ended.has(job.marketId)) return
+        queue.shared.add(job.marketId)
+        queue.next = job
+        if (queue.running) return
+        const pump = async () => {
+            while (queue.next) {
+                const current = queue.next
+                queue.next = null
+                if (queue.ended.has(current.marketId)) continue
+                try {
+                    await publishLiveMatch(supabase, current)
+                } catch (error) {
+                    console.warn('Live score not shared:', error.message)
+                }
+            }
+            queue.running = null
+        }
+        queue.running = pump()
+    }, [])
+    useEffect(() => {
+        if (!liveState || marketId !== openedId.current) return
+        sendLive({ adminToken, marketId, player1Id: player1.id, player2Id: player2.id, state: liveState })
+    }, [liveState, heartbeat, sendLive, adminToken, marketId, player1, player2])
+
+    // Takes the match off the other phones; open bets on it are refunded.
+    const endLive = useCallback(async (id) => {
+        const queue = liveQueue.current
+        queue.ended.add(id)
+        queue.next = null
+        await queue.running
+        return endLiveMatch(supabase, { adminToken, marketId: id })
+    }, [adminToken])
+
+    // Safety net: whenever the match id changes or the screen goes away, a match
+    // that was shared and not ended yet is taken off the other phones.
+    useEffect(() => () => {
+        const queue = liveQueue.current
+        if (!queue.shared.has(marketId) || queue.ended.has(marketId)) return
+        endLive(marketId).catch(error => console.warn('Live match not ended:', error.message))
+    }, [marketId, endLive])
 
     if (!isOpen || !player1 || !player2) return null
 
+    const bettingClosed = isBettingClosed({ score1, score2, games1: gamesWon1, games2: gamesWon2, bestOf, gameWinner, matchWinner })
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+            {/* Full screen on phones in either orientation; `short` is a phone held sideways. */}
+            <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95dvh] short:h-[100dvh] short:max-h-none short:max-w-none short:mx-0 short:rounded-none">
+                <KeepAwake />
 
                 {/* Close button */}
                 {!matchWinner && (
                     <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-2"
+                        onClick={handleClose}
+                        aria-label="Close"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 short:top-2 short:right-2 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white/80 dark:bg-gray-800/80 rounded-full p-2.5 sm:p-2"
                     >
                         <X size={20} />
                     </button>
                 )}
 
                 {/* Header */}
-                <div className="text-center pt-6 pb-2 px-4">
+                <div className="text-center pt-6 pb-2 px-4 short:pt-2 short:pb-1">
                     <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                         {matchWinner ? '🏆 Match Complete' : isDeuce ? '🔥 Deuce!' : gameWinner ? '🎉 Game!' : 'Live Match'}
                     </h2>
 
                     {/* Best-of selector (only before first point) */}
-                    {!matchStarted && !matchWinner && (
+                    {!matchStarted && !matchWinner && matchBets.length === 0 && (
                         <div className="mt-2 flex items-center justify-center gap-2">
                             <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">Format:</span>
                             {[1, 3, 5].map(n => (
@@ -538,15 +701,15 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                     {/* Win probability bar */}
                     {winProb && !matchWinner && (
-                        <div className="mt-2 mx-auto max-w-xs">
+                        <div className="mt-2 mx-auto max-w-xs short:hidden">
                             <div className="flex justify-between text-[10px] font-bold mb-0.5">
                                 <span className="text-blue-500">{winProb.p1}%</span>
                                 <span className="text-gray-400 dark:text-gray-500">Win Prob</span>
                                 <span className="text-red-500">{winProb.p2}%</span>
                             </div>
                             <div className="flex h-1 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                                <div className="bg-blue-500" style={{ width: `${winProb.p1}%` }} />
-                                <div className="bg-red-500" style={{ width: `${winProb.p2}%` }} />
+                                <div className="bg-blue-500 transition-[width] duration-500" style={{ width: `${winProb.p1}%` }} />
+                                <div className="bg-red-500 transition-[width] duration-500" style={{ width: `${winProb.p2}%` }} />
                             </div>
                         </div>
                     )}
@@ -575,7 +738,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                 {/* Handicap rules */}
                 {activeRules.length > 0 && (
-                    <div className="mx-6 mb-2 space-y-2">
+                    <div className="mx-4 sm:mx-6 mb-2 space-y-2">
                         {activeRules.map((rule, idx) => (
                             <div key={idx} className={`relative p-3 border-l-4 rounded-r-lg text-left text-sm transition-opacity ${refusedRules.has(idx) ? 'opacity-40 grayscale' : ''} ${rule.type === 'mayhem'
                                 ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
@@ -603,7 +766,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                         else newRefused.add(idx)
                                         setRefusedRules(newRefused)
                                     }}
-                                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors"
+                                    className="absolute top-0.5 right-0.5 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                                     title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
                                 >
                                     <X size={16} className={refusedRules.has(idx) ? "rotate-45" : ""} />
@@ -613,14 +776,41 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     </div>
                 )}
 
+                {initialServer === null && (
+                    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 short:py-2 text-center" role="group" aria-labelledby="first-server-prompt">
+                        <h3 id="first-server-prompt" className="text-xl font-bold text-gray-900 dark:text-white">
+                            Who serves first?
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Click a player to start the match.</p>
+                        <div className="mt-5 short:mt-2 grid grid-cols-2 gap-3">
+                            {[player1, player2].map((player, index) => (
+                                <button
+                                    key={player.id}
+                                    type="button"
+                                    onClick={() => setInitialServer(index + 1)}
+                                    className={`min-w-0 rounded-2xl border-2 p-4 short:p-2 flex flex-col items-center gap-3 short:gap-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${index === 0
+                                        ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 focus-visible:outline-blue-500'
+                                        : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 focus-visible:outline-red-500'
+                                        }`}
+                                >
+                                    <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} alt="" className="w-16 h-16 short:w-12 short:h-12 rounded-full object-cover" />
+                                    <span className="font-bold break-words w-full">{player.name}</span>
+                                    <span className="text-sm">Serves first</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Score Area */}
-                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 gap-3 min-h-0">
+                {initialServer !== null && (
+                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 short:pb-2 short:pt-1 gap-3 min-h-0">
                     {/* Player 1 Side */}
                     <button
                         onClick={() => scorePoint(1)}
                         disabled={!!gameWinner || !!matchWinner}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 1
                                 ? 'bg-gradient-to-b from-blue-500 to-blue-700 ring-4 ring-blue-400 shadow-xl shadow-blue-500/30'
                                 : matchWinner === 2
@@ -637,11 +827,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 mb-3">
-                            <img
+                        <div className="flex items-center gap-2 mb-3 short:mb-1">
+                            <img loading="lazy" decoding="async"
                                 src={player1.avatar_url || getAvatarFallback(player1.name)}
                                 alt={player1.name}
-                                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
+                                className={`w-16 h-16 sm:w-20 sm:h-20 short:w-14 short:h-14 rounded-full object-cover shadow-lg ${matchWinner === 1 ? 'border-4 border-white' : 'border-3 border-blue-300 dark:border-blue-600'}`}
                             />
                             {currentServer === 1 && !matchWinner && !gameWinner && (
                                 <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce">
@@ -652,11 +842,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {player1.name}
                         </div>
-                        <div className={`text-6xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
+                        <div className={`text-7xl sm:text-8xl short:text-6xl font-black tabular-nums mt-2 short:mt-1 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {score1}
                         </div>
                         {matchWinner === 1 && (
-                            <div className="mt-3 flex items-center gap-2 text-white">
+                            <div className="mt-3 short:mt-1 flex items-center gap-2 text-white">
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
@@ -673,7 +863,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         onClick={() => scorePoint(2)}
                         disabled={!!gameWinner || !!matchWinner}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 2
                                 ? 'bg-gradient-to-b from-red-500 to-red-700 ring-4 ring-red-400 shadow-xl shadow-red-500/30'
                                 : matchWinner === 1
@@ -690,35 +880,36 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2 mb-3 short:mb-1">
                             {currentServer === 2 && !matchWinner && !gameWinner && (
                                 <div className="bg-amber-400 dark:bg-amber-500 rounded-full p-1 shadow-md animate-bounce">
                                     <div className="w-3 h-3 bg-white rounded-full"></div>
                                 </div>
                             )}
-                            <img
+                            <img loading="lazy" decoding="async"
                                 src={player2.avatar_url || getAvatarFallback(player2.name)}
                                 alt={player2.name}
-                                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
+                                className={`w-16 h-16 sm:w-20 sm:h-20 short:w-14 short:h-14 rounded-full object-cover shadow-lg ${matchWinner === 2 ? 'border-4 border-white' : 'border-3 border-red-300 dark:border-red-600'}`}
                             />
                         </div>
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {player2.name}
                         </div>
-                        <div className={`text-6xl sm:text-8xl font-black tabular-nums mt-2 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
+                        <div className={`text-7xl sm:text-8xl short:text-6xl font-black tabular-nums mt-2 short:mt-1 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {score2}
                         </div>
                         {matchWinner === 2 && (
-                            <div className="mt-3 flex items-center gap-2 text-white">
+                            <div className="mt-3 short:mt-1 flex items-center gap-2 text-white">
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
                         )}
                     </button>
                 </div>
+                )}
 
                 {/* Bottom Bar */}
-                <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 short:py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-2">
                     {!matchWinner ? (
                         <>
                             <button
@@ -729,14 +920,28 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <Undo2 size={16} />
                                 Undo
                             </button>
+                            {betting && winProb && (
+                                <button
+                                    onClick={() => setBetSheetOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all"
+                                >
+                                    <Coins size={16} />
+                                    Bets{matchBets.length > 0 ? ` · ${matchBets.length}` : ''}
+                                </button>
+                            )}
                             <div className="flex items-center gap-2">
-                                <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                    Tap or use ← → keys to score
+                                <div className={`text-xs text-gray-400 dark:text-gray-500 font-medium ${betting ? 'hidden sm:block' : ''}`}>
+                                    {initialServer === null ? 'Choose the first server above' : (
+                                        <>
+                                            <span className="can-hover:hidden">Tap a side to score</span>
+                                            <span className="hidden can-hover:inline">Tap or use ← → keys to score</span>
+                                        </>
+                                    )}
                                 </div>
                                 <button
                                     onClick={() => setSoundEnabled(!soundEnabled)}
                                     aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
-                                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
+                                    className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg"
                                     title={soundEnabled ? 'Mute' : 'Unmute'}
                                 >
                                     {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -747,14 +952,14 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={onClose}
-                                    className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    onClick={handleClose}
+                                    className="px-3 sm:px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                 >
                                     Discard
                                 </button>
                                 <button
                                     onClick={handleRematch}
-                                    className="px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
+                                    className="px-3 sm:px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
                                 >
                                     <RefreshCw size={14} />
                                     Rematch
@@ -763,15 +968,32 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all text-sm flex items-center gap-2"
+                                className="px-5 sm:px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all text-sm whitespace-nowrap flex items-center gap-2"
                             >
-                                <Trophy size={18} />
+                                <Trophy size={18} className="hidden min-[400px]:block" />
                                 {saving ? 'Saving...' : 'Save Match'}
                             </button>
                         </>
                     )}
                 </div>
             </div>
+
+            {betting && winProb && (
+                <BetSheet
+                    isOpen={betSheetOpen}
+                    onClose={() => setBetSheetOpen(false)}
+                    marketId={marketId}
+                    player1={player1}
+                    player2={player2}
+                    users={betting.users}
+                    wallets={betting.wallets}
+                    bets={matchBets}
+                    prob1={winProb.exact}
+                    closed={bettingClosed}
+                    snapshot={{ bestOf, games1: gamesWon1, games2: gamesWon2, score1: gameWinner ? 0 : score1, score2: gameWinner ? 0 : score2 }}
+                    adminToken={adminToken}
+                />
+            )}
 
             {/* CSS for ELO float-up animation */}
             <style>{`

@@ -3,19 +3,20 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ping Pong Tracker</title>
-  <script src="https://code.responsivevoice.org/responsivevoice.js?key=YOUR_UNIQUE_KEY_HERE"></script>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+  <meta name="theme-color" content="#18181b" />
+  <title>Sport Tracker</title>
 </head>
 
 <body>
   <script>
-    // Apply dark mode before React renders to prevent flash
+    // Apply theme (dark by default) and sport accent before React renders to prevent flash
     try {
-      if (localStorage.getItem('theme') === 'dark') {
+      if (localStorage.getItem('theme') !== 'light') {
         document.documentElement.classList.add('dark')
       }
+      document.documentElement.dataset.sport = localStorage.getItem('activeSport') || 'pingpong'
     } catch (e) { }
   </script>
   <div id="root"></div>

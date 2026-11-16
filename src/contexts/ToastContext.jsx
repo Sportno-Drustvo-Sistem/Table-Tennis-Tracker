@@ -2,12 +2,16 @@ import React, { useState, useCallback } from 'react'
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react'
 import { ToastContextValue } from './ToastContextValue'
 
+// Date.now() ids collided when two toasts fired in the same millisecond, so
+// dismissing one removed both and React warned about duplicate keys.
+let nextToastId = 0
+
 export const ToastProvider = ({ children }) => {
     const [toasts, setToasts] = useState([])
     const [confirmDialog, setConfirmDialog] = useState(null)
 
     const showToast = useCallback((message, type = 'info') => {
-        const id = Date.now()
+        const id = ++nextToastId
         setToasts(prev => [...prev, { id, message, type }])
         setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== id))
@@ -32,7 +36,8 @@ export const ToastProvider = ({ children }) => {
             {children}
 
             {/* Toasts Overlay */}
-            <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+            {/* On phones, stack above the bottom nav and the floating Record button. */}
+            <div aria-live="polite" className="fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] lg:bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none">
                 {toasts.map(toast => (
                     <div
                         key={toast.id}
@@ -41,13 +46,14 @@ export const ToastProvider = ({ children }) => {
                                     'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/90 dark:text-blue-100 dark:border-blue-800'
                             }`}
                     >
-                        {toast.type === 'error' ? <AlertCircle className="w-5 h-5 mr-3" /> :
-                            toast.type === 'success' ? <CheckCircle className="w-5 h-5 mr-3" /> :
-                                <Info className="w-5 h-5 mr-3" />}
-                        <span className="font-medium text-sm">{toast.message}</span>
+                        {toast.type === 'error' ? <AlertCircle className="w-5 h-5 mr-3 shrink-0" /> :
+                            toast.type === 'success' ? <CheckCircle className="w-5 h-5 mr-3 shrink-0" /> :
+                                <Info className="w-5 h-5 mr-3 shrink-0" />}
+                        <span className="flex-1 font-medium text-sm">{toast.message}</span>
                         <button
                             onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                            className="ml-4 opacity-50 hover:opacity-100 transition-opacity"
+                            aria-label="Dismiss"
+                            className="ml-2 p-2 -m-2 shrink-0 opacity-50 hover:opacity-100 transition-opacity"
                         >
                             <X className="w-4 h-4" />
                         </button>

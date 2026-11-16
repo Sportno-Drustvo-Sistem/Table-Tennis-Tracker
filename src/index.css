@@ -1,3 +1,171 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Sport accents as RGB triplets so Tailwind opacity modifiers work (bg-accent/10). */
+  :root,
+  :root[data-sport='pingpong'] {
+    --accent: 37 99 235;        /* blue-600 */
+    --accent-strong: 29 78 216; /* blue-700 */
+    --accent-soft: 219 234 254; /* blue-100 */
+    --accent-fg: 29 78 216;
+  }
+  :root[data-sport='padel'] {
+    --accent: 22 163 74;        /* green-600 */
+    --accent-strong: 21 128 61;
+    --accent-soft: 220 252 231;
+    --accent-fg: 21 128 61;
+  }
+  :root[data-sport='tennis'] {
+    --accent: 5 150 105;        /* emerald-600 */
+    --accent-strong: 4 120 87;
+    --accent-soft: 209 250 229;
+    --accent-fg: 4 120 87;
+  }
+  :root.dark {
+    --accent-soft: 30 58 138;   /* blue-900 */
+    --accent-fg: 147 197 253;   /* blue-300 */
+  }
+  :root.dark[data-sport='padel'] {
+    --accent-soft: 20 83 45;
+    --accent-fg: 134 239 172;
+  }
+  :root.dark[data-sport='tennis'] {
+    --accent-soft: 6 78 59;
+    --accent-fg: 110 231 183;
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-900 dark:text-gray-100;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    @apply bg-accent/20;
+  }
+  /* No double-tap zoom on controls: rapid taps on live scoring must each count. */
+  button,
+  [role='button'],
+  a,
+  .cursor-pointer {
+    touch-action: manipulation;
+  }
+  /* A long press on an avatar inside a button opened the iOS "Save Image" sheet mid-match. */
+  button img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
+}
+
+/* iOS Safari zooms into any focused field under 16px; keep small fields at 16px on touch screens. */
+@media (pointer: coarse) {
+  input.text-xs,
+  input.text-sm,
+  select.text-xs,
+  select.text-sm,
+  textarea.text-xs,
+  textarea.text-sm {
+    font-size: 16px;
+  }
+
+  /* While a dialog is open the page behind stays put: no background scrolling on iOS and no
+     Android pull-to-refresh, which reloaded the app and lost a live match in progress. */
+  html:has(.fixed.inset-0) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
+/* iOS Safari only: empty date fields collapsed to a sliver and dates were centred. */
+@supports (-webkit-touch-callout: none) {
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.5rem;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
+@layer components {
+  /* A poker chip: striped rim, flat face, dashed inner ring. Colours come from
+     --chip, --chip-edge and --chip-stripe (see chipTone in MatchBets.jsx). */
+  .bet-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    color: var(--chip-stripe, #fff);
+    background:
+      radial-gradient(circle, var(--chip) 0 58%, transparent 59%),
+      repeating-conic-gradient(from -11.25deg, var(--chip-stripe, #fff) 0 22.5deg, var(--chip) 0 45deg);
+    box-shadow:
+      inset 0 0 0 1.5px rgb(0 0 0 / 0.25),
+      inset 0 2px 2px rgb(255 255 255 / 0.3),
+      0 3px 0 -0.5px var(--chip-edge),
+      0 5px 8px rgb(0 0 0 / 0.3);
+  }
+  .bet-chip::before {
+    content: '';
+    position: absolute;
+    inset: 17%;
+    border-radius: inherit;
+    border: 1.5px dashed color-mix(in srgb, var(--chip-stripe, #fff) 60%, transparent);
+    pointer-events: none;
+  }
+  /* Small chips used as markers: no inner ring, shallower shadow. */
+  .bet-chip-mini {
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), 0 1px 2px rgb(0 0 0 / 0.3);
+  }
+  .bet-chip-mini::before {
+    display: none;
+  }
+
+  /* A light sweeping across a button that is ready to take a bet. */
+  .bet-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .bet-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.35) 50%, transparent 65%);
+    transform: translateX(-100%);
+    animation: bet-shine 2.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bet-shine::after {
+      animation: none;
+    }
+  }
+}
+
+@keyframes bet-shine {
+  0% { transform: translateX(-100%); }
+  55%, 100% { transform: translateX(100%); }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

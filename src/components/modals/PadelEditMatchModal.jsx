@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { X, Trash2 } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import { useToast } from '../../contexts/useToast'
-import { recalculatePadelStats } from '../../padelUtils'
+import { validatePadelSets } from '../../padelUtils'
 
-const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) => {
+const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users, adminToken }) => {
     const { showToast } = useToast()
 
     const [matchFormat, setMatchFormat] = useState('best_of_3')
@@ -42,7 +42,7 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
 
     const handleSetChange = (index, field, value) => {
         const newSets = [...setsData]
-        newSets[index][field] = value === '' ? '' : parseInt(value)
+        newSets[index][field] = value === '' ? '' : Number(value)
         setSetsData(newSets)
     }
 
@@ -62,40 +62,20 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
     }
 
     const handleSave = async () => {
-        // Validation
-        const cleanSets = setsData.map(s => ({
-            team1Games: s.team1Games === '' ? 0 : s.team1Games,
-            team2Games: s.team2Games === '' ? 0 : s.team2Games
-        }))
-
-        if (cleanSets.length === 0) {
-            showToast('Please enter at least one set score.', 'error')
-            return
-        }
-
-        let team1TotalGames = 0
-        let team2TotalGames = 0
-
-        cleanSets.forEach(s => {
-            team1TotalGames += s.team1Games
-            team2TotalGames += s.team2Games
-        })
-
+        const validation = validatePadelSets(setsData)
+        if (!validation.valid) { showToast(validation.message, 'error'); return }
         setSaving(true)
         try {
-            const { error } = await supabase
-                .from('padel_matches')
-                .update({
-                    score1: team1TotalGames,
-                    score2: team2TotalGames,
-                    match_format: matchFormat,
-                    sets_data: cleanSets
-                })
-                .eq('id', match.id)
+            const { error } = await supabase.rpc('update_padel_match', {
+                p_admin_token: adminToken,
+                p_match_id: match.id,
+                p_score1: validation.summary.team1Games,
+                p_score2: validation.summary.team2Games,
+                p_match_format: matchFormat,
+                p_sets_data: validation.sets,
+            })
 
             if (error) throw error
-
-            await recalculatePadelStats()
 
             onMatchUpdated()
             onClose()
@@ -116,8 +96,8 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
     const maxSets = matchFormat === 'best_of_1' ? 1 : matchFormat === 'best_of_3' ? 3 : 5
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-2xl m-4 shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Edit Padel Match</h2>
                     <button
@@ -188,7 +168,7 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
                             <div className="text-sm font-bold text-gray-400 dark:text-gray-500 w-16 text-right">SET {index + 1}</div>
                             <div className="flex items-center space-x-4">
                                 <input
-                                    type="number"
+                                    type="number" inputMode="numeric"
                                     min="0"
                                     value={set.team1Games}
                                     onFocus={(e) => e.target.select()}
@@ -198,7 +178,7 @@ const PadelEditMatchModal = ({ isOpen, match, onClose, onMatchUpdated, users }) 
                                 />
                                 <span className="text-gray-400 font-bold">-</span>
                                 <input
-                                    type="number"
+                                    type="number" inputMode="numeric"
                                     min="0"
                                     value={set.team2Games}
                                     onFocus={(e) => e.target.select()}

@@ -1,3 +1,9 @@
+import { isAdminSessionError, reportAdminSessionExpired } from './adminSession'
+
+export const validPingPongScores =(a, b) => [a, b].every(value =>
+    value !== null && value !== undefined && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number.isInteger(Number(value)) && Number(value) >= 0
+) && Number(a) !== Number(b)
+
 const requireAdminToken = (adminToken) => {
     if (!adminToken) {
         throw new Error('Admin mode is required to save matches')
@@ -36,26 +42,76 @@ export const buildTennisRecordParams = ({ adminToken, player1Id, player2Id, scor
     p_sets_data: setsData,
 })
 
+export const buildPingPongBetRecordParams = ({ adminToken, marketId, player1Id, player2Id, sets, handicapRule = null }) => ({
+    p_admin_token: requireAdminToken(adminToken),
+    p_market_id: marketId,
+    p_player1_id: player1Id,
+    p_player2_id: player2Id,
+    p_sets: sets,
+    p_handicap_rule: handicapRule,
+})
+
 const normalizeRecordResponse = (data) => ({
     match: data?.match || null,
     matches: data?.matches || (data?.match ? [data.match] : []),
     changes: data?.changes || {},
+    // Only present when the save also settled bets.
+    ...(data?.market ? { betting: { market: data.market, bets: data.bets || [], wallets: data.wallets || [] } } : {}),
 })
 
-const callRecordRpc = async (client, functionName, params) => {
+// Every successful save is announced so the app can merge the returned rows
+// into its cached history instead of refetching it, whichever screen saved.
+const recordedListeners = new Set()
+
+export const onMatchRecorded = (listener) => {
+    recordedListeners.add(listener)
+    return () => recordedListeners.delete(listener)
+}
+
+const callRecordRpc = async (client, sport, functionName, params) => {
+    if (params.p_sets !== undefined && (!params.p_sets?.length || params.p_sets.some(s => !validPingPongScores(s.s1, s.s2)))) throw new Error('Invalid Ping Pong scores')
     const { data, error } = await client.rpc(functionName, params)
-    if (error) throw error
-    return normalizeRecordResponse(data)
+    if (error) {
+        if (isAdminSessionError(error)) reportAdminSessionExpired()
+        throw error
+    }
+    const result = normalizeRecordResponse(data)
+    recordedListeners.forEach(listener => {
+        try { listener({ sport, ...result }) } catch (listenerError) { console.error(listenerError) }
+    })
+    return result
 }
 
 export const recordPingPongMatch = (client, payload) => (
-    callRecordRpc(client, 'record_pingpong_match', buildPingPongRecordParams(payload))
+    callRecordRpc(client, 'pingpong', 'record_pingpong_match', buildPingPongRecordParams(payload))
+)
+
+// Saves the match and pays out its bets in one database transaction.
+export const recordPingPongMatchWithBets = (client, payload) => (
+    callRecordRpc(client, 'pingpong', 'record_pingpong_match_with_bets', buildPingPongBetRecordParams(payload))
 )
 
 export const recordPadelMatch = (client, payload) => (
-    callRecordRpc(client, 'record_padel_match', buildPadelRecordParams(payload))
+    callRecordRpc(client, 'padel', 'record_padel_match', buildPadelRecordParams(payload))
 )
 
 export const recordTennisMatch = (client, payload) => (
-    callRecordRpc(client, 'record_tennis_match', buildTennisRecordParams(payload))
+    callRecordRpc(client, 'tennis', 'record_tennis_match', buildTennisRecordParams(payload))
 )
+
+const formatChange = change => (change > 0 ? `+${change}` : String(change))
+
+// "Match saved · Alice +12 · Bob -12" (padel lists each team once).
+export const describeRecordedMatch = ({ sport, match, changes }, usersById) => {
+    if (!match) return 'Match saved'
+    const name = id => usersById[id]?.name || 'Unknown'
+    const sides = sport === 'padel'
+        ? [[match.team1_player1_id, match.team1_player2_id], [match.team2_player1_id, match.team2_player2_id]]
+        : [[match.player1_id], [match.player2_id]]
+    const parts = sides.map(ids => {
+        const change = changes?.[ids[0]]
+        const label = ids.map(name).join(' & ')
+        return Number.isFinite(change) ? `${label} ${formatChange(Math.round(change))}` : label
+    })
+    return ['Match saved', ...parts].join(' · ')
+}

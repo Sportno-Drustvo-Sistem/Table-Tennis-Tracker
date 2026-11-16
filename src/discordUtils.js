@@ -1,3 +1,6 @@
+import { getMatchWinner } from './padelUtils'
+import { localDateBounds, toLocalISO } from './dateRange'
+import { fetchAllMatches } from './seasonUtils'
 import { supabase } from "./supabaseClient";
 
 /**
@@ -5,32 +8,14 @@ import { supabase } from "./supabaseClient";
  * @param {Date} date
  */
 export const getDailyStats = async (date) => {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  // Ping Pong Matches — include player ELO for upset detection
-  const { data: pingPongMatches, error: ppError } = await supabase
-    .from("matches")
-    .select("*, player1:player1_id(name, elo_rating), player2:player2_id(name, elo_rating)")
-    .gte("created_at", startOfDay.toISOString())
-    .lte("created_at", endOfDay.toISOString())
-    .order("created_at", { ascending: true });
-
-  if (ppError) console.error("Error fetching ping pong matches:", ppError);
-
-  // Padel Matches
-  const { data: padelMatches, error: padelError } = await supabase
-    .from("padel_matches")
-    .select(
-      "*, t1p1:team1_player1_id(name), t1p2:team1_player2_id(name), t2p1:team2_player1_id(name), t2p2:team2_player2_id(name)",
-    )
-    .gte("created_at", startOfDay.toISOString())
-    .lte("created_at", endOfDay.toISOString());
-
-  if (padelError) console.error("Error fetching padel matches:", padelError);
+  const { start, end } = localDateBounds(toLocalISO(date), toLocalISO(date))
+  const [pingpong, padel] = await Promise.all([
+    fetchAllMatches(supabase, 'matches', { select: '*, player1:player1_id(name, elo_rating), player2:player2_id(name, elo_rating)', start, end }),
+    fetchAllMatches(supabase, 'padel_matches', { select: '*, t1p1:team1_player1_id(name), t1p2:team1_player2_id(name), t2p1:team2_player1_id(name), t2p2:team2_player2_id(name)', start, end }),
+  ])
+  if (pingpong.error || padel.error) throw (pingpong.error || padel.error)
+  const pingPongMatches = pingpong.data
+  const padelMatches = padel.data
 
   return {
     pingPong: pingPongMatches || [],
@@ -152,10 +137,11 @@ export const formatDiscordMessage = (stats, date) => {
       }
 
       h2h[key].matches++;
-      const winnerTeam = m.score1 > m.score2 ? t1 : t2;
+      const winner = getMatchWinner(m);
+      const winnerTeam = winner === 1 ? t1 : winner === 2 ? t2 : null;
       const sortedWinner = [t1, t2].sort()[0] === winnerTeam ? "A" : "B";
-      if (sortedWinner === "A") h2h[key].winsA++;
-      else h2h[key].winsB++;
+      if (winner && sortedWinner === "A") h2h[key].winsA++;
+      else if (winner) h2h[key].winsB++;
       h2h[key].scores.push(`${m.score1}-${m.score2}`);
     });
 
@@ -180,44 +166,14 @@ export const formatDiscordMessage = (stats, date) => {
 /**
  * Sends stats to Discord webhook.
  */
-export const sendToDiscord = async (webhookUrl, payload) => {
-  if (!webhookUrl) throw new Error("No webhook URL provided");
+const discordRequest = async (adminToken, action, values = {}) => {
+  if (!adminToken) throw new Error('Admin session required')
+  const { data, error } = await supabase.functions.invoke('discord-admin', { body: { adminToken, action, ...values } })
+  if (error) throw new Error('Discord request failed. Check your admin session and server configuration.')
+  if (data?.error) throw new Error(data.error)
+  return data
+}
 
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Discord API error: ${err}`);
-  }
-
-  return true;
-};
-
-export const getDiscordWebhook = async () => {
-  const { data, error } = await supabase
-    .from("settings")
-    .select("value")
-    .eq("key", "discord_webhook_url")
-    .single();
-
-  if (error) {
-    console.error("Error fetching webhook URL:", error);
-    return null;
-  }
-  return data?.value || "";
-};
-
-export const updateDiscordWebhook = async (url) => {
-  const { error } = await supabase
-    .from("settings")
-    .upsert({ key: "discord_webhook_url", value: url });
-
-  if (error) {
-    console.error("Error updating webhook URL:", error);
-    throw error;
-  }
-};
+export const getDiscordStatus = adminToken => discordRequest(adminToken, 'status')
+export const updateDiscordWebhook = (adminToken, url) => discordRequest(adminToken, 'update', { url })
+export const sendToDiscord = (adminToken, payload) => discordRequest(adminToken, 'send', { payload })

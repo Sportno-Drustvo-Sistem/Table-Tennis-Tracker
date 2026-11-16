@@ -9,15 +9,9 @@ export const getKFactor = (_matchesPlayed) => 32
  * Replaces the deprecated via.placeholder.com service.
  */
 export const getAvatarFallback = (name = '?') => {
-    const initials = name
-        .split(' ')
-        .map(w => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    // Deterministic hue from name characters
+    // Generic player silhouette on a deterministic, muted per-name tint
     const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${hue},50%,55%)"/><text x="50" y="50" dominant-baseline="central" text-anchor="middle" font-size="42" font-family="sans-serif" fill="white">${initials}</text></svg>`
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${hue},30%,42%)"/><circle cx="50" cy="38" r="17" fill="hsl(${hue},35%,82%)"/><path d="M16 100c0-21 15.2-35 34-35s34 14 34 35z" fill="hsl(${hue},35%,82%)"/></svg>`
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
@@ -35,8 +29,16 @@ export const calculateEloChange = (ratingA, ratingB, scoreA, scoreB, kFactor) =>
     return Math.round(kFactor * multiplier * (actualScoreA - expectedScoreA))
 }
 
+// Set sports use a fixed match weight of one, independent of total games.
+// Round halves away from zero, matching PostgreSQL numeric round().
+export const calculateSetEloChange = (ratingA, ratingB, winner, side, kFactor = 32) => {
+    if (!winner) return 0
+    const raw = kFactor * ((winner === side ? 1 : 0) - calculateExpectedScore(ratingA, ratingB))
+    return Math.sign(raw) * Math.round(Math.abs(raw))
+}
+
 export const buildEloHistory = (users, matches) => {
-    const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at) || String(a.id).localeCompare(String(b.id)))
     const ratings = {}
     const mpc = {}
     const playerEloTimelines = {}
@@ -129,6 +131,16 @@ export const buildEloHistory = (users, matches) => {
     }
 }
 
+export const getSportStats = (user, sport, padelStats, tennisStats) => {
+    // Use separate sport stats for padel/tennis, otherwise ping pong stats from user object.
+    const defaultSportStats = { elo_rating: 1200, total_wins: 0, matches_played: 0 }
+    const sportStats = sport === 'padel' ? (padelStats || defaultSportStats) : sport === 'tennis' ? (tennisStats || defaultSportStats) : null
+    const elo = sportStats ? (sportStats.elo_rating || 1200) : (user.elo_rating || 1200)
+    const wins = sportStats ? (sportStats.total_wins || 0) : (user.total_wins || 0)
+    const gamesPlayed = sportStats ? (sportStats.matches_played || 0) : (user.matches_played || 0)
+    return { elo, wins, gamesPlayed, losses: Math.max(gamesPlayed - wins, 0) }
+}
+
 export const getEloRank = (elo, isChampion = false) => {
     if (isChampion) return { label: 'Champion', color: '#FF6B35', bg: 'bg-orange-100 dark:bg-orange-900/30' }
     if (elo >= 1675) return { label: 'Master', color: '#EF4444', bg: 'bg-red-100 dark:bg-red-900/30' }
@@ -140,225 +152,9 @@ export const getEloRank = (elo, isChampion = false) => {
     return { label: 'Iron', color: '#4b5563', bg: 'bg-gray-100 dark:bg-gray-800/30' }
 }
 
-export const recalculatePlayerStats = async () => {
-    // 1. Fetch all users
-    const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-
-    if (usersError) {
-        console.error('Error fetching users:', usersError)
-        return
-    }
-
-    // 2. Fetch all matches ordered by date (Optimization: Select only needed columns)
-    const { data: matches, error: matchesError } = await supabase
-        .from('matches')
-        .select('player1_id, player2_id, score1, score2, handicap_rule, created_at')
-        .order('created_at', { ascending: true })
-
-    if (matchesError) {
-        console.error('Error fetching matches:', matchesError)
-        return
-    }
-
-    // 3. Initialize player stats
-    // We keep a separate map for calculated stats to compare against original
-    const calculatedStats = {}
-    users.forEach(user => {
-        calculatedStats[user.id] = {
-            id: user.id,
-            name: user.name,
-            avatar_url: user.avatar_url,
-            elo_rating: 1200,
-            matches_played: 0,
-            total_wins: 0
-        }
-    })
-
-    // 4. Process matches
-    matches.forEach(match => {
-        const p1Id = match.player1_id
-        const p2Id = match.player2_id
-
-        // Skip if player doesn't exist (e.g. deleted user)
-        if (!calculatedStats[p1Id] || !calculatedStats[p2Id]) return
-
-        const p1 = calculatedStats[p1Id]
-        const p2 = calculatedStats[p2Id]
-
-        // Update matches played
-        p1.matches_played += 1
-        p2.matches_played += 1
-
-        // Update wins
-        if (match.score1 > match.score2) {
-            p1.total_wins += 1
-        } else if (match.score2 > match.score1) {
-            p2.total_wins += 1
-        }
-
-        // Calculate ELO Change
-        // Dynamic K-Factor
-        const k1 = getKFactor(p1.matches_played)
-        const k2 = getKFactor(p2.matches_played)
-
-        const p1Rating = p1.elo_rating
-        const p2Rating = p2.elo_rating
-
-        const p1Change = calculateEloChange(p1Rating, p2Rating, match.score1, match.score2, k1)
-        const p2Change = calculateEloChange(p2Rating, p1Rating, match.score2, match.score1, k2)
-
-        const p1Won = match.score1 > match.score2
-        const p2Won = match.score2 > match.score1
-
-        let bonusP1 = 0
-        let bonusP2 = 0
-
-        if (match.handicap_rule) {
-            const rules = Array.isArray(match.handicap_rule) ? match.handicap_rule : [match.handicap_rule]
-            rules.forEach(rule => {
-                const bonus = 2 * (rule.trigger_value || 0)
-                if (bonus > 0 && rule.type === 'streak') {
-                    if (rule.targetPlayerId === p1Id && p1Won) {
-                        bonusP1 += bonus
-                    } else if (rule.targetPlayerId === p2Id && p2Won) {
-                        bonusP2 += bonus
-                    }
-                }
-            })
-        }
-
-        p1.elo_rating += p1Change + bonusP1
-        p2.elo_rating += p2Change + bonusP2
-    })
-
-    // 5. Update users in Supabase
-    // Optimization: Only update users whose stats have CHANGED
-    const updates = []
-
-    users.forEach(originalUser => {
-        const calculated = calculatedStats[originalUser.id]
-        if (!calculated) return
-
-        const isRanked = calculated.matches_played >= 10
-
-        // Check for differences
-        if (
-            originalUser.elo_rating !== calculated.elo_rating ||
-            originalUser.matches_played !== calculated.matches_played ||
-            originalUser.total_wins !== calculated.total_wins ||
-            originalUser.is_ranked !== isRanked
-        ) {
-            updates.push({
-                id: calculated.id,
-                name: calculated.name,
-                avatar_url: calculated.avatar_url,
-                elo_rating: calculated.elo_rating,
-                matches_played: calculated.matches_played,
-                total_wins: calculated.total_wins,
-                is_ranked: isRanked
-            })
-        }
-    })
-
-    if (updates.length === 0) {
-        console.log('No stats updates needed.')
-        return
-    }
-
-    const { error: updateError } = await supabase
-        .from('users')
-        .upsert(updates)
-
-    if (updateError) {
-        console.error('Error updating player stats:', updateError)
-        throw updateError
-    }
-}
-
-export const applyMatchResultToStats = async (p1Id, p2Id, sets, activeRules = []) => {
-    // 1. Fetch exact current stats for only these two players
-    const { data: players, error: fetchError } = await supabase
-        .from('users')
-        .select('id, elo_rating, matches_played, total_wins, name, avatar_url, is_ranked')
-        .in('id', [p1Id, p2Id])
-
-    if (fetchError || !players || players.length !== 2) {
-        console.error('Error fetching players for incremental update:', fetchError)
-        throw new Error('Failed to load player stats for update')
-    }
-
-    const p1 = players.find(p => p.id === p1Id)
-    const p2 = players.find(p => p.id === p2Id)
-
-    // 2. Process each set incrementally
-    let runP1Elo = p1.elo_rating
-    let runP2Elo = p2.elo_rating
-    let runP1Matches = p1.matches_played
-    let runP2Matches = p2.matches_played
-    let p1Wins = p1.total_wins
-    let p2Wins = p2.total_wins
-
-    sets.forEach(set => {
-        runP1Matches++
-        runP2Matches++
-
-        if (set.s1 > set.s2) p1Wins++
-        if (set.s2 > set.s1) p2Wins++
-
-        const k1 = getKFactor(runP1Matches)
-        const k2 = getKFactor(runP2Matches)
-
-        const change1 = calculateEloChange(runP1Elo, runP2Elo, set.s1, set.s2, k1)
-        const change2 = calculateEloChange(runP2Elo, runP1Elo, set.s2, set.s1, k2)
-
-        let bonus1 = 0
-        let bonus2 = 0
-        
-        activeRules.forEach(rule => {
-             const bonus = 2 * (rule.trigger_value || 0)
-             if (bonus > 0 && rule.type === 'streak') {
-                 if (rule.targetPlayerId === p1Id && set.s1 > set.s2) bonus1 += bonus
-                 else if (rule.targetPlayerId === p2Id && set.s2 > set.s1) bonus2 += bonus
-             }
-        })
-
-        runP1Elo += change1 + bonus1
-        runP2Elo += change2 + bonus2
-    })
-
-    // 3. Upsert ONLY these two players
-    const updates = [
-        {
-            ...p1,
-            elo_rating: runP1Elo,
-            matches_played: runP1Matches,
-            total_wins: p1Wins,
-            is_ranked: runP1Matches >= 10
-        },
-        {
-            ...p2,
-            elo_rating: runP2Elo,
-            matches_played: runP2Matches,
-            total_wins: p2Wins,
-            is_ranked: runP2Matches >= 10
-        }
-    ]
-
-    const { error: updateError } = await supabase
-        .from('users')
-        .upsert(updates)
-
-    if (updateError) {
-        console.error('Error in incremental ELO update:', updateError)
-        throw updateError
-    }
-
-    return {
-        p1Change: runP1Elo - p1.elo_rating,
-        p2Change: runP2Elo - p2.elo_rating
-    }
+export const recalculatePlayerStats = async (adminToken) => {
+    const { error } = await supabase.rpc('refresh_pingpong_stats', { p_admin_token: adminToken })
+    if (error) throw error
 }
 
 export const getHeadToHeadStreak = (player1Id, player2Id, matches) => {
@@ -403,18 +199,30 @@ export const generateTournamentName = () => {
     return `${adj} ${noun} ${years[0]}`
 }
 
-// Fetches all active debuffs (both mayhem and streak types)
-export const getActiveDebuffs = async () => {
-    const { data, error } = await supabase
-        .from('debuffs')
-        .select('*')
-        .eq('is_active', true)
+// Fetches all active debuffs (both mayhem and streak types). Many screens ask
+// for them when they open, so one answer is shared for a short while.
+const DEBUFF_CACHE_MS = 60000
+let debuffCache = null
 
-    if (error) {
+export const invalidateActiveDebuffs = () => { debuffCache = null }
+
+export const getActiveDebuffs = () => {
+    if (debuffCache && Date.now() - debuffCache.at < DEBUFF_CACHE_MS) return debuffCache.promise
+    const entry = { at: Date.now() }
+    entry.promise = Promise.resolve(supabase.from('debuffs').select('*').eq('is_active', true)).then(({ data, error }) => {
+        if (error) {
+            console.error('Error fetching debuffs:', error)
+            if (debuffCache === entry) debuffCache = null
+            return []
+        }
+        return data
+    }, (error) => {
         console.error('Error fetching debuffs:', error)
+        if (debuffCache === entry) debuffCache = null
         return []
-    }
-    return data
+    })
+    debuffCache = entry
+    return entry.promise
 }
 
 export const getRandomDebuff = (debuffs, playerElo) => {

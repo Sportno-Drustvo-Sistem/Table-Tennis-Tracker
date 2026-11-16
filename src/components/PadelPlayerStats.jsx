@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import { usePlayerSelection } from '../usePlayerSelection'
+import { inLocalDateRange } from '../dateRange'
+import React, { useState, useMemo } from 'react'
 import { Activity, Users, Calendar } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import DateRangePicker from './DateRangePicker'
@@ -8,13 +10,10 @@ import { getMatchWinner, buildPadelEloHistory, getPadelScoreSummary } from '../p
 import { getEloRank, getAvatarFallback } from '../utils'
 
 const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
-    const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
+    const [selectedPlayerId, setSelectedPlayerId] = usePlayerSelection(users, initialPlayerId)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
 
-    useEffect(() => {
-        if (initialPlayerId) setSelectedPlayerId(initialPlayerId)
-    }, [initialPlayerId])
 
     const selectedPlayer = users.find(u => u.id === selectedPlayerId)
 
@@ -37,12 +36,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                 match.team2_player2_id
             ].includes(selectedPlayerId)
             if (!isParticipant) return false
-
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         let matchWins = 0
@@ -178,19 +172,19 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
         }
     }, [selectedPlayerId, selectedPlayer, matches, startDate, endDate, users, eloData])
 
-    if (!selectedPlayer) return <div>Select a player</div>
+    if (!selectedPlayer) return <div>No players available for this season. Add a player or choose another season.</div>
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-2 border-green-500 flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center space-x-4">
-                    <img
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md border-2 border-green-500 flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <img loading="lazy" decoding="async"
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
-                        className="w-20 h-20 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
+                        className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white [overflow-wrap:anywhere]">{selectedPlayer.name}</h2>
                         <div className="flex items-center gap-2">
                             <span className="text-green-600 dark:text-green-400 font-semibold">{stats?.matchesPlayed || 0} Padel Matches Played</span>
                             {(() => {
@@ -202,11 +196,11 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                     </div>
                 </div>
 
-                <div>
+                <div className="w-full sm:w-auto">
                     <select
                         value={selectedPlayerId}
                         onChange={e => setSelectedPlayerId(e.target.value)}
-                        className="p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none font-medium"
+                        className="w-full sm:w-auto p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none font-medium"
                     >
                         {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
@@ -269,7 +263,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
 
             {/* ELO History Chart */}
             {stats?.eloHistory?.length > 1 && (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Activity className="mr-2 text-blue-500" size={20} /> ELO History
                     </h3>
@@ -296,9 +290,9 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
 
             <PadelAchievements playerId={selectedPlayerId} users={users} matches={matches} />
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Partner Performance */}
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white"><Users className="mr-2 text-blue-500" size={20} /> Partner Synergy</h3>
                     <div className="space-y-3">
                         {Object.entries(stats?.partnerStats || {}).length === 0 && <div className="text-gray-400 dark:text-gray-500">No data in this period</div>}
@@ -311,7 +305,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                                 return (
                                     <div key={partnerId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={partner.avatar_url || 'https://via.placeholder.com/30'} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img loading="lazy" decoding="async" src={partner.avatar_url || getAvatarFallback(partner.name)} className="w-10 h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt={partner.name} />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{partner.name}</span>
                                         </div>
                                         <div className="text-right">
@@ -325,7 +319,7 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
                 </div>
 
                 {/* Recent Matches */}
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Calendar className="mr-2 text-green-500" size={20} />
                         Match History
@@ -365,11 +359,11 @@ const PadelPlayerStats = ({ users, matches, padelStats, initialPlayerId }) => {
 
                                     <div className="flex items-center justify-end gap-2 shrink-0">
                                         <span className="text-xs text-gray-400">w/</span>
-                                        <img src={partner?.avatar_url} className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" title={partner?.name} />
+                                        <img loading="lazy" decoding="async" src={partner?.avatar_url || getAvatarFallback(partner?.name || '?')} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" title={partner?.name} />
                                         <span className="text-xs text-gray-400">vs</span>
                                         <div className="flex -space-x-1.5 hover:space-x-0 transition-all">
                                             {opponents.map((opp, i) => (
-                                                <img key={opp.id} src={opp.avatar_url} className={`w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover border border-white dark:border-gray-800 z-[${2 - i}]`} alt="" title={opp.name} />
+                                                <img loading="lazy" decoding="async" key={opp.id} src={opp.avatar_url || getAvatarFallback(opp.name)} className={`w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover border border-white dark:border-gray-800`} style={{ zIndex: 2 - i }} alt="" title={opp.name} />
                                             ))}
                                         </div>
                                     </div>

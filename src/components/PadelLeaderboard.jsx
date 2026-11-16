@@ -1,5 +1,7 @@
+import { getMatchWinner } from '../padelUtils'
+import { inLocalDateRange } from '../dateRange'
 import React, { useState, useMemo } from 'react'
-import { ArrowUp, ArrowDown, Trophy } from 'lucide-react'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 import DateRangePicker from './DateRangePicker'
 import { getEloRank, getAvatarFallback } from '../utils'
 
@@ -20,11 +22,7 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
     const stats = useMemo(() => {
         // 1. Filter matches by date
         const filteredMatches = matches.filter(match => {
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         // Sort matches newest first for streak calculation
@@ -63,10 +61,10 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                 p.pointsFor += match.score1
                 p.pointsAgainst += match.score2
                 p.totalGames += 1
-                if (match.score1 > match.score2) {
+                if (getMatchWinner(match) === 1) {
                     p.wins += 1
                     p.results.push('W')
-                } else {
+                } else if (getMatchWinner(match) !== 0) {
                     p.losses += 1
                     p.results.push('L')
                 }
@@ -77,10 +75,10 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                 p.pointsFor += match.score2
                 p.pointsAgainst += match.score1
                 p.totalGames += 1
-                if (match.score2 > match.score1) {
+                if (getMatchWinner(match) === 2) {
                     p.wins += 1
                     p.results.push('W')
-                } else {
+                } else if (getMatchWinner(match) !== 0) {
                     p.losses += 1
                     p.results.push('L')
                 }
@@ -156,11 +154,6 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end">
-                <h2 className="text-2xl font-bold flex items-center text-gray-900 dark:text-white">
-                    <Trophy className="mr-2 text-green-500" /> Padel Leaderboard
-                </h2>
-            </div>
 
             <DateRangePicker
                 startDate={startDate}
@@ -174,24 +167,24 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                <th className="px-6 py-4">Rank</th>
-                                <th className="px-6 py-4">Player</th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('elo_rating')}>
+                                <th className="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4">Rank</th>
+                                <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-3 py-3 sm:px-6 sm:py-4 shadow-[inset_-1px_0_0_theme(colors.gray.200)] dark:shadow-[inset_-1px_0_0_theme(colors.gray.700)] sm:shadow-none sm:dark:shadow-none">Player</th>
+                                <th className="px-3 py-3 sm:px-6 sm:py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('elo_rating')}>
                                     <div className="flex justify-end items-center">ELO {renderSortIcon('elo_rating')}</div>
                                 </th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('wins')}>
+                                <th className="px-3 py-3 sm:px-6 sm:py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('wins')}>
                                     <div className="flex justify-end items-center">Wins {renderSortIcon('wins')}</div>
                                 </th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('losses')}>
+                                <th className="px-3 py-3 sm:px-6 sm:py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('losses')}>
                                     <div className="flex justify-end items-center">Losses {renderSortIcon('losses')}</div>
                                 </th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('winRate')}>
+                                <th className="px-3 py-3 sm:px-6 sm:py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('winRate')}>
                                     <div className="flex justify-end items-center">Win % {renderSortIcon('winRate')}</div>
                                 </th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('streakValue')}>
+                                <th className="px-3 py-3 sm:px-6 sm:py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('streakValue')}>
                                     <div className="flex justify-end items-center">Streak {renderSortIcon('streakValue')}</div>
                                 </th>
-                                <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('scoreDiff')}>
+                                <th className="px-3 py-3 sm:px-6 sm:py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none text-right" onClick={() => requestSort('scoreDiff')}>
                                     <div className="flex justify-end items-center">Games Diff {renderSortIcon('scoreDiff')}</div>
                                 </th>
                             </tr>
@@ -199,14 +192,16 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {sortedStats.map((player, index) => (
                                 <tr key={player.id} className="hover:bg-green-50 dark:hover:bg-gray-700 transition-colors">
-                                    <td className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500">#{index + 1}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="hidden sm:table-cell px-3 py-3 sm:px-6 sm:py-4 font-bold text-gray-400 dark:text-gray-500">#{index + 1}</td>
+                                    <td className="sticky left-0 bg-white dark:bg-gray-800 px-3 py-3 sm:px-6 sm:py-4 shadow-[inset_-1px_0_0_theme(colors.gray.200)] dark:shadow-[inset_-1px_0_0_theme(colors.gray.700)] sm:shadow-none sm:dark:shadow-none">
                                         <div className="flex items-center">
-                                            <img src={player.avatar_url || getAvatarFallback(player.name)} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
-                                            <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>
+                                            {/* Phones fold the rank in here and cap long names, so ELO and wins start on screen. */}
+                                            <span className="sm:hidden w-6 shrink-0 text-xs font-bold tabular-nums text-gray-400 dark:text-gray-500">{index + 1}</span>
+                                            <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-2 sm:mr-3" alt="" />
+                                            <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap truncate max-w-[28vw] sm:max-w-none">{player.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-3 py-3 sm:px-6 sm:py-4 text-right">
                                         <div className="flex justify-end items-center gap-1.5">
                                             <span className="font-bold text-green-600 dark:text-green-400">{player.elo_rating}</span>
                                             {(() => {
@@ -216,13 +211,13 @@ const PadelLeaderboard = ({ users, matches, padelStats }) => {
                                             })()}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-medium text-green-600 dark:text-green-400">{player.wins}</td>
-                                    <td className="px-6 py-4 text-right font-medium text-red-500 dark:text-red-400">{player.losses}</td>
-                                    <td className="px-6 py-4 text-right font-bold dark:text-gray-300">{player.winRate.toFixed(1)}%</td>
-                                    <td className={`px-6 py-4 text-right font-bold ${player.streakType === 'W' ? 'text-green-600 dark:text-green-400' : (player.streakType === 'L' ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500')}`}>
+                                    <td className="px-3 py-3 sm:px-6 sm:py-4 text-right font-medium text-green-600 dark:text-green-400">{player.wins}</td>
+                                    <td className="px-3 py-3 sm:px-6 sm:py-4 text-right font-medium text-red-500 dark:text-red-400">{player.losses}</td>
+                                    <td className="px-3 py-3 sm:px-6 sm:py-4 text-right font-bold dark:text-gray-300">{player.winRate.toFixed(1)}%</td>
+                                    <td className={`px-3 py-3 sm:px-6 sm:py-4 text-right font-bold ${player.streakType === 'W' ? 'text-green-600 dark:text-green-400' : (player.streakType === 'L' ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500')}`}>
                                         {player.streak}
                                     </td>
-                                    <td className={`px-6 py-4 text-right font-bold ${player.scoreDiff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                    <td className={`px-3 py-3 sm:px-6 sm:py-4 text-right font-bold ${player.scoreDiff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                                         {player.scoreDiff > 0 ? '+' : ''}{player.scoreDiff}
                                     </td>
                                 </tr>

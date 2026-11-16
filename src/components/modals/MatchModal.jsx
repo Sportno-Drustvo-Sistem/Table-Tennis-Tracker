@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Scale, Skull, X } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs } from '../../utils'
-import { recordPingPongMatch } from '../../matchPersistence'
+import { getHeadToHeadStreak, getHandicapRule, getActiveDebuffs, getAvatarFallback } from '../../utils'
+import { recordPingPongMatch, validPingPongScores } from '../../matchPersistence'
 import { useToast } from '../../contexts/useToast'
 
 const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, tournamentId, debuffs, isAdmin, adminToken, availablePlayers, onOverridePlayers }) => {
     const { showToast } = useToast()
     const [score1, setScore1] = useState('')
-    const [score2, setScore2] = useState(0)
+    const [score2, setScore2] = useState('')
     const [saving, setSaving] = useState(false)
     const [allDebuffs, setAllDebuffs] = useState([])
     const [refusedRules, setRefusedRules] = useState(new Set())
@@ -53,6 +53,10 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
     const handleSave = async () => {
         if (!p1 || !p2) { showToast('Please select both players', 'error'); return }
+        if (!validPingPongScores(score1, score2)) {
+            showToast('Enter non-negative whole-number scores with a winner.', 'error')
+            return
+        }
         setSaving(true)
         try {
             // If players were changed/assigned via override, update the bracket first
@@ -65,14 +69,14 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                 adminToken,
                 player1Id: p1.id,
                 player2Id: p2.id,
-                sets: [{ s1: parseInt(score1), s2: parseInt(score2) }],
+                sets: [{ s1: Number(score1), s2: Number(score2) }],
                 handicapRule: acceptedRules.length > 0 ? acceptedRules : null,
                 tournamentId: tournamentId || null,
             })
 
             onMatchSaved?.(savedMatch)
             setScore1('')
-            setScore2(0)
+            setScore2('')
         } catch (error) {
             console.error(error)
             showToast('Error saving match: ' + error.message, 'error')
@@ -83,13 +87,15 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
 
     if (!isOpen) return null
 
+    // Score dialogs sit at the top on phones: iOS keeps fixed dialogs centred, so the
+    // on-screen keyboard covered the inputs. Same layout in the other score/edit dialogs.
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-lg m-4 shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-white">Record Match Result</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl w-full max-w-lg shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center text-gray-900 dark:text-white">Record Match Result</h2>
 
                 {activeRules.length > 0 && (
-                    <div className="mb-8 space-y-3">
+                    <div className="mb-4 sm:mb-8 space-y-3">
                         {activeRules.map((rule, idx) => (
                             <div key={idx} className={`relative p-4 border-l-4 rounded-r-lg text-left shadow-sm transition-opacity ${refusedRules.has(idx) ? 'opacity-40 grayscale' : ''} ${rule.type === 'mayhem'
                                 ? 'bg-purple-50 dark:bg-purple-900/40 border-purple-500'
@@ -120,7 +126,7 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                                             else newRefused.add(idx)
                                             setRefusedRules(newRefused)
                                         }}
-                                        className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
+                                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 transition-colors"
                                         title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
                                     >
                                         <X size={20} className={refusedRules.has(idx) ? "rotate-45" : ""} />
@@ -131,9 +137,9 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                     </div>
                 )}
 
-                <div className="flex justify-between items-start mb-8 gap-4">
+                <div className="flex justify-between items-start mb-4 sm:mb-8 gap-4">
                     <div className="flex flex-col items-center w-5/12">
-                        <img src={p1?.avatar_url || 'https://via.placeholder.com/150'} className="w-20 h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p1?.name} />
+                        <img loading="lazy" decoding="async" src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p1?.name} />
                         {isAdmin && availablePlayers ? (
                             <select
                                 value={p1?.id || ''}
@@ -150,10 +156,10 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         )}
                     </div>
 
-                    <div className="font-bold text-2xl text-gray-400 dark:text-gray-500 mt-6">VS</div>
+                    <div className="font-bold text-2xl text-gray-400 dark:text-gray-500 mt-4 sm:mt-6">VS</div>
 
                     <div className="flex flex-col items-center w-5/12">
-                        <img src={p2?.avatar_url || 'https://via.placeholder.com/150'} className="w-20 h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p2?.name} />
+                        <img loading="lazy" decoding="async" src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-2 object-cover bg-gray-200" alt={p2?.name} />
                         {isAdmin && availablePlayers ? (
                             <select
                                 value={p2?.id || ''}
@@ -171,14 +177,18 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                     </div>
                 </div>
 
-                <div className="flex justify-center space-x-8 mb-8">
+                <div className="flex justify-center space-x-8 mb-6 sm:mb-8">
                     <div className="flex flex-col items-center">
                         <input
                             type="number"
                             min="0"
+                            inputMode="numeric"
+                            autoFocus
+                            aria-label={`${p1?.name || 'Player 1'} score`}
                             value={score1}
                             onFocus={(e) => e.target.select()}
                             onChange={e => setScore1(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !saving) handleSave() }}
                             className="w-20 h-16 text-3xl text-center border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:border-blue-500 focus:outline-none"
                         />
                     </div>
@@ -186,25 +196,28 @@ const MatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, matches, 
                         <input
                             type="number"
                             min="0"
+                            inputMode="numeric"
+                            aria-label={`${p2?.name || 'Player 2'} score`}
                             value={score2}
                             onFocus={(e) => e.target.select()}
                             onChange={e => setScore2(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !saving) handleSave() }}
                             className="w-20 h-16 text-3xl text-center border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:border-blue-500 focus:outline-none"
                         />
                     </div>
                 </div>
 
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-end gap-2">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                        className="flex-1 sm:flex-none h-11 sm:h-auto px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={saving || !p1 || !p2}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
+                        className="flex-1 sm:flex-none h-11 sm:h-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold"
                     >
                         {saving ? 'Saving...' : 'Finish Match'}
                     </button>

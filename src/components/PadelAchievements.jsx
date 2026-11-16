@@ -355,7 +355,7 @@ const PadelAchievements = ({ playerId, users, matches }) => {
     if (Object.keys(earned).length === 0 && !matches?.length) return null
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                 <Medal className="mr-2 text-yellow-500" size={20} /> Padel Achievements
             </h3>

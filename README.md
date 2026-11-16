@@ -37,6 +37,8 @@ A modern, high-performance web application for tracking sports leagues, tourname
 
 ### 📊 Player Statistics
 
+* **Ping Pong Seasons**: Choose the current season, Season 1, or All-time on Players, Leaderboard, Stats, and Matches. Existing games and final standings are archived as Season 1; Season 2 starts at 1200 ELO with zero games and wins. New games always belong to the active season, and handicap streaks use that season only. All-time ratings replay the full history without resetting between seasons. Archived matches are read-only.
+
 * **Achievements**: Track goals like "Clutch Master" (win % at match point) and debuff challenges.
 * **Head-to-Head**: Deep historic analysis of your performance against every opponent.
 * **ELO Timeline**: Interactive charts showing your rise (or fall) through the ranks.
@@ -106,3 +108,7 @@ The app will be available at `http://localhost:8080`.
 * `/src/utils.js`: Core logic for ELO, Ranks, and Match calculations.
 * `/src/discordUtils.js`: Logic for Discord Webhook formatting and delivery.
 * `/supabase`: Database migrations and configuration.
+
+### October 2026 remediation
+
+See [completion and verification status](docs/code-review-remediation-completion.md) and [migration/deployment steps](docs/remediation-deployment.md). Run npm run test:db with a local Docker engine to execute fresh/upgrade authorization and transaction checks.

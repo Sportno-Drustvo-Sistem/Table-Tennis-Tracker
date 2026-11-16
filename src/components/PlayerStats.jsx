@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import { usePlayerSelection } from '../usePlayerSelection'
+import { inLocalDateRange } from '../dateRange'
+import React, { useState, useMemo } from 'react'
 import { Activity, Users, Calendar, TrendingUp, TrendingDown, Target } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import DateRangePicker from './DateRangePicker'
@@ -6,14 +8,11 @@ import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
 import { buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
 
-const PlayerStats = ({ users, matches, initialPlayerId }) => {
-    const [selectedPlayerId, setSelectedPlayerId] = useState(initialPlayerId || (users[0]?.id || ''))
+const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
+    const [selectedPlayerId, setSelectedPlayerId] = usePlayerSelection(users, initialPlayerId)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
 
-    useEffect(() => {
-        if (initialPlayerId) setSelectedPlayerId(initialPlayerId)
-    }, [initialPlayerId])
 
     const selectedPlayer = users.find(u => u.id === selectedPlayerId)
 
@@ -39,12 +38,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         const relevantMatches = matches.filter(match => {
             const isParticipant = match.player1_id === selectedPlayerId || match.player2_id === selectedPlayerId
             if (!isParticipant) return false
-
-            const matchDate = new Date(match.created_at)
-            const start = startDate ? new Date(startDate) : new Date('2000-01-01')
-            const end = endDate ? new Date(endDate) : new Date()
-            end.setHours(23, 59, 59, 999)
-            return matchDate >= start && matchDate <= end
+            return inLocalDateRange(match.created_at, startDate, endDate)
         })
 
         // 2. Calculate stats
@@ -161,26 +155,26 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
         }
     }, [selectedPlayerId, selectedPlayer?.matches_played, matches, startDate, endDate, users, eloData])
 
-    if (!selectedPlayer) return <div>Select a player</div>
+    if (!selectedPlayer) return <div>No players available for this season. Add a player or choose another season.</div>
 
     return (
         <div className="space-y-6">
             <div
-                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md flex items-center justify-between flex-wrap gap-4"
+                className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md flex items-center justify-between flex-wrap gap-4"
                 style={{
                     borderWidth: '3px',
                     borderStyle: 'solid',
                     borderColor: playerRank?.color || '#3b82f6',
                 }}
             >
-                <div className="flex items-center space-x-4">
-                    <img
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <img loading="lazy" decoding="async"
                         src={selectedPlayer.avatar_url || getAvatarFallback(selectedPlayer.name)}
-                        className="w-20 h-20 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
+                        className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-full border-4 border-gray-100 dark:border-gray-700 object-cover"
                         alt={selectedPlayer.name}
                     />
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{selectedPlayer.name}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white [overflow-wrap:anywhere]">{selectedPlayer.name}</h2>
                         <div className="flex flex-wrap items-center gap-3 mt-2">
                             <div className="text-blue-600 dark:text-blue-400 font-semibold">{stats?.total || 0} Games Played</div>
                             <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -198,11 +192,11 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                     </div>
                 </div>
 
-                <div>
+                <div className="w-full sm:w-auto">
                     <select
                         value={selectedPlayerId}
                         onChange={e => setSelectedPlayerId(e.target.value)}
-                        className="p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                        className="w-full sm:w-auto p-3 bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                     >
                         {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
@@ -258,7 +252,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
 
             {/* ELO History Chart */}
             {stats?.eloHistory?.length > 1 && (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                         <Activity className="mr-2 text-blue-500" size={20} /> ELO History
                     </h3>
@@ -281,14 +275,14 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 </div>
             )}
 
-            <TrophyCase playerId={selectedPlayerId} />
+            <TrophyCase playerId={selectedPlayerId} seasonId={seasonId} />
 
-            <Achievements playerId={selectedPlayerId} users={users} matches={matches} />
+            <Achievements playerId={selectedPlayerId} users={users} matches={matches} eloData={eloData} />
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 {/* Head to Head */}
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white"><Users className="mr-2" size={20} /> Head to Head</h3>
                     <div className="space-y-3">
                         {Object.entries(stats?.headToHead || {}).length === 0 && <div className="text-gray-400 dark:text-gray-500">No data in this period</div>}
@@ -301,7 +295,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                                 return (
                                     <div key={oppId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div className="flex items-center">
-                                            <img src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
+                                            <img loading="lazy" decoding="async" src={opponent.avatar_url || getAvatarFallback(opponent.name)} className="w-10 h-10 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover mr-3" alt="" />
                                             <span className="font-bold text-gray-700 dark:text-gray-200">{opponent.name}</span>
                                         </div>
                                         <div className="text-right">
@@ -315,7 +309,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                 </div>
 
                 {/* Recent Matches */}
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white"><Calendar className="mr-2" size={20} /> Recent Matches</h3>
                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                         {stats?.timeline.length === 0 && <div className="text-gray-400 dark:text-gray-500">No matches found</div>}
@@ -341,7 +335,7 @@ const PlayerStats = ({ users, matches, initialPlayerId }) => {
                                     </div>
                                     <div className="flex items-center justify-end w-32 truncate">
                                         <span className="text-gray-600 dark:text-gray-300 mr-2 truncate">{opponent?.name}</span>
-                                        <img src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
+                                        <img loading="lazy" decoding="async" src={opponent?.avatar_url || getAvatarFallback(opponent?.name || '?')} className="w-8 h-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-600 object-cover" alt="" />
                                     </div>
                                 </div>
                             )

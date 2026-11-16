@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import { createTournament, completeTournament, deleteTournament } from '../../tournamentPersistence'
 import TournamentSetup from './TournamentSetup'
 import BracketView from './BracketView'
 import MatchModal from '../modals/MatchModal'
 import LiveMatchModal from '../modals/LiveMatchModal'
 import { Trophy, RefreshCw, X, AlertTriangle, Swords, Users } from 'lucide-react'
-import { getActiveDebuffs, getRandomDebuff } from '../../utils'
+import { getActiveDebuffs, getRandomDebuff, getAvatarFallback } from '../../utils'
 import { useToast } from '../../contexts/useToast'
 import {
     shuffle,
@@ -80,12 +81,15 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         const debuffsPool = await getActiveDebuffs()
         setCachedDebuffs(debuffsPool)
 
-        const { data: tourneyData, error: tourneyError } = await supabase
-            .from('tournaments')
-            .insert({ name, format, status: 'active', config: { mayhemMode, useGroupStage } })
-            .select().single()
-
-        if (tourneyError) { showToast('Error starting tournament: ' + tourneyError.message, 'error'); return }
+        let tourneyData
+        try {
+            tourneyData = await createTournament(supabase, adminToken, {
+                name, format, config: { mayhemMode, useGroupStage },
+            })
+        } catch (error) {
+            showToast('Error starting tournament: ' + error.message, 'error')
+            return
+        }
 
         const tournamentId = tourneyData.id
         // For groups, we can shuffle first so groups are random.
@@ -156,10 +160,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     const handleGroupMatchSaved = async (savedMatch) => {
         if (!savedMatch) { setSelectedMatchId(null); return }
 
-        // Link to tournament
-        if (!savedMatch.tournament_id && savedMatch.id) {
-            await supabase.from('matches').update({ tournament_id: activeTournament.id }).eq('id', savedMatch.id)
-        }
+        // Recording RPCs attach the tournament in the same transaction.
 
         const t = { ...activeTournament }
         const groupIndex = selectedMatchId.groupIndex
@@ -230,9 +231,9 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             t.phase = 'bracket'
         }
 
+        // The saved match is already merged into the app's history; no reload needed.
         setActiveTournament(t)
         setSelectedMatchId(null)
-        if (fetchData) fetchData()
     }
 
     // ─── Bracket Match Click ───────────────────────
@@ -259,7 +260,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             updateBracketWithResult(selectedMatchId.roundIndex, selectedMatchId.matchId, savedMatch)
         }
         setSelectedMatchId(null)
-        if (fetchData) fetchData()
     }
 
     const updateBracketWithResult = async (roundIdx, matchId, dbMatch) => {
@@ -283,9 +283,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         match.winner = winner
         match.dbMatchId = dbMatch.id
 
-        if (!dbMatch.tournament_id) {
-            await supabase.from('matches').update({ tournament_id: newTournament.id }).eq('id', dbMatch.id)
-        }
 
         let debuffsPool = cachedDebuffs
         if (!debuffsPool || debuffsPool.length === 0) {
@@ -304,7 +301,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             isComplete = handleSingleElimAdvancement(newTournament, roundIdx, matchIndex, match, winner, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         }
 
-        // Run robust propagation (isInitialSetup=false: don't auto-assign byes)
+        // Propagate only resolved sources; waiting for an opponent is never a bye.
         propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
 
         setActiveTournament(newTournament)
@@ -318,10 +315,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     // ─── Finish Tournament ─────────────────────────
 
     const finishTournament = async (tournament) => {
-        await supabase.from('tournaments')
-            .update({ status: 'completed', winner_id: tournament.winner.id })
-            .eq('id', tournament.id)
-
         const results = []
         const rounds = tournament.rounds
         const format = tournament.format
@@ -382,9 +375,13 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             }
         }
 
-        if (results.length > 0) {
-            const { error } = await supabase.from('tournament_results').insert(results)
-            if (error) console.error("Error saving results", error)
+        try {
+            await completeTournament(supabase, adminToken, tournament.id, tournament.winner.id, results)
+            setActiveTournament({ ...tournament, status: 'completed' })
+        } catch (error) {
+            setActiveTournament({ ...tournament, status: 'active' })
+            showToast('Error finishing tournament: ' + error.message, 'error')
+            return
         }
 
         showToast(`🏆 Tournament Complete! ${tournament.winner.name} is the champion!`, 'success') // Replaced alert
@@ -400,16 +397,12 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         showConfirm("Are you sure you want to cancel this tournament? The tournament and all its matches will be permanently deleted.", async () => {
             const tournamentId = activeTournament.id
             try {
-                // Delete all matches associated with this tournament
-                await supabase.from('matches').delete().eq('tournament_id', tournamentId)
-                // Delete tournament results
-                await supabase.from('tournament_results').delete().eq('tournament_id', tournamentId)
-                // Delete the tournament itself
-                await supabase.from('tournaments').delete().eq('id', tournamentId)
+                await deleteTournament(supabase, adminToken, tournamentId, true)
                 showToast('Tournament cancelled and deleted.', 'success')
             } catch (err) {
                 console.error('Error deleting cancelled tournament:', err)
-                showToast('Tournament cancelled locally, but failed to delete from database.', 'error')
+                showToast('Failed to cancel tournament: ' + err.message, 'error')
+                return
             }
             setActiveTournament(null)
             localStorage.removeItem(STORAGE_KEY)
@@ -433,7 +426,6 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             }
 
             finishTournament(t)
-            setActiveTournament(t)
         })
     }
 
@@ -481,7 +473,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
             isComplete = handleSingleElimAdvancement(newTournament, targetRoundIdx, targetMatchIdx, targetMatch, lonePlayer, loser, debuffsPool, usersMap, assignDebuffsToMatch)
         }
 
-        // Propagate but don't auto-assign new byes
+        // Propagate resolved sources, including proven empty branches.
         propagateAdvancements(newTournament.rounds, newTournament.config?.mayhemMode, debuffsPool, usersMap, assignDebuffsToMatch, false)
 
         setActiveTournament(newTournament)
@@ -496,7 +488,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     // ─── Render ────────────────────────────────────
 
     if (!activeTournament) {
-        return <TournamentSetup users={users} onStart={handleStartTournament} isAdmin={isAdmin} />
+        return <TournamentSetup users={users} onStart={handleStartTournament} isAdmin={isAdmin} adminToken={adminToken} fetchData={fetchData} />
     }
 
     // Find selected match info for Modal
@@ -520,18 +512,18 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     return (
         <div className="flex flex-col h-full min-h-[600px]">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <Trophy className="mr-2 text-yellow-500" />
+            <div className="flex flex-wrap justify-between items-center gap-x-4 gap-y-2 mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                        <Trophy className="mr-2 shrink-0 text-yellow-500" />
                         {activeTournament.name}
                     </h2>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
+                    <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
                         {activeTournament.status === 'active' ? '🔴 Live' : '🏁 Completed'} • {formatLabel}{phaseLabel}
                     </div>
                 </div>
                 {isAdmin && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 -mx-2 sm:mx-0">
                         {activeTournament.status === 'active' && (
                             <button onClick={handleManuallyFinishTournament} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex items-center font-bold">
                                 <Trophy size={18} className="mr-1" /> Finish
@@ -550,7 +542,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                     {activeTournament.groups.map((group, gIdx) => (
                         <div key={gIdx} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Standings */}
-                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                                 <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white flex items-center justify-between">
                                     <span>{group.name} Standings</span>
                                     <Users size={20} className="text-blue-500" />
@@ -584,7 +576,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                             </div>
 
                             {/* Pairings */}
-                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                                 <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white flex items-center justify-between">
                                     <span>{group.name} Matches</span>
                                     <Swords size={20} className="text-red-500" />
@@ -606,26 +598,28 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                                             >
                                                 <div className="flex-1 flex items-center justify-end gap-2 text-right">
                                                     <span className="font-bold text-gray-900 dark:text-white truncate max-w-[80px]">{p1?.name}</span>
-                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                                        {p1?.avatar_url && <img src={p1.avatar_url} className="w-full h-full object-cover" alt="" />}
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                                        <img loading="lazy" decoding="async" src={p1?.avatar_url || getAvatarFallback(p1?.name || '?')} className="w-full h-full object-cover" alt={p1?.name || ''} />
                                                     </div>
                                                 </div>
 
-                                                <div className="px-4 flex flex-col items-center gap-1">
+                                                <div className="px-2 sm:px-4 flex flex-col items-center gap-1">
                                                     <span className="text-gray-400 font-bold text-xs">VS</span>
                                                     {!isDone && isAdmin && (
                                                         <div className="flex gap-1">
                                                             <button
                                                                 onClick={() => handleGroupMatchClick(gIdx, pairing, false)}
-                                                                className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-200 transition-colors"
+                                                                className="p-2.5 sm:p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-200 transition-colors"
                                                                 title="Record Result"
+                                                                aria-label="Record result"
                                                             >
                                                                 <RefreshCw size={14} />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleGroupMatchClick(gIdx, pairing, true)}
-                                                                className="p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200 transition-colors"
+                                                                className="p-2.5 sm:p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md hover:bg-red-200 transition-colors"
                                                                 title="Live Match"
+                                                                aria-label="Live match"
                                                             >
                                                                 <Trophy size={14} />
                                                             </button>
@@ -635,8 +629,8 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                                                 </div>
 
                                                 <div className="flex-1 flex items-center justify-start gap-2 text-left">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                                        {p2?.avatar_url && <img src={p2.avatar_url} className="w-full h-full object-cover" alt="" />}
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                                        <img loading="lazy" decoding="async" src={p2?.avatar_url || getAvatarFallback(p2?.name || '?')} className="w-full h-full object-cover" alt={p2?.name || ''} />
                                                     </div>
                                                     <span className="font-bold text-gray-900 dark:text-white truncate max-w-[80px]">{p2?.name}</span>
                                                 </div>

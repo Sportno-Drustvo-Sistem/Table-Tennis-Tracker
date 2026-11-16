@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { onAdminSessionExpired } from './adminSession'
 import {
     buildPadelRecordParams,
     buildPingPongRecordParams,
     buildTennisRecordParams,
+    describeRecordedMatch,
+    onMatchRecorded,
+    recordPadelMatch,
     recordPingPongMatch,
 } from './matchPersistence'
 
@@ -103,5 +107,60 @@ describe('match persistence RPC helpers', () => {
             player2Id: 'p2',
             sets: [{ s1: 11, s2: 8 }],
         })).toThrow('Admin mode is required to save matches')
+    })
+
+    it('announces successful saves with the sport, and never failed ones', async () => {
+        const heard = []
+        const stop = onMatchRecorded(event => heard.push(event))
+        const match = { id: 'p-1', team1_player1_id: 'a', team1_player2_id: 'b', team2_player1_id: 'c', team2_player2_id: 'd' }
+        const ok = { rpc: async () => ({ data: { match, changes: { a: 9 } }, error: null }) }
+        const failing = { rpc: async () => ({ data: null, error: new Error('Rejected') }) }
+
+        await recordPadelMatch(ok, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })
+        await expect(recordPadelMatch(failing, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })).rejects.toThrow('Rejected')
+        stop()
+        await recordPadelMatch(ok, { adminToken: 't', team1: ['a', 'b'], team2: ['c', 'd'], score1: 6, score2: 3 })
+
+        expect(heard).toEqual([{ sport: 'padel', match, matches: [match], changes: { a: 9 } }])
+    })
+
+    it('reports an ended admin session when a save is refused for it', async () => {
+        const heard = []
+        const stop = onAdminSessionExpired(event => heard.push(event))
+        const refusing = error => ({ rpc: async () => ({ data: null, error }) })
+        const save = client => recordPingPongMatch(client, { adminToken: 't', player1Id: 'p1', player2Id: 'p2', sets: [{ s1: 11, s2: 8 }] })
+
+        await expect(save(refusing({ code: 'P0001', message: 'Player 1 not found' }))).rejects.toBeTruthy()
+        expect(heard).toEqual([])
+        await expect(save(refusing({ code: '42501', message: 'Admin session is missing or expired' }))).rejects.toBeTruthy()
+        stop()
+        expect(heard).toEqual([{ prompt: true }])
+    })
+
+    it('describes saved matches with Elo changes', () => {
+        const usersById = { p1: { name: 'Alice' }, p2: { name: 'Bob' }, a: { name: 'Ann' }, b: { name: 'Ben' }, c: { name: 'Cy' }, d: { name: 'Di' } }
+        expect(describeRecordedMatch({ sport: 'pingpong', match: { player1_id: 'p1', player2_id: 'p2' }, changes: { p1: 12, p2: -12 } }, usersById))
+            .toBe('Match saved · Alice +12 · Bob -12')
+        expect(describeRecordedMatch({ sport: 'padel', match: { team1_player1_id: 'a', team1_player2_id: 'b', team2_player1_id: 'c', team2_player2_id: 'd' }, changes: { a: -7, c: 7 } }, usersById))
+            .toBe('Match saved · Ann & Ben -7 · Cy & Di +7')
+        expect(describeRecordedMatch({ sport: 'tennis', match: { player1_id: 'p1', player2_id: 'x' }, changes: {} }, usersById))
+            .toBe('Match saved · Alice · Unknown')
+        expect(describeRecordedMatch({ sport: 'tennis', match: null }, usersById)).toBe('Match saved')
+    })
+})
+
+describe('saving a match with bets', () => {
+    it('calls the settling RPC and passes the settled bets on to listeners', async () => {
+        const { recordPingPongMatchWithBets, onMatchRecorded } = await import('./matchPersistence')
+        const data = { match: { id: 'm' }, matches: [{ id: 'm' }], changes: {}, market: { id: 'k', status: 'settled' }, bets: [{ id: 'b' }], wallets: [{ id: 'w' }] }
+        const rpc = vi.fn().mockResolvedValue({ data, error: null })
+        const heard = []
+        const stop = onMatchRecorded(event => heard.push(event))
+        const result = await recordPingPongMatchWithBets({ rpc }, { adminToken: 't', marketId: 'k', player1Id: 'a', player2Id: 'b', sets: [{ s1: 11, s2: 4 }] })
+        stop()
+        expect(rpc).toHaveBeenCalledWith('record_pingpong_match_with_bets', { p_admin_token: 't', p_market_id: 'k', p_player1_id: 'a', p_player2_id: 'b', p_sets: [{ s1: 11, s2: 4 }], p_handicap_rule: null })
+        expect(result.betting).toEqual({ market: data.market, bets: data.bets, wallets: data.wallets })
+        expect(heard[0].betting.market.id).toBe('k')
+        await expect(recordPingPongMatchWithBets({ rpc }, { adminToken: 't', marketId: 'k', player1Id: 'a', player2Id: 'b', sets: [{ s1: 11, s2: 11 }] })).rejects.toThrow('Invalid Ping Pong scores')
     })
 })

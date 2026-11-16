@@ -110,7 +110,8 @@ const BADGE_DEFS = [
 
 ]
 
-const Achievements = ({ playerId, users, matches }) => {
+// `eloData` is the caller's buildEloHistory(users, matches), passed in so it is not replayed here.
+const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
     const [debuffs, setDebuffs] = React.useState([])
     React.useEffect(() => {
         getActiveDebuffs().then(setDebuffs)
@@ -201,7 +202,7 @@ const Achievements = ({ playerId, users, matches }) => {
         const onFireLvl = getLevel('on_fire', streak)
         if (onFireLvl >= 0) badges['on_fire'] = onFireLvl
 
-        const eloData = buildEloHistory(users, matches)
+        const eloData = sharedEloData || buildEloHistory(users, matches)
 
         // --- Giant Killer: highest ELO beaten ---
         let maxEloDiff = 0
@@ -322,12 +323,12 @@ const Achievements = ({ playerId, users, matches }) => {
             badges,
             metrics: { deuceTotal, deuceWins, deuceWr, specificDebuffWins }
         }
-    }, [playerId, users, matches, allBadgeDefs])
+    }, [playerId, users, matches, allBadgeDefs, sharedEloData])
 
     if (Object.keys(earned).length === 0 && !matches?.length) return null
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
                 <Medal className="mr-2 text-yellow-500" size={20} /> Achievements
             </h3>

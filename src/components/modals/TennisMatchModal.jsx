@@ -59,7 +59,6 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adm
                 matchFormat,
                 setsData: validation.sets,
             })
-            showToast('Tennis match saved!', 'success')
             onMatchSaved?.()
         } catch (error) {
             console.error(error)
@@ -73,8 +72,8 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adm
     const visibleSets = sets.slice(0, maxSets)
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 pt-4 sm:p-4">
+            <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 max-h-[90dvh] overflow-y-auto">
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Record Tennis Match</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
@@ -137,7 +136,7 @@ const TennisMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, adm
 const PlayerPreview = ({ player, align }) => (
     <div className={`flex items-center gap-3 ${align === 'right' ? 'justify-end text-right' : ''}`}>
         {align === 'right' && <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>}
-        <img src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-14 h-14 rounded-full object-cover bg-gray-200" />
+        <img loading="lazy" decoding="async" src={player.avatar_url || getAvatarFallback(player.name)} alt={player.name} className="w-14 h-14 rounded-full object-cover bg-gray-200" />
         {align !== 'right' && <span className="font-bold text-gray-900 dark:text-white">{player.name}</span>}
     </div>
 )
@@ -146,7 +145,7 @@ const ScoreInput = ({ label, value, onChange }) => (
     <label className="block">
         <span className="block text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1 truncate">{label}</span>
         <input
-            type="number"
+            type="number" inputMode="numeric"
             min="0"
             value={value}
             onChange={event => onChange(event.target.value)}

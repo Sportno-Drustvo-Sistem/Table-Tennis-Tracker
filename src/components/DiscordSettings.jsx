@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { MessageSquare, Save, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import { getDiscordWebhook, updateDiscordWebhook, getDailyStats, formatDiscordMessage, sendToDiscord } from '../discordUtils'
+import { getDiscordStatus, updateDiscordWebhook, getDailyStats, formatDiscordMessage, sendToDiscord } from '../discordUtils'
 
-const DiscordSettings = () => {
+const DiscordSettings = ({ adminToken }) => {
     const [webhookUrl, setWebhookUrl] = useState('')
+    const [configured, setConfigured] = useState(false)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [sending, setSending] = useState(false)
@@ -11,18 +12,22 @@ const DiscordSettings = () => {
 
     useEffect(() => {
         const fetchWebhook = async () => {
-            const url = await getDiscordWebhook()
-            setWebhookUrl(url || '')
-            setLoading(false)
+            try {
+                const result = await getDiscordStatus(adminToken)
+                setConfigured(result.configured)
+            } catch (error) { setStatus({ type: 'error', message: error.message }) }
+            finally { setLoading(false) }
         }
         fetchWebhook()
-    }, [])
+    }, [adminToken])
 
     const handleSave = async () => {
         setSaving(true)
         setStatus({ type: null, message: '' })
         try {
-            await updateDiscordWebhook(webhookUrl)
+            const result = await updateDiscordWebhook(adminToken, webhookUrl)
+            setConfigured(result.configured)
+            setWebhookUrl('')
             setStatus({ type: 'success', message: 'Webhook URL saved successfully!' })
         } catch {
             setStatus({ type: 'error', message: 'Failed to save webhook URL.' })
@@ -32,7 +37,7 @@ const DiscordSettings = () => {
     }
 
     const handleSendStats = async () => {
-        if (!webhookUrl) {
+        if (!configured) {
             setStatus({ type: 'error', message: 'Please set a webhook URL first.' })
             return
         }
@@ -43,7 +48,7 @@ const DiscordSettings = () => {
             const today = new Date()
             const stats = await getDailyStats(today)
             const payload = formatDiscordMessage(stats, today)
-            await sendToDiscord(webhookUrl, payload)
+            await sendToDiscord(adminToken, payload)
             setStatus({ type: 'success', message: "Today's stats sent to Discord!" })
         } catch (error) {
             setStatus({ type: 'error', message: `Failed to send stats: ${error.message}` })
@@ -70,7 +75,7 @@ const DiscordSettings = () => {
                     </label>
                     <div className="flex gap-2">
                         <input
-                            type="text"
+                            type="password"
                             className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="https://discord.com/api/webhooks/..."
                             value={webhookUrl}
@@ -86,6 +91,7 @@ const DiscordSettings = () => {
                         </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
+                        {configured ? 'A webhook is configured. Enter a replacement URL to rotate it, or save an empty value to disable. ' : 'No webhook configured. '}
                         Go to your Discord Server Settings &gt; Integrations &gt; Webhooks to create one.
                     </p>
                 </div>
@@ -99,7 +105,7 @@ const DiscordSettings = () => {
                     </div>
                     <button
                         onClick={handleSendStats}
-                        disabled={sending || !webhookUrl}
+                        disabled={sending || !configured}
                         className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 font-bold flex items-center shadow-md transition-all hover:shadow-lg disabled:opacity-50"
                     >
                         {sending ? <Loader2 className="animate-spin mr-2" size={18} /> : <Send className="mr-2" size={18} />}
