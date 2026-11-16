@@ -6,7 +6,26 @@ export const STARTING_BALANCE = 1000
 export const REBUY_BALANCE = 100
 export const MIN_MULTIPLIER = 1.05
 export const MAX_MULTIPLIER = 10
-export const STAKE_CHIPS = [10, 50, 100, 250]
+export const STAKE_CHIPS = [10, 50, 100, 300, 500, 1000]
+
+// Chip colours by value: [face, edge, stripe]. The 1000 chip is black and gold.
+const CHIP_TONES = {
+    10: ['#0284c7', '#075985'],
+    50: ['#059669', '#065f46'],
+    100: ['#7c3aed', '#4c1d95'],
+    300: ['#db2777', '#9d174d'],
+    500: ['#d97706', '#92400e'],
+    1000: ['#18181b', '#000000', '#fbbf24'],
+}
+
+// CSS variables for `.bet-chip`; any stake takes the colour of the biggest chip it covers.
+export const chipTone = (amount) => {
+    const tier = [...STAKE_CHIPS].reverse().find(value => value <= amount) || STAKE_CHIPS[0]
+    const [chip, edge, stripe = '#ffffff'] = CHIP_TONES[tier] || CHIP_TONES[10]
+    return { '--chip': chip, '--chip-edge': edge, '--chip-stripe': stripe }
+}
+
+export const chipLabel = amount => (amount >= 1000 ? `${amount / 1000}K` : String(amount))
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x))
 

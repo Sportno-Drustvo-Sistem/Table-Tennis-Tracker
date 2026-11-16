@@ -48,8 +48,27 @@ export default {
           from: { opacity: '0', transform: 'scale(0.97)' },
           to: { opacity: '1', transform: 'scale(1)' },
         },
+        // Betting: a picked card bounces, placed chips fly up out of the slip.
+        'pop': {
+          '0%': { transform: 'scale(0.94)' },
+          '60%': { transform: 'scale(1.04)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        'chip-fly': {
+          '0%': { transform: 'translate(0, 0) scale(0.3) rotate(0deg)', opacity: '0' },
+          '15%': { opacity: '1' },
+          '70%': { opacity: '1' },
+          '100%': { transform: 'translate(var(--dx), var(--dy)) scale(1) rotate(var(--rot))', opacity: '0' },
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-3px)' },
+        },
       },
       animation: {
+        'pop': 'pop 260ms ease-out',
+        'chip-fly': 'chip-fly 900ms cubic-bezier(0.2, 0.7, 0.3, 1) both',
+        'float': 'float 2.4s ease-in-out infinite',
         'slide-up': 'slide-up 180ms ease-out',
         'fade-in': 'fade-in 150ms ease-out',
         'scale-in': 'scale-in 150ms ease-out',

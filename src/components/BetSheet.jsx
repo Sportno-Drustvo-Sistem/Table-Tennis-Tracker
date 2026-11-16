@@ -3,24 +3,43 @@ import { X, Coins, Trash2, Flame } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { getAvatarFallback } from '../utils'
 import { cancelBet, placeBet, placeLiveBet } from '../betPersistence'
-import { STAKE_CHIPS, allowedSides, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
+import { STAKE_CHIPS, allowedSides, chipLabel, chipTone, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
-import { BetAvatar, BetList, BetPool } from './MatchBets'
+import { BetAvatar, BetList, BetPool, CountUp, MiniChip } from './MatchBets'
 
-// Stake buttons drawn as poker chips, one colour per value.
-const CHIP_COLORS = { 10: 'bg-sky-600', 50: 'bg-emerald-600', 100: 'bg-violet-600', 250: 'bg-gray-950 dark:bg-black' }
 const selectedRing = 'ring-4 ring-amber-400 scale-110'
+// A picked chip lifts off the table with a little overshoot.
+const chipMotion = 'transition-transform duration-200 ease-[cubic-bezier(.34,1.56,.64,1)] active:scale-90'
+const chipPicked = '-translate-y-1.5 scale-110 outline outline-[3px] outline-offset-2 outline-amber-400'
+// Odds this long get a flame.
+const LONG_SHOT = 3
 
 const SIDE_STYLES = {
     1: {
         idle: 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-        active: 'border-blue-500 bg-blue-500 text-white',
+        active: 'border-blue-500 bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-500/40 motion-safe:animate-pop',
     },
     2: {
         idle: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300',
-        active: 'border-red-500 bg-red-500 text-white',
+        active: 'border-red-500 bg-gradient-to-br from-red-500 to-red-700 text-white shadow-lg shadow-red-500/40 motion-safe:animate-pop',
     },
 }
+
+// Chips thrown up from the slip when a bet lands; more of them for an all-in.
+const BURST_CHIPS = [10, 50, 100, 300, 500, 1000]
+const ChipBurst = ({ count }) => (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-28 z-10 flex justify-center motion-reduce:hidden">
+        {Array.from({ length: count }, (_, i) => {
+            const spread = (i / (count - 1)) * 2 - 1
+            return (
+                <span key={i} className="absolute motion-safe:animate-chip-fly"
+                    style={{ '--dx': `${Math.round(spread * 150)}px`, '--dy': `${-140 - ((i * 67) % 190)}px`, '--rot': `${Math.round(spread * 300)}deg`, animationDelay: `${(i % 5) * 40}ms` }}>
+                    <MiniChip amount={BURST_CHIPS[i % BURST_CHIPS.length]} className="w-6 h-6" />
+                </span>
+            )
+        })}
+    </div>
+)
 
 const BETTOR_STORAGE_KEY = 'betSheetBettor'
 const rememberedBettor = () => {
@@ -43,6 +62,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
     const [side, setSide] = useState(null)
     const [stake, setStake] = useState('')
     const [busy, setBusy] = useState(false)
+    const [burst, setBurst] = useState(null)
 
     if (!isOpen) return null
 
@@ -91,6 +111,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                     snapshot,
                 })
             }
+            setBurst(last => ({ id: (last?.id || 0) + 1, count: allIn ? 24 : 12 }))
             const bettor = usersById[bettorId]?.name || 'Bet'
             showToast(allIn ? `${bettor} is all in on ${players[activeSide].name}!` : `${bettor} put ${stakeValue.toLocaleString()} on ${players[activeSide].name}`, 'success')
             // A phone of your own keeps you picked for the next bet.
@@ -120,11 +141,12 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
 
     return (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="bet-sheet-title">
-            <div className="w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[90dvh] bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden short:max-w-none short:rounded-none short:h-[100dvh]">
-                <div className="flex items-center justify-between px-4 pt-4 pb-2 short:pt-2">
+            <div className="relative w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[90dvh] bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden motion-safe:animate-slide-up short:max-w-none short:rounded-none short:h-[100dvh]">
+                {burst && <ChipBurst key={burst.id} count={burst.count} />}
+                <div className="flex items-center justify-between px-4 pt-4 pb-2 short:pt-2 bg-gradient-to-b from-amber-50 to-transparent dark:from-amber-500/10">
                     <div className="min-w-0">
-                        <h3 id="bet-sheet-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-                            <Coins size={20} className="text-amber-500" />
+                        <h3 id="bet-sheet-title" className="flex items-center gap-2 text-lg font-black text-gray-900 dark:text-white">
+                            <MiniChip amount={500} className="w-6 h-6" />
                             Bets
                         </h3>
                         <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums short:hidden">
@@ -154,7 +176,10 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                                     <img loading="lazy" decoding="async" src={players[n].avatar_url || getAvatarFallback(players[n].name)} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
                                     <span className="min-w-0">
                                         <span className="block font-bold truncate">{players[n].name}</span>
-                                        <span className="block text-xl font-black tabular-nums leading-tight">{multiplier[n].toFixed(2)}×</span>
+                                        <span className="flex items-center gap-1 text-xl font-black tabular-nums leading-tight">
+                                            {multiplier[n].toFixed(2)}×
+                                            {multiplier[n] >= LONG_SHOT && <Flame size={14} className={activeSide === n ? 'text-amber-300' : 'text-orange-500'} aria-label="Long shot" />}
+                                        </span>
                                         <span className="block text-[11px] opacity-80">{Math.round(probability[n] * 100)}% to win</span>
                                     </span>
                                 </button>
@@ -241,8 +266,9 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                             <div className="flex flex-wrap items-center gap-2.5">
                                 {STAKE_CHIPS.filter(amount => amount < balance).map(amount => (
                                     <button key={amount} type="button" onClick={() => setStake(String(amount))} aria-pressed={stakeValue === amount}
-                                        className={`w-12 h-12 rounded-full border-[3px] border-dashed border-white/70 text-white text-sm font-black tabular-nums shadow-md transition-transform active:scale-95 ${CHIP_COLORS[amount] || 'bg-gray-600'} ${stakeValue === amount ? selectedRing : ''}`}>
-                                        {amount}
+                                        aria-label={`${amount} points`} style={chipTone(amount)}
+                                        className={`bet-chip w-12 h-12 text-sm font-black tabular-nums ${chipMotion} ${stakeValue === amount ? chipPicked : 'can-hover:hover:-translate-y-0.5'}`}>
+                                        <span className="relative">{chipLabel(amount)}</span>
                                     </button>
                                 ))}
                                 <button type="button" onClick={() => setStake(String(balance))} aria-pressed={allIn}
@@ -261,9 +287,22 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         {stake !== '' && !stakeValid && balance > 0 && (
                             <p className="mt-2 text-sm text-red-600 dark:text-red-400">Enter a whole number from 1 to {balance.toLocaleString()}.</p>
                         )}
+                        {activeSide && stakeValid && (
+                            <div className="mt-3 short:hidden flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-white bg-gradient-to-r from-gray-900 to-gray-700 dark:from-black dark:to-gray-800 shadow-md motion-safe:animate-slide-up">
+                                <MiniChip amount={stakeValue} className="w-8 h-8" />
+                                <div className="min-w-0 flex-1 leading-tight">
+                                    <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{allIn ? 'All in on' : 'Backing'}</div>
+                                    <div className="font-bold truncate">{players[activeSide].name} · {multiplier[activeSide].toFixed(2)}×</div>
+                                </div>
+                                <div className="text-right leading-tight flex-shrink-0">
+                                    <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">To win</div>
+                                    <div className="text-2xl font-black tabular-nums text-amber-400">+<CountUp value={potentialPayout(stakeValue, multiplier[activeSide]) - stakeValue} /></div>
+                                </div>
+                            </div>
+                        )}
                         <button
                             type="button" onClick={handlePlace} disabled={!canPlace}
-                            className={`mt-3 w-full py-3 rounded-xl text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed ${allIn && activeSide ? 'bg-gradient-to-r from-orange-500 to-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}
+                            className={`mt-3 w-full py-3 rounded-xl text-white font-bold shadow-md transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none bg-gradient-to-r ${allIn && activeSide ? 'from-orange-500 to-red-600 shadow-red-500/30' : 'from-amber-500 to-orange-500 shadow-amber-500/30'} ${canPlace ? 'bet-shine' : ''}`}
                         >
                             {busy ? 'Placing…' : !activeSide ? 'Pick who they back' : !stakeValid ? 'Pick a stake'
                                 : `${allIn ? 'All in!' : 'Bet'} ${stakeValue.toLocaleString()} on ${players[activeSide].name} · pays ${potentialPayout(stakeValue, multiplier[activeSide]).toLocaleString()}`}

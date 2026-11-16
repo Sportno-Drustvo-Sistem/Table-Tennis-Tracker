@@ -1,13 +1,41 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { getAvatarFallback } from '../utils'
-import { describeSnapshot, formatPoints, poolTotals, potentialPayout } from '../bettingUtils'
+import { chipTone, describeSnapshot, formatPoints, poolTotals, potentialPayout } from '../bettingUtils'
+
+// A small chip marking a stake.
+export const MiniChip = ({ amount, className = 'w-4 h-4' }) => (
+    <span aria-hidden="true" className={`bet-chip bet-chip-mini ${className}`} style={chipTone(amount)} />
+)
+
+// A number that rolls to its new value instead of jumping.
+export const CountUp = ({ value }) => {
+    const [shown, setShown] = useState(value)
+    const current = useRef(value)
+    useEffect(() => {
+        const start = current.current
+        if (start === value) return undefined
+        const began = performance.now()
+        let frame = requestAnimationFrame(function tick(now) {
+            const progress = Math.min(1, (now - began) / 350)
+            current.current = Math.round(start + (value - start) * (1 - (1 - progress) ** 3))
+            setShown(current.current)
+            if (progress < 1) frame = requestAnimationFrame(tick)
+        })
+        return () => cancelAnimationFrame(frame)
+    }, [value])
+    return shown.toLocaleString()
+}
 
 // Side 1 is blue and side 2 red wherever bets are shown.
 const SIDE_TEXT = {
     1: 'text-blue-600 dark:text-blue-400',
     2: 'text-red-600 dark:text-red-400',
 }
-const SIDE_BAR = { 1: 'bg-blue-500', 2: 'bg-red-500' }
+const SIDE_BAR = { 1: 'bg-gradient-to-r from-blue-600 to-blue-400', 2: 'bg-gradient-to-r from-red-400 to-red-600' }
+const ROW_TONE = {
+    won: 'bg-emerald-50 dark:bg-emerald-500/10 ring-1 ring-emerald-200 dark:ring-emerald-500/30',
+    lost: 'bg-gray-50 dark:bg-white/5',
+}
 
 export const BetAvatar = ({ user, className = 'w-10 h-10' }) => (
     <img loading="lazy" decoding="async" src={user?.avatar_url || getAvatarFallback(user?.name)} alt="" className={`${className} rounded-full object-cover flex-shrink-0 bg-gray-200 dark:bg-gray-600`} />
@@ -23,10 +51,10 @@ export const BetPool = ({ bets, names }) => {
                 <span className={`min-w-0 truncate ${SIDE_TEXT[1]}`}>{names[1]} · {pool[1].toLocaleString()}</span>
                 <span className={`min-w-0 truncate ${SIDE_TEXT[2]}`}>{pool[2].toLocaleString()} · {names[2]}</span>
             </div>
-            <div className="flex gap-0.5 h-2 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700" role="img"
+            <div className="flex gap-0.5 h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shadow-inner" role="img"
                 aria-label={`${pool[1]} points on ${names[1]}, ${pool[2]} on ${names[2]}`}>
                 {[1, 2].map(side => pool[side] > 0 && (
-                    <div key={side} className={SIDE_BAR[side]} style={{ width: `${(pool[side] / pool.total) * 100}%` }} />
+                    <div key={side} className={`${SIDE_BAR[side]} transition-[width] duration-500`} style={{ width: `${(pool[side] / pool.total) * 100}%` }} />
                 ))}
             </div>
         </div>
@@ -50,11 +78,12 @@ export const BetList = ({ bets, getUser, names, renderAction }) => (
             const result = outcome(bet)
             const at = describeSnapshot(bet.snapshot)
             return (
-                <li key={bet.id} className="flex items-center gap-2.5 rounded-xl bg-gray-50 dark:bg-white/5 px-2.5 py-2">
+                <li key={bet.id} className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 motion-safe:animate-slide-up ${ROW_TONE[bet.status] || 'bg-gray-50 dark:bg-white/5'}`}>
                     <BetAvatar user={bettor} />
                     <div className="min-w-0 flex-1 text-sm">
                         <div className="font-bold text-gray-900 dark:text-white truncate">{bettor?.name || 'Unknown'}</div>
                         <div className="text-gray-500 dark:text-gray-400 truncate tabular-nums">
+                            <MiniChip amount={bet.stake} className="w-3.5 h-3.5 mr-1 align-[-2px]" />
                             <span className="font-bold text-gray-700 dark:text-gray-200">{bet.stake.toLocaleString()}</span> on <span className={`font-bold ${SIDE_TEXT[bet.side]}`}>{names[bet.side]}</span>
                             {' · '}{Number(bet.multiplier).toFixed(2)}×{at && ` · at ${at}`}
                         </div>

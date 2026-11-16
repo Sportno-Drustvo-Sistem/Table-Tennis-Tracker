@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake } from 'lucide-react'
+import { Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { voidBetMarket } from '../betPersistence'
 import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, poolTotals } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
-import { BetAvatar, BetList, BetPool } from './MatchBets'
+import { BetAvatar, BetList, BetPool, MiniChip } from './MatchBets'
 import BetSheet from './BetSheet'
 import LiveScoreboard from './LiveScoreboard'
 
@@ -129,8 +129,8 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                         </div>
                         <LiveScoreboard live={match} getUser={getUser} />
                         <button type="button" onClick={() => setBetLiveId(match.id)} disabled={!open}
-                            className="mt-3 w-full py-3 rounded-xl flex items-center justify-center gap-2 text-white font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed">
-                            <Coins size={18} />
+                            className={`mt-3 w-full py-3.5 rounded-xl flex items-center justify-center gap-2.5 text-white text-lg font-black bg-gradient-to-r from-amber-500 to-orange-500 shadow-md shadow-amber-500/30 transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none ${open ? 'bet-shine' : ''}`}>
+                            <MiniChip amount={open ? 100 : 1000} className="w-6 h-6" />
                             {open ? 'Place a bet' : 'Betting closed'}
                         </button>
                         {marketBets.length > 0 && (
@@ -206,11 +206,12 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
 
             <dl className="grid grid-cols-3 gap-2 sm:gap-4">
                 {[
-                    { label: 'Wagered', value: points(totals.wagered) },
-                    { label: 'Bets paid', value: points(totals.count) },
-                    { label: 'Biggest win', value: totals.biggestWin > 0 ? `+${points(totals.biggestWin)}` : '–', className: totals.biggestWin > 0 ? 'text-green-600 dark:text-green-400' : '' },
+                    { label: 'Wagered', Icon: Coins, tone: 'text-amber-500', value: points(totals.wagered) },
+                    { label: 'Bets paid', Icon: Ticket, tone: 'text-sky-500', value: points(totals.count) },
+                    { label: 'Biggest win', Icon: Trophy, tone: 'text-green-500', value: totals.biggestWin > 0 ? `+${points(totals.biggestWin)}` : '–', className: totals.biggestWin > 0 ? 'text-green-600 dark:text-green-400' : '' },
                 ].map(stat => (
                     <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-2 py-3 text-center">
+                        <stat.Icon size={18} className={`mx-auto mb-1 ${stat.tone}`} aria-hidden="true" />
                         <dd className={`text-xl sm:text-2xl font-black tabular-nums ${stat.className || 'text-gray-900 dark:text-white'}`}>{stat.value}</dd>
                         <dt className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">{stat.label}</dt>
                     </div>
@@ -246,10 +247,13 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                                 const row = bettors[place - 1]
                                 return (
                                     <li key={place} className="min-w-0 flex flex-col items-center text-center">
-                                        {place === 1 && <Crown size={22} className="mb-1 text-amber-400 fill-amber-400" aria-hidden="true" />}
-                                        <BetAvatar user={row.user} className={avatar} />
+                                        {place === 1 && <Crown size={24} className="mb-1 text-amber-400 fill-amber-400 motion-safe:animate-float" aria-hidden="true" />}
+                                        <BetAvatar user={row.user} className={`${avatar} ${place === 1 ? 'shadow-[0_0_22px_rgb(251_191_36/0.55)]' : ''}`} />
                                         <div className="mt-1.5 w-full font-bold truncate text-gray-900 dark:text-white">{row.user.name}</div>
-                                        <div className="text-sm font-black tabular-nums text-amber-600 dark:text-amber-400">{points(row.balance)}</div>
+                                        <div className="flex items-center gap-1 text-sm font-black tabular-nums text-amber-600 dark:text-amber-400">
+                                            <MiniChip amount={row.balance} className="w-3.5 h-3.5" />
+                                            {points(row.balance)}
+                                        </div>
                                         <div className={`mt-1.5 w-full rounded-t-lg flex items-center justify-center text-xl font-black ${step}`}>{place}</div>
                                     </li>
                                 )
@@ -299,7 +303,7 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                         {awards.map(award => {
                             const { title, Icon, tone, detail } = AWARDS[award.id]
                             return (
-                                <li key={award.id} className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-3.5">
+                                <li key={award.id} className={`flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl border shadow-sm p-3.5 ${award.id === 'jackpot' ? 'bet-shine border-amber-300 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700'}`}>
                                     <span className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center ${tone}`}>
                                         <Icon size={24} />
                                     </span>
