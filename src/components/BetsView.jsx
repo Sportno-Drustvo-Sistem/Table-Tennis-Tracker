@@ -75,8 +75,8 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
     const name = id => usersById[id]?.name || 'Unknown'
     const sideNames = market => ({ 1: name(market.player1_id), 2: name(market.player2_id) })
 
-    const board = buildBettingLeaderboard(users, wallets, bets)
-    const bettors = board.filter(row => row.hasBet)
+    const board = buildBettingLeaderboard(users, wallets, bets).filter(row => row.hasBet)
+    const bettors = board
     const totals = bettingTotals(bets)
     const earned = buildBettingAwards(bets)
     const awards = Object.keys(AWARDS).map(id => earned.find(award => award.id === id)).filter(Boolean)

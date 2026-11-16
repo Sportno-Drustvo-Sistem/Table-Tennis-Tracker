@@ -50,7 +50,7 @@ describe('betting screens render', () => {
         expect(html).toContain('>Ana</span> beat Bor')
         expect(html).toContain('at 5–3')
         expect(html).toContain('+43')
-        expect(html).toContain('No bets yet')
+        expect(html).not.toContain('No bets yet')
     })
 
     it('shows the live score and lets any phone bet on it', () => {

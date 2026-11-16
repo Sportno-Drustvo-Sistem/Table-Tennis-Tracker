@@ -4,6 +4,17 @@ export const filterSeasonMatches = (matches, seasonId) => seasonId === 'all'
     ? matches
     : matches.filter(match => String(match.season_id) === String(seasonId))
 
+// Keep untouched default-rating profiles out of season-specific rankings and
+// betting choices until they have played at least one game in that season.
+export const hideUnplayedDefaultRatingUsers = (users, matches) => {
+    const played = new Set()
+    for (const match of matches || []) {
+        played.add(match.player1_id)
+        played.add(match.player2_id)
+    }
+    return (users || []).filter(user => Number(user.elo_rating ?? 1200) !== 1200 || played.has(user.id))
+}
+
 export const getSeasonUsers = (users, matches, snapshots, seasonId, activeSeasonId) => {
     if (String(seasonId) === String(activeSeasonId)) return users
     if (seasonId !== 'all') {

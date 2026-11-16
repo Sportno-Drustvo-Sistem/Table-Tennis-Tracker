@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
-import { filterSeasonMatches, getSeasonUsers } from './seasonUtils'
+import { filterSeasonMatches, getSeasonUsers, hideUnplayedDefaultRatingUsers } from './seasonUtils'
 import {
   ADMIN_SESSION_STORAGE_KEY,
   checkAdminSession,
@@ -393,11 +393,20 @@ function App() {
   const currentMatches = useMemo(() => activeSeason ? filterSeasonMatches(matches, activeSeason.id) : matches, [matches, activeSeason])
   const scopedMatches = useMemo(() => activeSeason ? filterSeasonMatches(matches, selectedSeasonId) : matches, [matches, activeSeason, selectedSeasonId])
   const scopedUsers = useMemo(() => activeSeason ? getSeasonUsers(users, matches, seasonSnapshots, selectedSeasonId, activeSeason.id) : users, [users, matches, seasonSnapshots, selectedSeasonId, activeSeason])
+  const rankedUsers = useMemo(() => hideUnplayedDefaultRatingUsers(scopedUsers, scopedMatches), [scopedUsers, scopedMatches])
+  const bettingUsers = useMemo(() => {
+    const seasonUsersById = new Map(scopedUsers.map(user => [user.id, user]))
+    const usersWithSeasonRatings = users.map(user => ({
+      ...user,
+      elo_rating: seasonUsersById.get(user.id)?.elo_rating ?? user.elo_rating,
+    }))
+    return hideUnplayedDefaultRatingUsers(usersWithSeasonRatings, scopedMatches)
+  }, [users, scopedUsers, scopedMatches])
   const canManageSeason = !activeSeason || String(selectedSeasonId) === String(activeSeason.id)
 
   // Points betting on live matches; off until its tables exist.
   // With `live`, the umpire phone shares its score and any phone can bet.
-  const liveBetting = useMemo(() => bettingReady ? { users, bets, wallets: betWallets, live: liveBettingReady } : null, [bettingReady, liveBettingReady, users, bets, betWallets])
+  const liveBetting = useMemo(() => bettingReady ? { users: bettingUsers, bets, wallets: betWallets, live: liveBettingReady } : null, [bettingReady, liveBettingReady, bettingUsers, bets, betWallets])
 
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
@@ -519,7 +528,7 @@ function App() {
 
       {currentTab === 'leaderboard' && (
         isPingPong ? (
-          <Leaderboard key={seasonScope} users={scopedUsers} matches={scopedMatches} isAdmin={isAdmin} />
+          <Leaderboard key={seasonScope} users={rankedUsers} matches={scopedMatches} isAdmin={isAdmin} />
         ) : isPadel ? (
           <PadelLeaderboard users={users} matches={padelMatches} padelStats={padelStats} isAdmin={isAdmin} />
         ) : (

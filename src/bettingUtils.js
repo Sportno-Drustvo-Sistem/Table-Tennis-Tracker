@@ -97,7 +97,7 @@ export const buildBettingLeaderboard = (users, wallets, bets) => {
     return (users || []).map(user => {
         const wallet = walletByUser.get(user.id)
         const row = stats.get(user.id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
-        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: Boolean(wallet), streak: streaks.get(user.id) || 0, ...row }
+        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: stats.has(user.id), streak: streaks.get(user.id) || 0, ...row }
     }).sort((a, b) => (b.hasBet - a.hasBet) || (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
 }
 

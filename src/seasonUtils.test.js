@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { filterSeasonMatches, getSeasonUsers, fetchAllPingpongMatches } from './seasonUtils'
+import { filterSeasonMatches, getSeasonUsers, fetchAllPingpongMatches, hideUnplayedDefaultRatingUsers } from './seasonUtils'
 
 const users = [{ id: 'a', name: 'A', elo_rating: 1200, total_wins: 0, matches_played: 0 }, { id: 'b', name: 'B', elo_rating: 1200, total_wins: 0, matches_played: 0 }]
 const matches = [
@@ -12,6 +12,14 @@ describe('ping pong season scopes', () => {
         expect(filterSeasonMatches(matches, '2')).toEqual([matches[1]])
         expect(filterSeasonMatches(matches, '1')).toEqual([matches[0]])
         expect(filterSeasonMatches(matches, 'all')).toBe(matches)
+    })
+    it('hides only default-rated users who have not played in the selected season', () => {
+        const roster = [
+            ...users,
+            { id: 'c', name: 'C', elo_rating: 1450 },
+            { id: 'd', name: 'D', elo_rating: 1200 },
+        ]
+        expect(hideUnplayedDefaultRatingUsers(roster, [matches[0]]).map(user => user.id)).toEqual(['a', 'b', 'c'])
     })
     it('keeps live ratings reset and archived standings exact', () => {
         const snapshots = [{ season_id: 1, user_id: 'a', player: { ...users[0], elo_rating: 1700, total_wins: 50, matches_played: 70 } }]
