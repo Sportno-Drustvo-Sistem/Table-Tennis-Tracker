@@ -10,5 +10,12 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseKey || 'placeholder-key'
+  supabaseKey || 'placeholder-key',
+  {
+    // This app uses PIN-issued admin tokens passed to RPCs, not Supabase Auth.
+    // Skip Auth's storage/refresh locks, which can stall requests after Safari
+    // resumes an idle tab. Returning null keeps requests on the public API key;
+    // privileged RPCs still validate their p_admin_token on the server.
+    accessToken: async () => null,
+  }
 )
