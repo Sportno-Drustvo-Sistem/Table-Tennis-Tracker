@@ -70,6 +70,9 @@ export const onMatchRecorded = (listener) => {
 
 const callRecordRpc = async (client, sport, functionName, params) => {
     if (params.p_sets !== undefined && (!params.p_sets?.length || params.p_sets.some(s => !validPingPongScores(s.s1, s.s2)))) throw new Error('Invalid Ping Pong scores')
+    // A dedicated endpoint fails safely on older backends instead of silently
+    // saving the score while dropping rally data. Betting stays in the same transaction.
+    if (sport === 'pingpong' && params.p_sets.some(set => set.points !== undefined)) functionName = 'record_pingpong_match_with_points'
     const { data, error } = await client.rpc(functionName, params)
     if (error) {
         if (isAdminSessionError(error)) reportAdminSessionExpired()

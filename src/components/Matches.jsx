@@ -6,6 +6,7 @@ import { recalculatePlayerStats, buildEloHistory, getAvatarFallback } from '../u
 import { betsByMatchId, poolTotals } from '../bettingUtils'
 import { PingPongIcon } from './Icons'
 import { BetList, BetPool } from './MatchBets'
+import PointStats from './PointStats'
 import { LIST_PAGE_SIZE, ShowMore, Spinner } from './layout/AppShell'
 
 const EloChangeDisplay = ({ elo, change }) => (
@@ -28,6 +29,7 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
     const [searchQuery, setSearchQuery] = useState('')
     const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE)
     const [openBetsId, setOpenBetsId] = useState(null)
+    const [openPointsId, setOpenPointsId] = useState(null)
     const { showToast } = useToast()
 
     const handleSearchChange = query => {
@@ -322,6 +324,14 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                             ))}
                                                         </div>
                                                     )}
+                                                    {match.point_history?.length > 0 && (
+                                                        <button type="button" onClick={() => setOpenPointsId(openPointsId === match.id ? null : match.id)}
+                                                            aria-expanded={openPointsId === match.id}
+                                                            aria-label={`Point stats for ${player1.name} vs ${player2.name}`}
+                                                            className="mt-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold whitespace-nowrap">
+                                                            Point stats
+                                                        </button>
+                                                    )}
                                                     {betting && (
                                                         <button
                                                             type="button"
@@ -407,6 +417,11 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                 </div>
                                             </td>
                                         </tr>
+                                        {openPointsId === match.id && match.point_history?.length > 0 && (
+                                            <tr><td colSpan={6} className="px-3 sm:px-6 py-4 bg-gray-50 dark:bg-gray-900/40">
+                                                <div className="max-w-xl mx-auto"><PointStats games={[{ points: match.point_history }]} players={[player1, player2]} /></div>
+                                            </td></tr>
+                                        )}
                                         {betsOpen && (() => {
                                             const names = { 1: getPlayerInfo(betting.market.player1_id).name, 2: getPlayerInfo(betting.market.player2_id).name }
                                             return (

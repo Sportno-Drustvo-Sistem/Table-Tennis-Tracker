@@ -72,6 +72,7 @@ try {
         assert.notEqual(sql(db,bettingObjects),'0')
         // Live score and bets from any phone sit on top of betting: test, then roll back first.
         sql(db,read('live_betting.sql'))
+        sql(db,read('point_tracking.sql'))
         const liveFile=files.find(file=>file.includes('live_match_betting'))
         sql(db,fs.readFileSync(path.join('supabase/rollbacks',liveFile.split('_')[0]+'_live_match_betting_down.sql'),'utf8'))
         assert.equal(sql(db,"SELECT count(*) FROM pg_proc WHERE proname IN('publish_live_match','end_live_match','place_live_bet')"),'0','live betting rollback left functions behind')

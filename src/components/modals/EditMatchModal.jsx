@@ -43,6 +43,7 @@ const EditMatchModal = ({ isOpen, onClose, match, onMatchUpdated, adminToken }) 
         <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[60] p-3 pt-4 sm:p-4">
             <div className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-2xl w-full max-w-sm max-h-[90dvh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700 text-gray-900 dark:text-white">
                 <h2 className="text-xl font-bold mb-4 text-center">Edit Match Score</h2>
+                {match.point_history?.length > 0 && <p className="mb-4 text-xs text-amber-700 dark:text-amber-300">Changing the score clears the recorded rallies and point stats for this game.</p>}
                 <div className="flex justify-between items-center mb-6">
                     <div className="text-center w-1/3">
                         <div className="font-bold truncate">{match.player1?.name}</div>

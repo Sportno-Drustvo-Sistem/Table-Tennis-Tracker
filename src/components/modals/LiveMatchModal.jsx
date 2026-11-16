@@ -10,6 +10,8 @@ import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
 import KeepAwake from '../KeepAwake'
 import BetSheet from '../BetSheet'
+import PointStats from '../PointStats'
+import { POINT_TYPES, createPoint, getGameFirstServer, getPointServer } from '../../pingPongPoints'
 
 const WINNING_SCORE = 11
 const MIN_LEAD = 2
@@ -232,7 +234,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const [betSheetOpen, setBetSheetOpen] = useState(false)
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
-    const [history, setHistory] = useState([]) // array of 1 or 2 indicating who scored
+    const [history, setHistory] = useState([]) // rallies in the current game
     const [gameWinner, setGameWinner] = useState(null) // null | 1 | 2 (current game winner)
     const [matchWinner, setMatchWinner] = useState(null) // null | 1 | 2 (overall match winner)
     const [initialServer, setInitialServer] = useState(null) // 1 | 2
@@ -326,9 +328,16 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     // Count games won
     const gamesWon1 = completedSets.filter(s => s.s1 > s.s2).length
     const gamesWon2 = completedSets.filter(s => s.s2 > s.s1).length
+    const gameIndex = gameWinner ? completedSets.length - 1 : completedSets.length
+    const gameFirstServer = getGameFirstServer(initialServer, gameIndex)
+    const currentServer = getPointServer(gameFirstServer, score1, score2)
+    const trackedGames = gameWinner ? completedSets : [...completedSets, { points: history }]
 
-    const scorePoint = useCallback((playerNum) => {
-        if (!initialServer || gameWinner || matchWinner) return
+    const scorePoint = useCallback((actor, type) => {
+        if (!initialServer || gameWinner || matchWinner || saving) return
+        const point = createPoint(actor, type, currentServer)
+        if (!point) return
+        const playerNum = point.winner
         unlockAudioAndSpeech()
 
         let newS1 = score1
@@ -339,7 +348,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         setScore1(newS1)
         setScore2(newS2)
-        setHistory(prev => [...prev, playerNum])
+        const points = [...history, point]
+        setHistory(points)
 
         if (!matchStarted) setMatchStarted(true)
 
@@ -348,7 +358,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         const w = checkGameWin(newS1, newS2)
         if (w) {
-            const newSets = [...completedSets, { s1: newS1, s2: newS2 }]
+            const newSets = [...completedSets, { s1: newS1, s2: newS2, points }]
             setCompletedSets(newSets)
 
             const newGamesWon1 = newSets.filter(s => s.s1 > s.s2).length
@@ -374,13 +384,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     const gameWinnerName = w === 1 ? 'Blue' : 'Red'
                     setTimeout(() => playAudioSequence([`game_to_${gameWinnerName.toLowerCase()}.mp3`, `${newGamesWon1}.mp3`, `${newGamesWon2}.mp3`], `Game to ${gameWinnerName}... ${newGamesWon1} - ${newGamesWon2}.`), 200)
                 }
-                // Auto-reset after a brief pause
-                setTimeout(() => {
-                    setScore1(0)
-                    setScore2(0)
-                    setHistory([])
-                    setGameWinner(null)
-                }, 1200)
             }
         } else {
             // Voice announcements for ongoing game
@@ -390,15 +393,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 const mp2 = newS2 >= 10 && newS2 > newS1 && newS2 - newS1 >= 1
 
                 // Compute who serves after this point
-                const totalPts = newS1 + newS2
-                const isDeuceMode = newS1 >= 10 && newS2 >= 10
-                let nextServer
-                if (isDeuceMode) {
-                    nextServer = (totalPts % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
-                } else {
-                    const periods = Math.floor(totalPts / 2)
-                    nextServer = (periods % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
-                }
+                const nextServer = getPointServer(gameFirstServer, newS1, newS2)
                 const serverName = nextServer === 1 ? 'Blue' : 'Red'
 
                 // Using commas and ellipses forces the speech engine to pause naturally
@@ -413,24 +408,36 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 }
             }
         }
-    }, [adminToken, checkGameWin, completedSets, gameWinner, gamesNeeded, initialServer, matchStarted, matchWinner, score1, score2, soundEnabled])
+    }, [adminToken, checkGameWin, completedSets, currentServer, gameFirstServer, gameWinner, gamesNeeded, history, initialServer, matchStarted, matchWinner, saving, score1, score2, soundEnabled])
 
     const undoLast = useCallback(() => {
         unlockAudioAndSpeech()
-        if (history.length === 0 || gameWinner || matchWinner) return
+        if (saving) return
+        // At 0–0 in the next game, undo reaches into the previous game.
+        const previous = history.length ? null : completedSets.at(-1)
+        const points = previous ? previous.points : history
+        if (!points?.length) return
+        const lastScorer = points.at(-1).winner
+        if (gameWinner || previous) setCompletedSets(prev => prev.slice(0, -1))
+        setHistory(points.slice(0, -1))
+        setScore1((previous ? previous.s1 : score1) - (lastScorer === 1 ? 1 : 0))
+        setScore2((previous ? previous.s2 : score2) - (lastScorer === 2 ? 1 : 0))
+        setGameWinner(null)
+        setMatchWinner(null)
+    }, [completedSets, gameWinner, history, saving, score1, score2])
 
-        const lastScorer = history[history.length - 1]
-        setHistory(prev => prev.slice(0, -1))
-
-        if (lastScorer === 1) setScore1(prev => prev - 1)
-        else setScore2(prev => prev - 1)
-    }, [gameWinner, history, matchWinner])
+    const startNextGame = () => {
+        setScore1(0)
+        setScore2(0)
+        setHistory([])
+        setGameWinner(null)
+    }
 
     // Bets still riding on this match.
     const matchBets = betting ? betting.bets.filter(bet => bet.market_id === marketId && bet.status === 'pending') : []
 
     const handleSave = async () => {
-        if (!matchWinner) return
+        if (!matchWinner || saving) return
         setSaving(true)
         try {
             const allSets = completedSets
@@ -520,33 +527,20 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     useEffect(() => {
         if (!isOpen) return
         const onKey = (e) => {
-            if (gameWinner || matchWinner || betSheetOpen) return
+            if (betSheetOpen || saving) return
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-            if (e.key === 'ArrowLeft' || e.key === '1') scorePoint(1)
-            else if (e.key === 'ArrowRight' || e.key === '2') scorePoint(2)
-            else if (e.key === 'Backspace' || e.key === 'z') undoLast()
+            if (e.key === 'Backspace' || e.key === 'z') {
+                e.preventDefault()
+                undoLast()
+            }
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
-    }, [isOpen, gameWinner, matchWinner, betSheetOpen, scorePoint, undoLast])
+    }, [isOpen, betSheetOpen, saving, undoLast])
 
     const isDeuce = score1 >= 10 && score2 >= 10
     const matchPoint1 = !gameWinner && !matchWinner && score1 >= 10 && score1 > score2 && score1 - score2 >= 1
     const matchPoint2 = !gameWinner && !matchWinner && score2 >= 10 && score2 > score1 && score2 - score1 >= 1
-
-    // Serve Tracking Logic
-    const currentServer = useMemo(() => {
-        if (!initialServer) return null
-        const totalPoints = score1 + score2
-        const isDeuceMode = score1 >= 10 && score2 >= 10
-
-        if (isDeuceMode) {
-            return (totalPoints % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
-        } else {
-            const periods = Math.floor(totalPoints / 2)
-            return (periods % 2 === 0) ? initialServer : (initialServer === 1 ? 2 : 1)
-        }
-    }, [score1, score2, initialServer])
 
     // Pre-match chance that player 1 wins a point, fitted from the full match
     // history (Elo stands in for players who have none yet).
@@ -595,13 +589,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         // Between games the finished game is already counted, so the next starts at 0-0.
         const live1 = gameWinner ? 0 : score1
         const live2 = gameWinner ? 0 : score2
-        const totalPoints = live1 + live2
-        const server = !initialServer ? null : (live1 >= 10 && live2 >= 10)
-            ? ((totalPoints % 2 === 0) ? initialServer : 3 - initialServer)
-            : ((Math.floor(totalPoints / 2) % 2 === 0) ? initialServer : 3 - initialServer)
+        const server = matchWinner ? null : getPointServer(getGameFirstServer(initialServer, completedSets.length), live1, live2)
         return {
             bestOf, games1, games2, score1: live1, score2: live2,
-            sets: completedSets, server,
+            sets: completedSets.map(({ s1, s2 }) => ({ s1, s2 })), server,
             winProbability: Number(winProb.exact.toFixed(4)),
             bettingClosed: isBettingClosed({ score1, score2, games1, games2, bestOf, gameWinner, matchWinner }),
             winnerSide: matchWinner,
@@ -662,6 +653,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             {/* Full screen on phones in either orientation; `short` is a phone held sideways. */}
             <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-2xl sm:mx-4 bg-white dark:bg-gray-900 sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:max-h-[95dvh] short:h-[100dvh] short:max-h-none short:max-w-none short:mx-0 short:rounded-none">
                 <KeepAwake />
+                <div className="flex-1 min-h-0 overflow-y-auto">
 
                 {/* Close button */}
                 {!matchWinner && (
@@ -787,6 +779,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <button
                                     key={player.id}
                                     type="button"
+                                    aria-label={`${player.name} Serves first`}
                                     onClick={() => setInitialServer(index + 1)}
                                     className={`min-w-0 rounded-2xl border-2 p-4 short:p-2 flex flex-col items-center gap-3 short:gap-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${index === 0
                                         ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 focus-visible:outline-blue-500'
@@ -804,11 +797,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                 {/* Score Area */}
                 {initialServer !== null && (
-                <div className="flex-1 flex items-stretch px-4 pb-4 pt-2 short:pb-2 short:pt-1 gap-3 min-h-0">
+                <div role="group" aria-label={`Score: ${player1.name} ${score1}, ${player2.name} ${score2}`} className="flex-1 flex items-stretch px-3 pb-4 pt-2 short:pb-2 short:pt-1 gap-2 min-h-0">
                     {/* Player 1 Side */}
-                    <button
-                        onClick={() => scorePoint(1)}
-                        disabled={!!gameWinner || !!matchWinner}
+                    <div
                         className={`
                             flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 1
@@ -842,6 +833,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {player1.name}
                         </div>
+                        {currentServer === 1 && !gameWinner && <span className="text-xs text-amber-700 dark:text-amber-400">Serving</span>}
                         <div className={`text-7xl sm:text-8xl short:text-6xl font-black tabular-nums mt-2 short:mt-1 leading-none transition-all duration-200 ${matchWinner === 1 ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
                             {score1}
                         </div>
@@ -851,17 +843,18 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
                         )}
-                    </button>
+                        {!gameWinner && !matchWinner && (
+                            <PointButtons side={1} name={player1.name} server={currentServer} onPoint={scorePoint} />
+                        )}
+                    </div>
 
                     {/* Divider */}
-                    <div className="flex flex-col items-center justify-center gap-2 w-10 flex-shrink-0">
+                    <div className="flex flex-col items-center justify-center gap-2 w-5 flex-shrink-0">
                         <div className="text-gray-300 dark:text-gray-600 font-bold text-lg">VS</div>
                     </div>
 
                     {/* Player 2 Side */}
-                    <button
-                        onClick={() => scorePoint(2)}
-                        disabled={!!gameWinner || !!matchWinner}
+                    <div
                         className={`
                             flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
                             ${matchWinner === 2
@@ -895,6 +888,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <div className={`font-bold text-sm sm:text-base truncate max-w-full ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {player2.name}
                         </div>
+                        {currentServer === 2 && !gameWinner && <span className="text-xs text-amber-700 dark:text-amber-400">Serving</span>}
                         <div className={`text-7xl sm:text-8xl short:text-6xl font-black tabular-nums mt-2 short:mt-1 leading-none transition-all duration-200 ${matchWinner === 2 ? 'text-white' : 'text-red-600 dark:text-red-400'}`}>
                             {score2}
                         </div>
@@ -904,9 +898,25 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
                         )}
-                    </button>
+                        {!gameWinner && !matchWinner && (
+                            <PointButtons side={2} name={player2.name} server={currentServer} onPoint={scorePoint} />
+                        )}
+                    </div>
                 </div>
                 )}
+
+                {gameWinner && !matchWinner && (
+                    <div className="px-4 pb-3 text-center">
+                        <button onClick={startNextGame} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-bold">Start game {completedSets.length + 1}</button>
+                    </div>
+                )}
+                {initialServer !== null && (
+                    <details className="mx-4 mb-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                        <summary className="cursor-pointer font-bold text-sm text-gray-700 dark:text-gray-200">Point stats & progression</summary>
+                        <div className="mt-3"><PointStats games={trackedGames} players={[player1, player2]} /></div>
+                    </details>
+                )}
+                </div>
 
                 {/* Bottom Bar */}
                 <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 short:py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-2">
@@ -914,7 +924,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                         <>
                             <button
                                 onClick={undoLast}
-                                disabled={history.length === 0 || !!gameWinner}
+                                disabled={(history.length === 0 && completedSets.length === 0) || saving}
                                 className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
                             >
                                 <Undo2 size={16} />
@@ -933,8 +943,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <div className={`text-xs text-gray-400 dark:text-gray-500 font-medium ${betting ? 'hidden sm:block' : ''}`}>
                                     {initialServer === null ? 'Choose the first server above' : (
                                         <>
-                                            <span className="can-hover:hidden">Tap a side to score</span>
-                                            <span className="hidden can-hover:inline">Tap or use ← → keys to score</span>
+                                            <span>Choose a point type · Errors give the opponent a point</span>
                                         </>
                                     )}
                                 </div>
@@ -951,6 +960,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     ) : (
                         <>
                             <div className="flex gap-2">
+                                <button onClick={undoLast} disabled={saving} aria-label="Undo final point" className="p-2 text-gray-500 dark:text-gray-400 disabled:opacity-30"><Undo2 size={18} /></button>
                                 <button
                                     onClick={handleClose}
                                     className="px-3 sm:px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -959,6 +969,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 </button>
                                 <button
                                     onClick={handleRematch}
+                                    disabled={saving}
                                     className="px-3 sm:px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800"
                                 >
                                     <RefreshCw size={14} />
@@ -1008,3 +1019,19 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 }
 
 export default LiveMatchModal
+
+const PointButtons = ({ side, name, server, onPoint }) => (
+    <div className="grid grid-cols-2 gap-1.5 mt-4 w-full">
+        {POINT_TYPES.map(type => (
+            <button key={type.id} type="button"
+                onClick={() => onPoint(side, type.id)}
+                disabled={(type.id === 'ace' || type.id === 'serve_fault') && side !== server}
+                aria-label={`${name}: ${type.label}${type.error ? ' (point to opponent)' : ''}`}
+                title={type.description}
+                className={`min-h-11 px-1 py-2 rounded-lg text-[11px] sm:text-xs font-bold border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${type.error
+                    ? 'bg-white/70 dark:bg-gray-900/60 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    : side === 1 ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' : 'bg-red-600 text-white border-red-600 hover:bg-red-700'}`}
+            >{type.label}{type.error && <span className="block text-[9px] font-normal">Point to opponent</span>}</button>
+        ))}
+    </div>
+)

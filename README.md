@@ -7,7 +7,9 @@ A modern, high-performance web application for tracking sports leagues, tourname
 ### 🎙️ Live Umpire & Voice (New!)
 
 * **Point-by-Point Scoring**: Real-time match tracking with a dedicated umpire interface.
-* **Serve Indicator**: Automatic calculation of whose serve it is, including ELO-based initial serve determination.
+* **Rally Outcomes & Progression**: Record a Winner, Smash, Ace, Forced error, Unforced error, Serve fault, or Other under the player who made the shot/error. Errors award the opponent the point. Each rally records its winner and server; undo also reverses its stats. Use **Start game** between games, or undo the game-winning point to correct it.
+* **Serving & Receiving Stats**: See points won/played and percentages on serve and receive, plus per-player outcome totals, under **Point stats & progression**. Reopen saved rallies from **Matches → Point stats**; **Stats → Point performance** aggregates tracked games within the selected season/date range. Older/manual games are excluded. Score edits clear the game's rally history when the score changes.
+* **Serve Indicator**: Choose the first server; service changes every two points, every point at 10–10, and the starting server alternates between games. Aces and serve faults are available only for the server. A service let is replayed without scoring.
 * **Voice Announcements**: Built-in `speechSynthesis` to call scores and match points automatically.
 
 ### 📢 Discord Integration (New!)
@@ -79,6 +81,8 @@ A modern, high-performance web application for tracking sports leagues, tourname
     ```
 
     For a brand-new Supabase backend, follow [Fresh Supabase Instance Setup](docs/supabase-fresh-instance.md).
+
+    Existing backends must apply `supabase/migrations/20261116104541_pingpong_point_tracking.sql` before deploying rally scoring. The new save endpoint preserves score, rallies, ratings and any bet settlement in one transaction; an older backend will refuse the save instead of dropping rally data.
 
     For the independent Suunto 9 Peak Pro scorer and JSON/FIT upload with Player 1–4 profile assignment, see [Suunto Padel Setup](docs/suunto-padel.md).
     Development status and next steps are tracked in [Suunto Integration Handoff](SUUNTO_INTEGRATION_HANDOFF.md).

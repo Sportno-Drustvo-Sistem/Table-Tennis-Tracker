@@ -8,9 +8,22 @@ import {
     onMatchRecorded,
     recordPadelMatch,
     recordPingPongMatch,
+    recordPingPongMatchWithBets,
 } from './matchPersistence'
 
 describe('match persistence RPC helpers', () => {
+    it('saves rally histories through the atomic points endpoint, with and without bets', async () => {
+        const client = { rpc: vi.fn().mockResolvedValue({ data: { match: { id: 'm' } }, error: null }) }
+        const sets = [{ s1: 11, s2: 0, points: [{ winner: 1, server: 1, type: 'ace' }] }]
+        const payload = { adminToken: 't', player1Id: 'a', player2Id: 'b', sets }
+        await recordPingPongMatch(client, { ...payload, tournamentId: 'tournament' })
+        expect(client.rpc).toHaveBeenLastCalledWith('record_pingpong_match_with_points', expect.objectContaining({ p_sets: sets, p_tournament_id: 'tournament' }))
+        await recordPingPongMatchWithBets(client, { ...payload, marketId: 'market' })
+        expect(client.rpc).toHaveBeenLastCalledWith('record_pingpong_match_with_points', expect.objectContaining({ p_sets: sets, p_market_id: 'market' }))
+        client.rpc.mockResolvedValue({ error: new Error('Could not find record_pingpong_match_with_points') })
+        await expect(recordPingPongMatch(client, payload)).rejects.toThrow('Could not find')
+        expect(client.rpc).toHaveBeenCalledTimes(3) // No fallback that could discard points.
+    })
     it('builds ping pong RPC params from one or more saved sets', () => {
         expect(buildPingPongRecordParams({
             adminToken: 'admin-token',
