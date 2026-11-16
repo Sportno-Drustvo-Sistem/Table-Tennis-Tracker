@@ -17,7 +17,8 @@ export const MODEL_DEFAULTS = {
     halfLifeDays: 180,  // a game this old counts half as much as one today
     ridge: 8,           // pull towards "average player" for thinly sampled players
     pairRidge: 60,      // pull towards "no matchup effect" for thinly sampled pairings
-    priorPoints: 100,   // how many live points it takes to match the pre-match estimate
+    priorPoints: 250,   // how many live points it takes to match the pre-match estimate
+    scoreDamping: 2,    // how strongly an early in-game lead is discounted (comebacks are common)
 }
 
 const DAY_MS = 86400000
@@ -53,7 +54,7 @@ export const gameWinProbability = (p, a = 0, b = 0, target = 11) => {
 
 // Chance of winning the match from the given state (games won plus the score of
 // the game in progress), for a fixed point probability p.
-export const matchWinProbability = (p, { games1 = 0, games2 = 0, bestOf = 1, score1 = 0, score2 = 0, target = 11 } = {}) => {
+export const matchWinProbability = (p, { games1 = 0, games2 = 0, bestOf = 1, score1 = 0, score2 = 0, target = 11, scoreDamping = 0 } = {}) => {
     const need = Math.ceil(bestOf / 2)
     if (games1 >= need) return 1
     if (games2 >= need) return 0
@@ -63,7 +64,15 @@ export const matchWinProbability = (p, { games1 = 0, games2 = 0, bestOf = 1, sco
         if (g2 >= need) return 0
         return freshGame * fromGames(g1 + 1, g2) + (1 - freshGame) * fromGames(g1, g2 + 1)
     }
-    const current = gameWinProbability(p, score1, score2, target)
+    let current = gameWinProbability(p, score1, score2, target)
+    // Comebacks are common, so an early lead counts for much less than the
+    // independent-points maths says: blend towards a fresh game, with the score
+    // gaining full weight only as the leader nears game point.
+    // scoreDamping 0 = exact maths; higher = early points matter less.
+    if (scoreDamping > 0 && current > 0 && current < 1) {
+        const progress = Math.min(1, Math.max(score1, score2) / (target - 1))
+        current = freshGame + (current - freshGame) * Math.pow(progress, scoreDamping)
+    }
     return current * fromGames(games1 + 1, games2) + (1 - current) * fromGames(games1, games2 + 1)
 }
 
@@ -186,7 +195,7 @@ const GRID = 200
 // Chance that player 1 wins the match from the current state.
 // pointProb is the pre-match estimate; points1/points2 are the points each
 // player has won in this match so far (all games), which sharpen it as play goes on.
-export const liveWinProbability = ({ pointProb, points1 = 0, points2 = 0, priorPoints = MODEL_DEFAULTS.priorPoints, ...state }) => {
+export const liveWinProbability = ({ pointProb, points1 = 0, points2 = 0, priorPoints = MODEL_DEFAULTS.priorPoints, scoreDamping = MODEL_DEFAULTS.scoreDamping, ...state }) => {
     const p0 = clamp(pointProb, 0.02, 0.98)
     const alpha = p0 * priorPoints + points1
     const beta = (1 - p0) * priorPoints + points2
@@ -202,7 +211,7 @@ export const liveWinProbability = ({ pointProb, points1 = 0, points2 = 0, priorP
         const weight = Math.exp(logs[i] - peak)
         if (weight < 1e-12) continue
         total += weight
-        win += weight * matchWinProbability((i + 0.5) / GRID, state)
+        win += weight * matchWinProbability((i + 0.5) / GRID, { ...state, scoreDamping })
     }
     return win / total
 }

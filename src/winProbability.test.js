@@ -89,8 +89,16 @@ describe('liveWinProbability', () => {
         expect(start).toBeCloseTo(0.5, 6)
         const ahead = liveWinProbability({ pointProb: 0.5, bestOf: 3, score1: 6, score2: 2, points1: 6, points2: 2 })
         const behind = liveWinProbability({ pointProb: 0.5, bestOf: 3, score1: 2, score2: 6, points1: 2, points2: 6 })
-        expect(ahead).toBeGreaterThan(0.6)
+        expect(ahead).toBeGreaterThan(0.55)
         expect(ahead + behind).toBeCloseTo(1, 6)
+    })
+
+    it('discounts an early lead heavily, because comebacks are common', () => {
+        const early = liveWinProbability({ pointProb: 0.5, bestOf: 1, score1: 3, score2: 0, points1: 3, points2: 0 })
+        expect(early).toBeGreaterThan(0.5)
+        expect(early).toBeLessThan(0.6)
+        const exact = liveWinProbability({ pointProb: 0.5, bestOf: 1, score1: 3, score2: 0, points1: 3, points2: 0, scoreDamping: 0 })
+        expect(exact).toBeGreaterThan(0.7)
     })
 
     it('is less sure than a fixed probability, because form on the day is uncertain', () => {
