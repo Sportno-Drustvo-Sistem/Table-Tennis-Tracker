@@ -25,10 +25,10 @@ BEGIN
     SELECT balance INTO bob_before FROM public.bet_wallets WHERE user_id=bob;
     SELECT elo_rating INTO elo_before FROM public.users WHERE id=bob;
 
-    result := public.buy_sabotage(m,carol,bob,'half_table',3,135);
+    result := public.buy_sabotage(m,carol,bob,'half_table',3,150);
     PERFORM test.assert((result->'sabotage'->>'start_point')::int=24 AND (result->'sabotage'->>'end_point')::int=27,'debuff starts at the points played so far');
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=carol_before-135,'buyer pays the price');
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=bob)=bob_before+135,'debuffed player receives the price');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=carol_before-150,'buyer pays the price');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=bob)=bob_before+150,'debuffed player receives the price');
     PERFORM test.assert((SELECT elo_rating FROM public.users WHERE id=bob) IS NOT DISTINCT FROM elo_before,'ELO untouched');
 
     -- A second debuff on the same player queues after the first.
@@ -44,7 +44,7 @@ BEGIN
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''underarm'',1,NULL)',m,carol,alice));
     PERFORM test.assert((SELECT count(*) FROM public.sabotage_items WHERE is_active)=9,'nine debuffs on the menu');
     -- The buyer keeps at least one point.
-    UPDATE public.bet_wallets SET balance=135 WHERE user_id=carol;
+    UPDATE public.bet_wallets SET balance=150 WHERE user_id=carol;
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''half_table'',3,NULL)',m,carol,alice));
 
     -- A finished match sells nothing.

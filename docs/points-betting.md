@@ -163,8 +163,10 @@ additive. Applied to the hosted "Table Tennis Tracker" Supabase project on
 Menu update `supabase/migrations/20261117130000_sabotage_menu_update.sql`
 (2026-11-17): prices up about 1.5×, Granny serve and Pillow fight switched off
 (kept for history), Backhand only, Choke grip, No serve and Hand behind back
-added. Current menu, per point: Half table 45, Forehand only 40, Backhand only
-50, Wrong hand 90, Choke grip 60, No serve 40, Long distance 50, Statue 70,
+added. `20261117140000_sabotage_round_prices.sql` (hosted version
+`20261117103834`) rounds every price to end in 0 and prices Backhand only like
+Forehand only. Current menu, per point: Half table 50, Forehand only 40,
+Backhand only 40, Wrong hand 90, Choke grip 60, No serve 40, Long distance 50, Statue 70,
 Hand behind back 30. Prices can be changed in `sabotage_items` directly.
 Applied to the hosted project on 2026-11-17 as version `20261117103513`, name
 `sabotage_menu_update`.
