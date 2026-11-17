@@ -150,7 +150,9 @@ results and ELO ignore them.
 - No refunds: discarding the match does not give the points back.
 
 Migration `supabase/migrations/20261117120000_sabotage_shop.sql`, purely
-additive:
+additive. Applied to the hosted "Table Tennis Tracker" Supabase project on
+2026-11-17, where it is recorded as version `20261117102910`, name
+`sabotage_shop`.
 
 | Object | Kind | Purpose |
 |---|---|---|
