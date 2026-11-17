@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
-import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins } from 'lucide-react'
+import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins, Skull } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { filterSeasonMatches, getSeasonUsers, hideUnplayedDefaultRatingUsers } from './seasonUtils'
@@ -18,6 +18,7 @@ import PlayersView from './components/PlayersView'
 import Leaderboard from './components/Leaderboard'
 import Matches from './components/Matches'
 import BetsView from './components/BetsView'
+import SabotageView from './components/SabotageShop'
 import AddUserModal from './components/modals/AddUserModal'
 import EditUserModal from './components/modals/EditUserModal'
 import EditMatchModal from './components/modals/EditMatchModal'
@@ -87,6 +88,7 @@ const NAV_ITEMS = [
   { id: 'leaderboard', label: 'Leaderboard', shortLabel: 'Ranks', Icon: Trophy, primary: true },
   { id: 'matches', label: 'Matches', Icon: Calendar, primary: true },
   { id: 'bets', label: 'Bets', Icon: Coins, sports: ['pingpong'], betting: true, primary: true },
+  { id: 'sabotage', label: 'Sabotage', description: 'Spend points on debuffs for live matches', Icon: Skull, sports: ['pingpong'], sabotage: true },
   { id: 'stats', label: 'Stats', description: 'Charts, streaks and head-to-heads', Icon: BarChart2 },
   { id: 'tournament', label: 'Tournament', description: 'Brackets and cup history', Icon: Swords, sports: ['pingpong'] },
   { id: 'settings', label: 'Settings', description: 'Debuffs and Discord', Icon: Settings, adminOnly: true },
@@ -115,6 +117,9 @@ function App() {
     bettingReady,
     liveBettingReady,
     liveMatches,
+    sabotageReady,
+    sabotageItems,
+    sabotages,
     loaded,
     loading,
     historyFailed,
@@ -406,7 +411,7 @@ function App() {
 
   // Points betting on live matches; off until its tables exist.
   // With `live`, the umpire phone shares its score and any phone can bet.
-  const liveBetting = useMemo(() => bettingReady ? { users: bettingUsers, bets, wallets: betWallets, live: liveBettingReady } : null, [bettingReady, liveBettingReady, bettingUsers, bets, betWallets])
+  const liveBetting = useMemo(() => bettingReady ? { users: bettingUsers, bets, wallets: betWallets, live: liveBettingReady, sabotages: sabotageReady ? sabotages : null } : null, [bettingReady, liveBettingReady, sabotageReady, sabotages, bettingUsers, bets, betWallets])
 
   const isPingPong = activeSport === 'pingpong'
   const isPadel = activeSport === 'padel'
@@ -414,7 +419,7 @@ function App() {
   const sport = SPORTS.find(s => s.id === activeSport) || SPORTS[0]
 
   const navItems = NAV_ITEMS.filter(item =>
-    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin) && (!item.betting || bettingReady)
+    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin) && (!item.betting || bettingReady) && (!item.sabotage || sabotageReady)
   )
   // Fall back to Players when the stored tab isn't available (e.g. Tournament outside ping pong).
   const currentTab = navItems.some(item => item.id === activeTab) ? activeTab : 'grid'
@@ -597,7 +602,11 @@ function App() {
       )}
 
       {currentTab === 'bets' && (
-        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} />
+        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} onOpenSabotage={sabotageReady ? () => setActiveTab('sabotage') : null} />
+      )}
+
+      {currentTab === 'sabotage' && (
+        <SabotageView users={bettingUsers} wallets={betWallets} items={sabotageItems} sabotages={sabotages} liveMatches={liveMatches} />
       )}
 
       {currentTab === 'settings' && (

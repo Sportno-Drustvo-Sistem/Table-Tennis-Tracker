@@ -10,8 +10,9 @@ export const onBetsChanged = (listener) => {
 }
 
 // { market, bets, wallets, deletedBets, live, deletedLive } -> a change set for the app's reducer.
-export const bettingChanges = ({ market, bets = [], wallets = [], deletedBets = [], live = null, deletedLive = [] }) => {
+export const bettingChanges = ({ market, bets = [], wallets = [], deletedBets = [], live = null, deletedLive = [], sabotages = [] }) => {
     const changes = {}
+    if (sabotages.length) changes.sabotages = { upserts: sabotages }
     if (live || deletedLive.length) changes.liveMatches = { upserts: live ? [live] : [], deletes: deletedLive }
     if (market) changes.betMarkets = { upserts: [market] }
     if (bets.length || deletedBets.length) changes.bets = { upserts: bets, deletes: deletedBets }
@@ -99,5 +100,20 @@ export const publishLiveMatch = async (client, { adminToken, marketId, player1Id
 export const endLiveMatch = async (client, { adminToken, marketId }) => {
     const data = await callBetRpc(client, 'end_live_match', { p_admin_token: adminToken, p_id: marketId })
     announce({ ...data, deletedLive: [marketId] })
+    return data
+}
+
+// A debuff bought from any phone. The server prices it from the shop table;
+// `price` is what the buyer saw. The points go to the debuffed player.
+export const buySabotage = async (client, { liveMatchId, buyerId, targetId, itemId, points, price }) => {
+    const data = await callBetRpc(client, 'buy_sabotage', {
+        p_live_match_id: liveMatchId,
+        p_buyer_id: buyerId,
+        p_target_id: targetId,
+        p_item_id: itemId,
+        p_points: points,
+        p_expected_price: price,
+    })
+    announce({ sabotages: data.sabotage ? [data.sabotage] : [], wallets: data.wallets || [] })
     return data
 }

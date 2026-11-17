@@ -10,6 +10,8 @@ import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
 import KeepAwake from '../KeepAwake'
 import BetSheet from '../BetSheet'
+import { SabotageQueue } from '../SabotageShop'
+import { pendingSabotages } from '../../sabotageUtils'
 import PointStats from '../PointStats'
 import { POINT_TYPES, createPoint, getGameFirstServer, getPointServer } from '../../pingPongPoints'
 
@@ -647,6 +649,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     if (!isOpen || !player1 || !player2) return null
 
     const bettingClosed = isBettingClosed({ score1, score2, games1: gamesWon1, games2: gamesWon2, bestOf, gameWinner, matchWinner })
+    // Debuffs other phones bought for this match. Only shown: scoring and ELO ignore them.
+    const pointsPlayed = completedSets.reduce((sum, set) => sum + set.s1 + set.s2, gameWinner ? 0 : score1 + score2)
+    const debuffQueue = betting?.sabotages && !matchWinner ? pendingSabotages(betting.sabotages, marketId, pointsPlayed) : []
+    const debuffPlayers = { [player1.id]: player1, [player2.id]: player2, ...Object.fromEntries((betting?.users || []).map(user => [user.id, user])) }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -792,6 +798,12 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 </button>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {debuffQueue.length > 0 && initialServer !== null && (
+                    <div className="px-3 pb-2">
+                        <SabotageQueue sabotages={debuffQueue} getUser={id => debuffPlayers[id]} compact />
                     </div>
                 )}
 

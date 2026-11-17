@@ -157,5 +157,9 @@ export const useAppData = (showToast, activeSport = 'pingpong') => {
     // Live score shared between phones (a later migration than betting itself).
     const liveBettingReady = bettingReady && Boolean(data.loaded.liveMatches) && !data.failed.liveMatches
 
-    return { ...data, loading, historyFailed, bettingReady, liveBettingReady, refresh, refreshSport }
+    // Sabotage shop, on top of the shared live score.
+    const sabotageReady = liveBettingReady && Boolean(data.loaded.sabotageItems && data.loaded.sabotages)
+        && !data.failed.sabotageItems && !data.failed.sabotages
+
+    return { ...data, loading, historyFailed, bettingReady, liveBettingReady, sabotageReady, refresh, refreshSport }
 }

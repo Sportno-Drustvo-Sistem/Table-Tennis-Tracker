@@ -32,6 +32,9 @@ export const DATA_SOURCES = {
     bets: { table: 'bets', optional: true, order: byNewest, load: client => client.from('bets').select('*').order('created_at', { ascending: false }).limit(1000) },
     // The umpire phone's live score, shared so any phone can follow and bet.
     liveMatches: { table: 'live_matches', optional: true, order: byNewest, load: client => client.from('live_matches').select('*').order('created_at', { ascending: false }) },
+    // Sabotage shop: debuffs bought with betting points (a later migration again).
+    sabotageItems: { optional: true, load: client => client.from('sabotage_items').select('*').eq('is_active', true).order('sort_order') },
+    sabotages: { table: 'sabotages', optional: true, order: byNewest, load: client => client.from('sabotages').select('*').order('created_at', { ascending: false }).limit(300) },
 }
 
 export const SPORT_DATA = {
@@ -58,6 +61,8 @@ export const createInitialData = () => ({
     betMarkets: [],
     bets: [],
     liveMatches: [],
+    sabotageItems: [],
+    sabotages: [],
     loaded: {},
     failed: {},
 })

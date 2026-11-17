@@ -131,3 +131,38 @@ To bring it back after a rollback, apply the migration again.
   `supabase/tests/live_betting.sql` against a disposable database, then runs
   both rollbacks, checks that no betting object is
   left and that plain match saving still works, and re-applies the migration.
+
+## Sabotage shop
+
+Built 2026-11-17. Spend betting points to put a debuff on a player in a live
+ping pong match for a number of points, e.g. "Half table for the next 3
+points". **The price goes straight to the debuffed player's wallet** (a
+transfer, so no points are created). Debuffs are display only: match saving,
+results and ELO ignore them.
+
+- **Sabotage** tab (ping pong, under "More") and a "Sabotage a player" button on
+  the live match card in the Bets tab. Any phone can buy, no PIN, like live bets.
+- The umpire phone shows the running debuff and the queue above the score.
+- Price = price per point × points (1 to the item's max). The buyer must keep
+  at least 1 point, and cannot debuff themselves.
+- Points are counted across the whole match. A second debuff on the same player
+  queues after the first; at most 10 points can be lined up per player.
+- No refunds: discarding the match does not give the points back.
+
+Migration `supabase/migrations/20261117120000_sabotage_shop.sql`, purely
+additive:
+
+| Object | Kind | Purpose |
+|---|---|---|
+| `public.sabotage_items` | table | the menu: title, description, price per point, max points (seeded with 7 debuffs) |
+| `public.sabotages` | table | every purchase: match, buyer, target, debuff, points, price, start and end point |
+| `public.buy_sabotage` | function | **no admin token**; checks the live row, prices from the menu, moves the points |
+
+To remove it, run `supabase/rollbacks/20261117120000_sabotage_shop_down.sql`
+(before the other two rollbacks). The app hides the tab when the tables are
+missing. Code: `src/sabotageUtils.js`, `src/components/SabotageShop.jsx`, the
+`sabotageItems`/`sabotages` sources in `src/appData.js`, `sabotageReady` in
+`src/useAppData.js`, `buySabotage` in `src/betPersistence.js`, and the
+`sabotage` bits in `src/App.jsx`, `BetsView.jsx` and `LiveMatchModal.jsx`.
+Tests: `src/sabotageUtils.test.js`, `src/sabotageViews.test.jsx`,
+`supabase/tests/sabotage.sql`.

@@ -73,6 +73,12 @@ try {
         // Live score and bets from any phone sit on top of betting: test, then roll back first.
         sql(db,read('live_betting.sql'))
         sql(db,read('point_tracking.sql'))
+        // The sabotage shop sits on top of live betting: test, then roll it back first.
+        sql(db,read('sabotage.sql'))
+        const sabotageFile=files.find(file=>file.includes('sabotage_shop'))
+        sql(db,fs.readFileSync(path.join('supabase/rollbacks',sabotageFile.split('_')[0]+'_sabotage_shop_down.sql'),'utf8'))
+        assert.equal(sql(db,"SELECT count(*) FROM pg_proc WHERE proname='buy_sabotage'"),'0','sabotage rollback left its function behind')
+        assert.equal(sql(db,"SELECT to_regclass('public.sabotages') IS NULL AND to_regclass('public.sabotage_items') IS NULL"),'t','sabotage rollback left its tables behind')
         const liveFile=files.find(file=>file.includes('live_match_betting'))
         sql(db,fs.readFileSync(path.join('supabase/rollbacks',liveFile.split('_')[0]+'_live_match_betting_down.sql'),'utf8'))
         assert.equal(sql(db,"SELECT count(*) FROM pg_proc WHERE proname IN('publish_live_match','end_live_match','place_live_bet')"),'0','live betting rollback left functions behind')
