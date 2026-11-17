@@ -25,14 +25,14 @@ BEGIN
     SELECT balance INTO bob_before FROM public.bet_wallets WHERE user_id=bob;
     SELECT elo_rating INTO elo_before FROM public.users WHERE id=bob;
 
-    result := public.buy_sabotage(m,carol,bob,'half_table',3,90);
+    result := public.buy_sabotage(m,carol,bob,'half_table',3,135);
     PERFORM test.assert((result->'sabotage'->>'start_point')::int=24 AND (result->'sabotage'->>'end_point')::int=27,'debuff starts at the points played so far');
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=carol_before-90,'buyer pays the price');
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=bob)=bob_before+90,'debuffed player receives the price');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=carol_before-135,'buyer pays the price');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=bob)=bob_before+135,'debuffed player receives the price');
     PERFORM test.assert((SELECT elo_rating FROM public.users WHERE id=bob) IS NOT DISTINCT FROM elo_before,'ELO untouched');
 
     -- A second debuff on the same player queues after the first.
-    result := public.buy_sabotage(m,alice,bob,'forehand',2,50);
+    result := public.buy_sabotage(m,alice,bob,'forehand',2,80);
     PERFORM test.assert((result->'sabotage'->>'start_point')::int=27 AND (result->'sabotage'->>'end_point')::int=29,'debuffs queue');
 
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''half_table'',3,NULL)',m,bob,bob));
@@ -40,13 +40,16 @@ BEGIN
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''half_table'',99,NULL)',m,carol,alice));
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''half_table'',3,1)',m,carol,alice));
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''nope'',1,NULL)',m,carol,alice));
+    -- Items taken off the menu are not for sale.
+    PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''underarm'',1,NULL)',m,carol,alice));
+    PERFORM test.assert((SELECT count(*) FROM public.sabotage_items WHERE is_active)=9,'nine debuffs on the menu');
     -- The buyer keeps at least one point.
-    UPDATE public.bet_wallets SET balance=90 WHERE user_id=carol;
+    UPDATE public.bet_wallets SET balance=135 WHERE user_id=carol;
     PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''half_table'',3,NULL)',m,carol,alice));
 
     -- A finished match sells nothing.
     PERFORM public.publish_live_match('valid',m,alice,bob,'{"bestOf":3,"games1":2,"games2":0,"sets":[{"s1":11,"s2":7},{"s1":11,"s2":3}],"winProbability":0.99,"winnerSide":1,"bettingClosed":true}');
-    PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''underarm'',1,NULL)',m,bob,alice));
+    PERFORM test.rejects(format('SELECT public.buy_sabotage(%L,%L,%L,''no_serve'',1,NULL)',m,bob,alice));
     PERFORM public.end_live_match('valid',m);
     PERFORM test.assert((SELECT count(*) FROM public.sabotages WHERE live_match_id=m)=2,'purchases stay as history');
 END $$;

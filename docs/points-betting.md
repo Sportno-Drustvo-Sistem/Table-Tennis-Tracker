@@ -156,9 +156,18 @@ additive. Applied to the hosted "Table Tennis Tracker" Supabase project on
 
 | Object | Kind | Purpose |
 |---|---|---|
-| `public.sabotage_items` | table | the menu: title, description, price per point, max points (seeded with 7 debuffs) |
+| `public.sabotage_items` | table | the menu: title, description, price per point, max points, active flag |
 | `public.sabotages` | table | every purchase: match, buyer, target, debuff, points, price, start and end point |
 | `public.buy_sabotage` | function | **no admin token**; checks the live row, prices from the menu, moves the points |
+
+Menu update `supabase/migrations/20261117130000_sabotage_menu_update.sql`
+(2026-11-17): prices up about 1.5×, Granny serve and Pillow fight switched off
+(kept for history), Backhand only, Choke grip, No serve and Hand behind back
+added. Current menu, per point: Half table 45, Forehand only 40, Backhand only
+50, Wrong hand 90, Choke grip 60, No serve 40, Long distance 50, Statue 70,
+Hand behind back 30. Prices can be changed in `sabotage_items` directly.
+Applied to the hosted project on 2026-11-17 as version `20261117103513`, name
+`sabotage_menu_update`.
 
 To remove it, run `supabase/rollbacks/20261117120000_sabotage_shop_down.sql`
 (before the other two rollbacks). The app hides the tab when the tables are
