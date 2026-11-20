@@ -12,7 +12,6 @@ import KeepAwake from '../KeepAwake'
 import BetSheet from '../BetSheet'
 import { SabotageQueue } from '../SabotageShop'
 import { pendingSabotages } from '../../sabotageUtils'
-import PointStats from '../PointStats'
 import { getGameFirstServer, getPointServer } from '../../pingPongPoints'
 
 const WINNING_SCORE = 11
@@ -932,12 +931,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     <div className="px-4 pb-3 text-center">
                         <button onClick={startNextGame} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-bold">Start game {completedSets.length + 1}</button>
                     </div>
-                )}
-                {initialServer !== null && (
-                    <details className="mx-4 mb-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
-                        <summary className="cursor-pointer font-bold text-sm text-gray-700 dark:text-gray-200">Point-by-point history</summary>
-                        <div className="mt-3"><PointStats games={gameWinner ? completedSets : [...completedSets, { points: history }]} players={[player1, player2]} /></div>
-                    </details>
                 )}
                 </div>
 
