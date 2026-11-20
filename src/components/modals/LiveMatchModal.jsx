@@ -807,8 +807,19 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 <div role="group" aria-label={`Score: ${player1.name} ${score1}, ${player2.name} ${score2}`} className="flex-1 flex items-stretch px-3 pb-4 pt-2 short:pb-2 short:pt-1 gap-2 min-h-0">
                     {/* Player 1 Side */}
                     <div
+                        role="button"
+                        tabIndex={gameWinner || matchWinner || saving ? -1 : 0}
+                        aria-label={`${player1.name}: award point`}
+                        aria-disabled={Boolean(gameWinner || matchWinner || saving)}
+                        onClick={() => scorePoint(1)}
+                        onKeyDown={event => {
+                            if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) {
+                                event.preventDefault()
+                                scorePoint(1)
+                            }
+                        }}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-400
                             ${matchWinner === 1
                                 ? 'bg-gradient-to-b from-blue-500 to-blue-700 ring-4 ring-blue-400 shadow-xl shadow-blue-500/30'
                                 : matchWinner === 2
@@ -850,9 +861,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
                         )}
-                        {!gameWinner && !matchWinner && (
-                            <PointButtons side={1} name={player1.name} onPoint={scorePoint} />
-                        )}
                     </div>
 
                     {/* Divider */}
@@ -862,8 +870,19 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
                     {/* Player 2 Side */}
                     <div
+                        role="button"
+                        tabIndex={gameWinner || matchWinner || saving ? -1 : 0}
+                        aria-label={`${player2.name}: award point`}
+                        aria-disabled={Boolean(gameWinner || matchWinner || saving)}
+                        onClick={() => scorePoint(2)}
+                        onKeyDown={event => {
+                            if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) {
+                                event.preventDefault()
+                                scorePoint(2)
+                            }
+                        }}
                         className={`
-                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden
+                            flex-1 rounded-2xl flex flex-col items-center justify-center p-4 short:p-2 transition-all duration-200 select-none relative overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-400
                             ${matchWinner === 2
                                 ? 'bg-gradient-to-b from-red-500 to-red-700 ring-4 ring-red-400 shadow-xl shadow-red-500/30'
                                 : matchWinner === 1
@@ -904,9 +923,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <Trophy size={20} />
                                 <span className="font-bold text-sm uppercase tracking-wider">Winner!</span>
                             </div>
-                        )}
-                        {!gameWinner && !matchWinner && (
-                            <PointButtons side={2} name={player2.name} onPoint={scorePoint} />
                         )}
                     </div>
                 </div>
@@ -1026,12 +1042,3 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 }
 
 export default LiveMatchModal
-
-const PointButtons = ({ side, name, onPoint }) => (
-    <button type="button" onClick={() => onPoint(side)} aria-label={`${name}: Point won`}
-        className={`mt-4 min-h-11 w-full px-3 py-2 rounded-lg text-sm font-bold border transition-colors ${side === 1
-            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-            : 'bg-red-600 text-white border-red-600 hover:bg-red-700'}`}>
-        Point won
-    </button>
-)
