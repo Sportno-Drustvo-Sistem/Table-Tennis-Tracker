@@ -19,6 +19,7 @@ import {
     propagateAdvancements,
     handleSingleElimAdvancement,
     handleDoubleElimAdvancement,
+    getTournamentFinalMatch,
 } from './tournamentUtils'
 
 const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchData }) => {
@@ -307,7 +308,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         setActiveTournament(newTournament)
 
         if (isComplete) {
-            newTournament.winner = newTournament.rounds.find(r => r.name === 'Grand Final' || r.bracket === 'grand_final')?.matches[0]?.winner || winner
+            newTournament.winner = getTournamentFinalMatch(newTournament)?.winner || winner
             finishTournament(newTournament)
         }
     }
@@ -323,8 +324,8 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         results.push({ tournament_id: tournament.id, user_id: tournament.winner.id, rank: 1, round_reached: 'Winner' })
 
         if (format === 'double_elim') {
-            // Runner-up = Grand Final loser
-            const gf = rounds.find(r => r.bracket === 'grand_final')?.matches[0]
+            // Runner-up = loser of the deciding final, including a bracket reset.
+            const gf = getTournamentFinalMatch(tournament)
             if (gf?.winner && gf.player1 && gf.player2) {
                 const runnerUp = gf.winner.id === gf.player1.id ? gf.player2 : gf.player1
                 results.push({ tournament_id: tournament.id, user_id: runnerUp.id, rank: 2, round_reached: 'Grand Final' })
@@ -411,6 +412,12 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
     }
 
     const handleManuallyFinishTournament = () => {
+        const firstFinal = activeTournament.rounds?.find(r => r.bracket === 'grand_final')?.matches[0]
+        if (firstFinal?.player1 && firstFinal?.player2 && firstFinal.winner?.id === firstFinal.player2.id &&
+            !getTournamentFinalMatch(activeTournament)?.winner) {
+            showToast('Play the Grand Final Reset to decide the tournament winner.', 'info')
+            return
+        }
         showConfirm("Are you sure you want to finish the tournament early? Results will be saved based on current progress.", () => {
             const t = { ...activeTournament }
             t.status = 'completed'
@@ -420,8 +427,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
                     const sorted = [...t.swiss.standings].sort((a, b) => b.score !== a.score ? b.score - a.score : b.pointDiff - a.pointDiff)
                     t.winner = sorted[0]?.player || t.players[0]
                 } else {
-                    const gf = t.rounds.find(r => r.bracket === 'grand_final' || r.name === 'Grand Final')
-                    t.winner = gf?.matches[0]?.winner || t.players[0]
+                    t.winner = getTournamentFinalMatch(t)?.winner || t.players[0]
                 }
             }
 
@@ -480,7 +486,7 @@ const Tournament = ({ users, isAdmin, adminToken, matches: globalMatches, fetchD
         showToast(`${lonePlayer.name} advances via BYE`, 'info')
 
         if (isComplete) {
-            newTournament.winner = newTournament.rounds.find(r => r.name === 'Grand Final' || r.bracket === 'grand_final')?.matches[0]?.winner || lonePlayer
+            newTournament.winner = getTournamentFinalMatch(newTournament)?.winner || lonePlayer
             finishTournament(newTournament)
         }
     }

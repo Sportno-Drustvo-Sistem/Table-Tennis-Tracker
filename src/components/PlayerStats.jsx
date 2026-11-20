@@ -6,8 +6,6 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
-import { PlayerPointStats } from './PointStats'
-import { summarizePlayerPoints } from '../pingPongPoints'
 import { buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
 
 const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
@@ -159,8 +157,6 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
 
     if (!selectedPlayer) return <div>No players available for this season. Add a player or choose another season.</div>
 
-    const pointStats = summarizePlayerPoints(matches.filter(match => inLocalDateRange(match.created_at, startDate, endDate)), selectedPlayerId)
-
     return (
         <div className="space-y-6">
             <div
@@ -252,12 +248,6 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
                     <div className="text-fuchsia-800 dark:text-fuchsia-400 text-[11px] sm:text-sm font-bold uppercase flex items-center gap-1">Debuff Wins</div>
                     <div className="text-4xl font-extrabold text-fuchsia-600 dark:text-fuchsia-400">{stats?.debuffWins}</div>
                 </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200">
-                <h3 className="font-bold text-lg mb-2">Point performance</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{pointStats.trackedGames} games with rally tracking in this date range. Games without tracking are excluded. Winners, smashes and aces are separate; errors count your own mistakes.</p>
-                {pointStats.trackedGames > 0 ? <div className="max-w-sm"><PlayerPointStats stats={pointStats} /></div> : <p className="text-sm">Play a live match to start tracking serving, receiving and point types.</p>}
             </div>
 
             {/* ELO History Chart */}

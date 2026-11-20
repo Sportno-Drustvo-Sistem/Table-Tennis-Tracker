@@ -327,9 +327,9 @@ const Matches = ({ matches, users, historyLoading, onEditMatch, onMatchDeleted, 
                                                     {match.point_history?.length > 0 && (
                                                         <button type="button" onClick={() => setOpenPointsId(openPointsId === match.id ? null : match.id)}
                                                             aria-expanded={openPointsId === match.id}
-                                                            aria-label={`Point stats for ${player1.name} vs ${player2.name}`}
+                                                            aria-label={`Point-by-point history for ${player1.name} vs ${player2.name}`}
                                                             className="mt-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold whitespace-nowrap">
-                                                            Point stats
+                                                            Point-by-point
                                                         </button>
                                                     )}
                                                     {betting && (

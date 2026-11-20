@@ -182,7 +182,7 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManua
     if (format === 'double_elim') {
         const winnersRounds = rounds.filter(r => r.bracket === 'winners')
         const losersRounds = rounds.filter(r => r.bracket === 'losers')
-        const grandFinal = rounds.filter(r => r.bracket === 'grand_final')
+        const grandFinal = rounds.filter(r => r.bracket === 'grand_final' || r.bracket === 'grand_final_reset')
 
         // Calculate actual indices for onMatchClick
         const getActualIndex = (round) => rounds.indexOf(round)
@@ -202,6 +202,13 @@ const BracketView = ({ rounds, onMatchClick, readOnly, champion, format, onManua
                         </button>
                     ))}
                 </div>
+
+                {activeTab === 'finals' && (
+                    <p className="px-4 sm:px-8 text-sm text-gray-500 dark:text-gray-400">
+                        The winners-bracket finalist needs one win. The losers-bracket finalist must win twice;
+                        winning the first final unlocks the Grand Final Reset.
+                    </p>
+                )}
 
                 <div className="flex-1 overflow-x-auto pb-12 pt-4 hide-scrollbar">
                     <div className="min-w-max flex gap-6 px-4 sm:gap-12 sm:px-8">

@@ -26,7 +26,7 @@ const showToast = vi.fn()
 const mount = node => render(<ToastContextValue.Provider value={{ showToast, showConfirm: vi.fn() }}>{node}</ToastContextValue.Provider>)
 const click = name => fireEvent.click(screen.getByRole('button', { name }))
 const score = (a, b) => expect(screen.getByRole('group', { name: `Score: Ana ${a}, Bor ${b}` })).toBeTruthy()
-const winGame = name => { for (let i = 0; i < 11; i++) click(`${name}: Winner`) }
+const winGame = name => { for (let i = 0; i < 11; i++) click(`${name}: Point won`) }
 
 beforeEach(() => {
     vi.clearAllMocks()
@@ -35,18 +35,16 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('live rally scoring', () => {
-    it('requires the first server, attributes errors correctly, and undoes the score and stats', () => {
+describe('live point scoring', () => {
+    it('requires the first server, records the point winner, and undoes the score', () => {
         mount(<LiveMatchModal {...props} />)
-        expect(screen.queryByRole('button', { name: 'Ana: Winner' })).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Ana: Point won' })).toBeNull()
         click('Ana Serves first')
-        expect(screen.getByRole('button', { name: 'Bor: Ace' }).disabled).toBe(true)
-        click('Ana: Ace'); score(1, 0)
-        click('Ana: Serve fault (point to opponent)'); score(1, 1)
-        expect(screen.getByRole('button', { name: 'Ana: Ace' }).disabled).toBe(true)
-        click('Bor: Smash'); score(1, 2)
-        click('Ana: Unforced error (point to opponent)'); score(1, 3)
-        fireEvent.click(screen.getByText('Point stats & progression'))
+        click('Ana: Point won'); score(1, 0)
+        click('Bor: Point won'); score(1, 1)
+        click('Bor: Point won'); score(1, 2)
+        click('Ana: Point won'); score(2, 2)
+        fireEvent.click(screen.getByText('Point-by-point history'))
         fireEvent.click(screen.getByText('Game 1 · Score progression'))
         expect(screen.getByRole('list', { name: 'Game 1 score progression' }).children).toHaveLength(4)
         click('Undo'); score(1, 2)
@@ -57,36 +55,33 @@ describe('live rally scoring', () => {
         mount(<LiveMatchModal {...props} />)
         click('Best of 3'); click('Ana Serves first'); winGame('Ana')
         click('Start game 2'); score(0, 0)
-        expect(screen.getByRole('button', { name: 'Ana: Ace' }).disabled).toBe(true)
-        expect(screen.getByRole('button', { name: 'Bor: Ace' }).disabled).toBe(false)
+        expect(screen.getByText('Serving')).toBeTruthy()
         click('Undo'); score(10, 0)
         click('Ana: Winner'); click('Start game 2'); winGame('Ana')
         expect(screen.getByRole('button', { name: 'Save Match' })).toBeTruthy()
-        fireEvent.click(screen.getByText('Point stats & progression'))
+        fireEvent.click(screen.getByText('Point-by-point history'))
         expect(screen.getByText('Game 1 · Score progression')).toBeTruthy()
         expect(screen.getByText('Game 2 · Score progression')).toBeTruthy()
     })
 
-    it('can undo the final point and saves every rally, including its pre-point server', async () => {
+    it('can undo the final point and saves every point winner', async () => {
         mount(<LiveMatchModal {...props} />)
         click('Ana Serves first'); winGame('Ana')
         click('Undo final point'); score(10, 0)
-        click('Ana: Smash'); click('Save Match')
+        click('Ana: Point won'); click('Save Match')
         await waitFor(() => expect(recordPingPongMatch).toHaveBeenCalledOnce())
         const payload = recordPingPongMatch.mock.calls[0][1]
         expect(payload.sets[0]).toMatchObject({ s1: 11, s2: 0 })
         expect(payload.sets[0].points).toHaveLength(11)
-        expect(payload.sets[0].points.map(p => p.server)).toEqual([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2])
-        expect(payload.sets[0].points.at(-1)).toEqual({ winner: 1, server: 2, type: 'smash' })
+        expect(payload.sets[0].points).toEqual(Array(11).fill(1))
     })
 
-    it('reopens saved progression and stats from match history without inventing legacy data', () => {
-        const match = { id: 'm', player1_id: 'a', player2_id: 'b', score1: 11, score2: 0, created_at: '2026-11-16T10:00:00Z', point_history: [{ winner: 1, server: 1, type: 'ace' }] }
+    it('reopens saved point progression from match history without inventing legacy data', () => {
+        const match = { id: 'm', player1_id: 'a', player2_id: 'b', score1: 11, score2: 0, created_at: '2026-11-16T10:00:00Z', point_history: Array(11).fill(1) }
         mount(<Matches matches={[match, { ...match, id: 'old', point_history: null }]} users={players} />)
-        expect(screen.getAllByRole('button', { name: 'Point stats for Ana vs Bor' })).toHaveLength(1)
-        click('Point stats for Ana vs Bor')
-        expect(screen.getAllByText('1/1 (100%)')).toHaveLength(1)
+        expect(screen.getAllByRole('button', { name: 'Point-by-point history for Ana vs Bor' })).toHaveLength(1)
+        click('Point-by-point history for Ana vs Bor')
         fireEvent.click(screen.getByText('Game 1 · Score progression'))
-        expect(screen.getByText('Ana · Ace')).toBeTruthy()
+        expect(screen.getByText('Point to Ana')).toBeTruthy()
     })
 })

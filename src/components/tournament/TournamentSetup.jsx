@@ -184,7 +184,7 @@ const TournamentSetup = ({ users, onStart, isAdmin, adminToken, fetchData }) => 
                             </div>
                             <span className="font-bold text-gray-900 dark:text-white">Double Elimination</span>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 pl-8">Upper and Lower brackets. Lose twice to be eliminated.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 pl-8">Upper and Lower brackets. Lose twice to be eliminated. The lower-bracket winner must win two finals games to become champion.</p>
                     </div>
                 </div>
 

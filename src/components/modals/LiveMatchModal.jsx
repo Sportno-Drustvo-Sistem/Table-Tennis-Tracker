@@ -13,7 +13,7 @@ import BetSheet from '../BetSheet'
 import { SabotageQueue } from '../SabotageShop'
 import { pendingSabotages } from '../../sabotageUtils'
 import PointStats from '../PointStats'
-import { POINT_TYPES, createPoint, getGameFirstServer, getPointServer } from '../../pingPongPoints'
+import { getGameFirstServer, getPointServer } from '../../pingPongPoints'
 
 const WINNING_SCORE = 11
 const MIN_LEAD = 2
@@ -236,7 +236,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const [betSheetOpen, setBetSheetOpen] = useState(false)
     const [score1, setScore1] = useState(0)
     const [score2, setScore2] = useState(0)
-    const [history, setHistory] = useState([]) // rallies in the current game
+    const [history, setHistory] = useState([]) // point winners in the current game
     const [gameWinner, setGameWinner] = useState(null) // null | 1 | 2 (current game winner)
     const [matchWinner, setMatchWinner] = useState(null) // null | 1 | 2 (overall match winner)
     const [initialServer, setInitialServer] = useState(null) // 1 | 2
@@ -333,13 +333,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
     const gameIndex = gameWinner ? completedSets.length - 1 : completedSets.length
     const gameFirstServer = getGameFirstServer(initialServer, gameIndex)
     const currentServer = getPointServer(gameFirstServer, score1, score2)
-    const trackedGames = gameWinner ? completedSets : [...completedSets, { points: history }]
-
-    const scorePoint = useCallback((actor, type) => {
+    const scorePoint = useCallback((playerNum) => {
         if (!initialServer || gameWinner || matchWinner || saving) return
-        const point = createPoint(actor, type, currentServer)
-        if (!point) return
-        const playerNum = point.winner
         unlockAudioAndSpeech()
 
         let newS1 = score1
@@ -350,7 +345,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         setScore1(newS1)
         setScore2(newS2)
-        const points = [...history, point]
+        const points = [...history, playerNum]
         setHistory(points)
 
         if (!matchStarted) setMatchStarted(true)
@@ -419,7 +414,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         const previous = history.length ? null : completedSets.at(-1)
         const points = previous ? previous.points : history
         if (!points?.length) return
-        const lastScorer = points.at(-1).winner
+        const lastScorer = points.at(-1)
         if (gameWinner || previous) setCompletedSets(prev => prev.slice(0, -1))
         setHistory(points.slice(0, -1))
         setScore1((previous ? previous.s1 : score1) - (lastScorer === 1 ? 1 : 0))
@@ -856,7 +851,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </div>
                         )}
                         {!gameWinner && !matchWinner && (
-                            <PointButtons side={1} name={player1.name} server={currentServer} onPoint={scorePoint} />
+                            <PointButtons side={1} name={player1.name} onPoint={scorePoint} />
                         )}
                     </div>
 
@@ -911,7 +906,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                             </div>
                         )}
                         {!gameWinner && !matchWinner && (
-                            <PointButtons side={2} name={player2.name} server={currentServer} onPoint={scorePoint} />
+                            <PointButtons side={2} name={player2.name} onPoint={scorePoint} />
                         )}
                     </div>
                 </div>
@@ -924,8 +919,8 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                 )}
                 {initialServer !== null && (
                     <details className="mx-4 mb-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
-                        <summary className="cursor-pointer font-bold text-sm text-gray-700 dark:text-gray-200">Point stats & progression</summary>
-                        <div className="mt-3"><PointStats games={trackedGames} players={[player1, player2]} /></div>
+                        <summary className="cursor-pointer font-bold text-sm text-gray-700 dark:text-gray-200">Point-by-point history</summary>
+                        <div className="mt-3"><PointStats games={gameWinner ? completedSets : [...completedSets, { points: history }]} players={[player1, player2]} /></div>
                     </details>
                 )}
                 </div>
@@ -955,7 +950,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 <div className={`text-xs text-gray-400 dark:text-gray-500 font-medium ${betting ? 'hidden sm:block' : ''}`}>
                                     {initialServer === null ? 'Choose the first server above' : (
                                         <>
-                                            <span>Choose a point type · Errors give the opponent a point</span>
+                                            <span>Tap the player who won the point</span>
                                         </>
                                     )}
                                 </div>
@@ -1032,18 +1027,11 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
 export default LiveMatchModal
 
-const PointButtons = ({ side, name, server, onPoint }) => (
-    <div className="grid grid-cols-2 gap-1.5 mt-4 w-full">
-        {POINT_TYPES.map(type => (
-            <button key={type.id} type="button"
-                onClick={() => onPoint(side, type.id)}
-                disabled={(type.id === 'ace' || type.id === 'serve_fault') && side !== server}
-                aria-label={`${name}: ${type.label}${type.error ? ' (point to opponent)' : ''}`}
-                title={type.description}
-                className={`min-h-11 px-1 py-2 rounded-lg text-[11px] sm:text-xs font-bold border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${type.error
-                    ? 'bg-white/70 dark:bg-gray-900/60 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    : side === 1 ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' : 'bg-red-600 text-white border-red-600 hover:bg-red-700'}`}
-            >{type.label}{type.error && <span className="block text-[9px] font-normal">Point to opponent</span>}</button>
-        ))}
-    </div>
+const PointButtons = ({ side, name, onPoint }) => (
+    <button type="button" onClick={() => onPoint(side)} aria-label={`${name}: Point won`}
+        className={`mt-4 min-h-11 w-full px-3 py-2 rounded-lg text-sm font-bold border transition-colors ${side === 1
+            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+            : 'bg-red-600 text-white border-red-600 hover:bg-red-700'}`}>
+        Point won
+    </button>
 )

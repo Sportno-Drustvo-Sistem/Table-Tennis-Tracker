@@ -12,9 +12,9 @@ import {
 } from './matchPersistence'
 
 describe('match persistence RPC helpers', () => {
-    it('saves rally histories through the atomic points endpoint, with and without bets', async () => {
+    it('saves point histories through the atomic points endpoint, with and without bets', async () => {
         const client = { rpc: vi.fn().mockResolvedValue({ data: { match: { id: 'm' } }, error: null }) }
-        const sets = [{ s1: 11, s2: 0, points: [{ winner: 1, server: 1, type: 'ace' }] }]
+        const sets = [{ s1: 11, s2: 0, points: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }]
         const payload = { adminToken: 't', player1Id: 'a', player2Id: 'b', sets }
         await recordPingPongMatch(client, { ...payload, tournamentId: 'tournament' })
         expect(client.rpc).toHaveBeenLastCalledWith('record_pingpong_match_with_points', expect.objectContaining({ p_sets: sets, p_tournament_id: 'tournament' }))

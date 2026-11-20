@@ -176,6 +176,22 @@ export const propagateAdvancements = (allRounds, mayhemMode, debuffsPool, usersM
             Object.assign(m, assignDebuffsToMatch(m, debuffsPool, usersMap))
         }
     }))
+
+    // The undefeated finalist must lose twice. Create the deciding game only
+    // when the losers-bracket winner wins the first final (also for saved brackets).
+    if (gf?.winner && gf.player1 && gf.player2 && gf.winner.id === gf.player2.id &&
+        !allRounds.some(r => r.bracket === 'grand_final_reset')) {
+        let reset = {
+            id: 'grand_final_reset',
+            player1: gf.player1, player2: gf.player2,
+            score1: null, score2: null,
+            winner: null, bracket: 'grand_final_reset'
+        }
+        if (mayhemMode && assignDebuffsToMatch) {
+            reset = assignDebuffsToMatch(reset, debuffsPool, usersMap)
+        }
+        allRounds.push({ name: 'Grand Final Reset', matches: [reset], bracket: 'grand_final_reset' })
+    }
 }
 
 // ─── DOUBLE ELIMINATION ───────────────────────────────────────────
@@ -423,12 +439,22 @@ export const seedFromGroups = (groups) => {
     return participants
 }
 
+// A reset, when required, is the source of both the champion and runner-up.
+export const getTournamentFinalMatch = (tournament) => {
+    const rounds = tournament.rounds
+    const gf = rounds.find(r => r.bracket === 'grand_final')?.matches[0]
+    if (gf) {
+        const resetRequired = gf.player1 && gf.player2 && gf.winner?.id === gf.player2.id
+        return resetRequired ? rounds.find(r => r.bracket === 'grand_final_reset')?.matches[0] : gf
+    }
+    return rounds.find(r => r.name === 'Grand Final')?.matches[0]
+}
+
 export const checkTournamentComplete = (tournament) => {
     const rounds = tournament.rounds
-    const grandFinal = rounds.find(r => r.name === 'Grand Final')
     const thirdPlace = rounds.find(r => r.name === '3rd Place Match')
 
-    const gfDone = grandFinal?.matches[0]?.winner
+    const gfDone = getTournamentFinalMatch(tournament)?.winner
     const tpDone = !thirdPlace || thirdPlace?.matches[0]?.winner
 
     if (gfDone && tpDone) {

@@ -1,0 +1,9 @@
+# Add Player fix — 16 October 2026
+
+The public form calls `create_player(p_name, p_avatar_url)`, while the live project only had the older overload requiring `p_admin_token`. The missing public signature prevented creation before the database could insert a player.
+
+Applied `20261016170954_public_player_creation.sql` to project `ujxufgeuqyxhicvammdl`. The local filename matches the applied migration ledger. This targeted migration adds the public signature, validates names and avatar URLs, initializes Ping Pong, Padel and Tennis at 1200 ELO with zero matches/wins, and reloads the API schema. Direct browser writes to the three player/stat tables remain denied. The existing admin overload remains available for older clients. The broader October 15 remediation migrations were not applied by this fix.
+
+Verification: 96 tests passed across 17 files; lint, production build and whitespace checks passed. `supabase/tests/public-player-creation.sql` passed against the live database under `anon` and `authenticated`, checking creation, optional avatars, default statistics, invalid input, rating injection and table privileges. The transaction rolled back, and a subsequent query confirmed zero leftover test players. The frontend tests exercise the actual form handlers with the repository's hook harness and mocked requests, rather than a browser DOM.
+
+The security advisor flags the new function's intentional public `SECURITY DEFINER` access alongside existing RPC warnings. Its narrow arguments cannot set ratings or edit existing players; its search path is empty and grants are explicit. See [Supabase's public definer-function advisory](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable). Build warnings about old Browserslist data and an empty vendor chunk remain.
