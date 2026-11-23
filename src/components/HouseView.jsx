@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Banknote, Check, Search, TrendingDown, TrendingUp, Scale, PencilLine, X } from 'lucide-react'
+import { Banknote, Check, Search, TrendingDown, TrendingUp, Scale, PencilLine, Users, X } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { loadWalletAdjustments, payOut, setWalletBalance } from '../betPersistence'
 import { STARTING_BALANCE, formatPoints, houseTotals, walletBalance } from '../bettingUtils'
@@ -11,21 +11,70 @@ const points = value => value.toLocaleString()
 const MAX_POINTS = 10000000
 const TOP_UP = 1000
 
+const toneOf = value => (value > 0 ? 'text-green-600 dark:text-green-400' : value < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200')
+
 const Stat = (props) => {
     const { Icon, label, value, detail, tone } = props
     return (
-    <div className={`${card} !p-4`}>
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            <Icon size={14} className={tone} />
-            {label}
+    <div className="p-3 sm:p-4 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/60 min-w-0">
+        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <Icon size={13} className={tone} />
+            <span className="leading-tight">{label}</span>
         </div>
-        <div className={`mt-1 text-2xl font-black tabular-nums ${tone}`}>{value}</div>
+        <div className={`mt-1 text-xl font-black tabular-nums ${tone}`}>{value}</div>
         {detail && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{detail}</div>}
     </div>
     )
 }
 
-const WalletRow = ({ user, balance, adminToken, onSaved }) => {
+// The headline number plus where it came from.
+const HouseSummary = ({ totals, editCount }) => {
+    const flow = totals.collected + totals.paidOut
+    const wonShare = flow ? (totals.collected / flow) * 100 : 0
+    return (
+        <section aria-label="House totals" className={card}>
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+                <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <Scale size={14} /> House net
+                    </div>
+                    <div className={`mt-1 text-4xl sm:text-5xl font-black tabular-nums tracking-tight ${toneOf(totals.net)}`}>{formatPoints(totals.net)}</div>
+                    <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {totals.riding ? <><span className="font-semibold tabular-nums text-gray-700 dark:text-gray-200">{points(totals.riding)}</span> riding on open bets</> : 'From settled bets'}
+                    </div>
+                </div>
+                {flow > 0 && (
+                    <div className="w-full sm:w-64">
+                        <div className="flex justify-between text-xs font-bold tabular-nums mb-1">
+                            <span className="text-green-600 dark:text-green-400">+{points(totals.collected)} won</span>
+                            <span className="text-red-600 dark:text-red-400">−{points(totals.paidOut)} paid</span>
+                        </div>
+                        <div className="flex gap-0.5 h-2.5 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700" role="img"
+                            aria-label={`${totals.collected} points won from losses, ${totals.paidOut} paid on wins`}>
+                            <div className="bg-green-500" style={{ width: `${wonShare}%` }} />
+                            <div className="flex-1 bg-red-500" />
+                        </div>
+                    </div>
+                )}
+            </div>
+            <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                <Stat Icon={TrendingUp} label="Won from losses" value={`+${points(totals.collected)}`}
+                    detail={plural(totals.lostBets, 'lost bet')} tone="text-green-600 dark:text-green-400" />
+                <Stat Icon={TrendingDown} label="Paid on wins" value={`−${points(totals.paidOut)}`}
+                    detail={`${plural(totals.wonBets, 'winning bet')}, profit only`} tone="text-red-600 dark:text-red-400" />
+                <Stat Icon={PencilLine} label="Paid in" value={formatPoints(totals.adjusted)}
+                    detail={`${plural(editCount, 'manual edit')}${totals.restartCount ? ` · ${points(totals.restarts)} in past restarts` : ''}`}
+                    tone="text-blue-600 dark:text-blue-400" />
+                <Stat Icon={Banknote} label="Cashed out" value={points(totals.cashedOut)}
+                    detail={`${plural(totals.payoutCount, 'payout')} to players`} tone="text-amber-600 dark:text-amber-400" />
+            </div>
+        </section>
+    )
+}
+
+const chip = 'inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-bold border active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100'
+
+const WalletRow = ({ user, balance, rank, adminToken, onSaved }) => {
     const { showToast } = useToast()
     const [draft, setDraft] = useState(String(balance))
     const [saving, setSaving] = useState(false)
@@ -60,45 +109,59 @@ const WalletRow = ({ user, balance, adminToken, onSaved }) => {
     const [paying, setPaying] = useState(false)
 
     return (
-        <div className="py-2.5">
+        <li className="py-3">
         <form onSubmit={save} className="flex items-center gap-3">
-            <BetAvatar user={user} className="w-10 h-10" />
-            <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 dark:text-white truncate">{user.name}</div>
-                <button type="button" onClick={() => store(balance + TOP_UP)} disabled={saving || !canTopUp}
-                    aria-label={`Add ${points(TOP_UP)} points for ${user.name}`}
-                    className="mt-1 px-2.5 py-1 rounded-full text-xs font-bold tabular-nums text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 active:scale-95 transition-transform disabled:opacity-40">
-                    +{points(TOP_UP)}
-                </button>
-                <button type="button" onClick={() => setPaying(open => !open)} disabled={saving || balance < 1} aria-expanded={paying}
-                    aria-label={`Pay out points for ${user.name}`}
-                    className={`mt-1 ml-1.5 px-2.5 py-1 rounded-full text-xs font-bold border active:scale-95 transition-transform disabled:opacity-40 ${paying
-                        ? 'text-white bg-amber-500 border-amber-500'
-                        : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800'}`}>
-                    Pay out
-                </button>
+            <div className="relative shrink-0">
+                <BetAvatar user={user} className="w-10 h-10" />
+                {rank <= 3 && balance > 0 && (
+                    <span aria-label={`Rank ${rank}`} className="absolute -bottom-1 -right-1 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black bg-amber-400 text-amber-950 ring-2 ring-white dark:ring-gray-800">{rank}</span>
+                )}
             </div>
-            <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={MAX_POINTS}
-                step={1}
-                value={draft}
-                aria-label={`Points for ${user.name}`}
-                onFocus={() => setEditing(true)}
-                onBlur={() => { if (!changed) setEditing(false) }}
-                onChange={e => { setEditing(true); setDraft(e.target.value) }}
-                disabled={saving}
-                className={`w-28 sm:w-32 p-2 text-right tabular-nums font-bold rounded-lg border bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 ${valid ? 'border-gray-200 dark:border-gray-600' : 'border-red-400'}`}
-            />
-            <button type="submit" disabled={!changed || saving} aria-label={`Save points for ${user.name}`}
-                className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-blue-600 text-white disabled:opacity-0 transition-opacity">
-                <Check size={18} />
-            </button>
+            <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                <div className="font-semibold text-gray-900 dark:text-white truncate sm:flex-1">{user.name}</div>
+                <div className="flex gap-1.5">
+                    <button type="button" onClick={() => store(balance + TOP_UP)} disabled={saving || !canTopUp}
+                        aria-label={`Add ${points(TOP_UP)} points for ${user.name}`}
+                        className={`${chip} tabular-nums text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800`}>
+                        +{points(TOP_UP)}
+                    </button>
+                    <button type="button" onClick={() => setPaying(open => !open)} disabled={saving || balance < 1} aria-expanded={paying}
+                        aria-label={`Pay out points for ${user.name}`}
+                        className={`${chip} ${paying
+                            ? 'text-white bg-amber-500 border-amber-500'
+                            : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800'}`}>
+                        <Banknote size={12} className="hidden min-[400px]:block" /> Pay out
+                    </button>
+                </div>
+            </div>
+            <div className="relative shrink-0">
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={MAX_POINTS}
+                    step={1}
+                    value={draft}
+                    aria-label={`Points for ${user.name}`}
+                    onFocus={() => setEditing(true)}
+                    onBlur={() => { if (!changed) setEditing(false) }}
+                    onChange={e => { setEditing(true); setDraft(e.target.value) }}
+                    onKeyDown={e => { if (e.key === 'Escape') { setDraft(String(balance)); setEditing(false); e.currentTarget.blur() } }}
+                    disabled={saving}
+                    className={`w-[6.75rem] sm:w-36 py-2 pl-2 pr-10 text-right text-lg tabular-nums font-black rounded-lg border bg-gray-50/60 dark:bg-gray-700/40 text-gray-900 dark:text-white outline-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-700/70 focus:bg-gray-50 dark:focus:bg-gray-700 focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${valid ? (changed ? 'border-blue-400' : 'border-transparent') : 'border-red-400'}`}
+                />
+                {changed ? (
+                    <button type="submit" disabled={saving} aria-label={`Save points for ${user.name}`}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-md bg-blue-600 text-white active:scale-95 transition-transform">
+                        <Check size={16} strokeWidth={3} />
+                    </button>
+                ) : (
+                    <span aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-gray-400">pts</span>
+                )}
+            </div>
         </form>
         {paying && <PayoutForm user={user} balance={balance} adminToken={adminToken} onDone={() => setPaying(false)} />}
-        </div>
+        </li>
     )
 }
 
@@ -263,45 +326,39 @@ const HouseView = ({ users, wallets, bets, payouts = [], adminToken }) => {
     const usersById = useMemo(() => Object.fromEntries(users.map(user => [user.id, user])), [users])
     const rows = useMemo(() => {
         const needle = query.trim().toLowerCase()
+        // Rank on the full list so a search keeps everyone's place.
         return users
-            .filter(user => !needle || (user.name || '').toLowerCase().includes(needle))
             .map(user => ({ user, balance: walletBalance(wallets, user.id) }))
             .sort((a, b) => b.balance - a.balance || (a.user.name || '').localeCompare(b.user.name || ''))
+            .map((row, index) => ({ ...row, rank: index + 1 }))
+            .filter(({ user }) => !needle || (user.name || '').toLowerCase().includes(needle))
     }, [users, wallets, query])
+
+    const inWallets = useMemo(() => users.reduce((sum, user) => sum + walletBalance(wallets, user.id), 0), [users, wallets])
 
     return (
         <div className="space-y-5 sm:space-y-6">
-            <section aria-label="House totals" className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-                <Stat Icon={TrendingUp} label="Won from losses" value={`+${points(totals.collected)}`}
-                    detail={`${totals.lostBets} lost ${totals.lostBets === 1 ? 'bet' : 'bets'}`} tone="text-green-600 dark:text-green-400" />
-                <Stat Icon={TrendingDown} label="Paid on wins" value={`−${points(totals.paidOut)}`}
-                    detail={`${totals.wonBets} winning ${totals.wonBets === 1 ? 'bet' : 'bets'}, profit only`} tone="text-red-600 dark:text-red-400" />
-                <Stat Icon={Scale} label="House net" value={formatPoints(totals.net)}
-                    detail={totals.riding ? `${points(totals.riding)} riding on open bets` : 'From settled bets'}
-                    tone={totals.net > 0 ? 'text-green-600 dark:text-green-400' : totals.net < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'} />
-                <Stat Icon={PencilLine} label="Paid in" value={formatPoints(totals.adjusted)}
-                    detail={`${adjustments.length} manual ${adjustments.length === 1 ? 'edit' : 'edits'}${totals.restartCount ? ` · ${points(totals.restarts)} in past restarts` : ''}`}
-                    tone="text-gray-700 dark:text-gray-200" />
-                <Stat Icon={Banknote} label="Cashed out" value={points(totals.cashedOut)}
-                    detail={`${plural(totals.payoutCount, 'payout')} to players`} tone="text-amber-600 dark:text-amber-400" />
-            </section>
+            <HouseSummary totals={totals} editCount={adjustments.length} />
 
-            <section className={card}>
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Everyone's points</h2>
+            <section className={card} aria-label="Everyone's points">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Users size={18} /> Everyone's points</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">{plural(users.length, 'player')} · {points(inWallets)} points in wallets</p>
+                    </div>
                     <label className="relative w-full sm:w-56">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a player"
+                        <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a player" aria-label="Find a player"
                             className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                     </label>
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Tap +1,000 to top someone up, Pay out when they cash points in, or type a new total and tap the tick. New players start at 0.</p>
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {rows.map(({ user, balance }) => (
-                        <WalletRow key={user.id} user={user} balance={balance} adminToken={adminToken} onSaved={refreshAdjustments} />
+                <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Tap a balance to type a new total, then tap the tick. New players start at 0.</p>
+                <ul className="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
+                    {rows.map(({ user, balance, rank }) => (
+                        <WalletRow key={user.id} user={user} balance={balance} rank={rank} adminToken={adminToken} onSaved={refreshAdjustments} />
                     ))}
-                    {rows.length === 0 && <p className="py-4 text-sm text-center text-gray-500 dark:text-gray-400">No players match.</p>}
-                </div>
+                    {rows.length === 0 && <li className="py-4 text-sm text-center text-gray-500 dark:text-gray-400">No players match.</li>}
+                </ul>
             </section>
 
             <EditHistory adjustments={adjustments} payouts={payouts} users={users} usersById={usersById} />
