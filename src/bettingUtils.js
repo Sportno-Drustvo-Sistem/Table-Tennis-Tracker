@@ -235,3 +235,28 @@ export const isLiveFresh = (live, now) => Boolean(live?.updated_at) && now - Dat
 // Other phones may bet until match point, only once the odds are known, and
 // never on a match played under a debuff.
 export const liveBettingOpen = live => Boolean(live) && !live.debuffed && !live.betting_closed && !live.winner_side && live.win_probability != null
+
+// What the bank made and paid. `collected` is every stake lost; `paidOut` is
+// the profit on winning bets (the payout minus the bettor's own stake back);
+// `restarts` is points handed to broke wallets. `adjusted` is the net of
+// manual edits (positive = points given to players).
+export const houseTotals = (bets, wallets = [], adjustments = []) => {
+    const all = bets || []
+    const lost = all.filter(bet => bet.status === 'lost')
+    const won = all.filter(bet => bet.status === 'won')
+    const collected = lost.reduce((sum, bet) => sum + bet.stake, 0)
+    const paidOut = won.reduce((sum, bet) => sum + bet.payout - bet.stake, 0)
+    const restartCount = (wallets || []).reduce((sum, wallet) => sum + (wallet.rebuys || 0), 0)
+    const adjusted = (adjustments || []).reduce((sum, row) => sum + row.new_balance - row.old_balance, 0)
+    return {
+        collected,
+        paidOut,
+        net: collected - paidOut,
+        lostBets: lost.length,
+        wonBets: won.length,
+        restartCount,
+        restarts: restartCount * REBUY_BALANCE,
+        adjusted,
+        riding: all.filter(bet => bet.status === 'pending').reduce((sum, bet) => sum + bet.stake, 0),
+    }
+}

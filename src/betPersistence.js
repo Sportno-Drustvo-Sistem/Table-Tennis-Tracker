@@ -101,3 +101,19 @@ export const endLiveMatch = async (client, { adminToken, marketId }) => {
     announce({ ...data, deletedLive: [marketId] })
     return data
 }
+
+// Super admin only: set a player's points outright.
+export const setWalletBalance = async (client, { adminToken, userId, balance }) => {
+    const data = await callBetRpc(client, 'super_admin_set_wallet', {
+        p_admin_token: adminToken,
+        p_user_id: userId,
+        p_balance: balance,
+    })
+    announce({ wallets: data.wallet ? [data.wallet] : [] })
+    return data
+}
+
+// Super admin only: the latest manual point changes, newest first.
+export const loadWalletAdjustments = async (client, { adminToken }) => (
+    callBetRpc(client, 'super_admin_wallet_adjustments', { p_admin_token: adminToken })
+)

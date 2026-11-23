@@ -1,8 +1,13 @@
 import React, { useState } from 'react'
 import { X, Lock, Unlock, AlertCircle } from 'lucide-react'
 
+export const SUPER_PASSWORD_MIN_LENGTH = 12
+
+// The same login takes the admin PIN or, switched over, the super admin password.
 const LoginModal = ({ isOpen, onClose, onLogin }) => {
     const [pin, setPin] = useState('')
+    const [superMode, setSuperMode] = useState(false)
+    const ready = superMode ? pin.length >= SUPER_PASSWORD_MIN_LENGTH : pin.length === 6
     const [error, setError] = useState('')
     const [submitting, setSubmitting] = useState(false)
 
@@ -12,7 +17,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
         setError('')
 
         try {
-            await onLogin(pin)
+            await onLogin(pin, { superAdmin: superMode })
             setPin('')
             onClose()
         } catch (loginError) {
@@ -33,7 +38,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
                             <Lock className="mr-2 text-blue-500" size={24} />
-                            Admin Access
+                            {superMode ? 'Super Admin' : 'Admin Access'}
                         </h2>
                         <button
                             onClick={onClose}
@@ -47,24 +52,43 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Enter Admin PIN
+                                {superMode ? 'Enter super admin password' : 'Enter Admin PIN'}
                             </label>
-                            <input
-                                type="password"
-                                inputMode="numeric"
-                                value={pin}
-                                onChange={(e) => {
-                                    setPin(e.target.value)
-                                    setError('')
-                                }}
-                                className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-center text-2xl tracking-widest"
-                                placeholder="••••••"
-                                autoFocus
-                                maxLength={6}
-                                pattern="[0-9]{6}"
-                                autoComplete="current-password"
-                                disabled={submitting}
-                            />
+                            {superMode ? (
+                                <input
+                                    key="super"
+                                    type="password"
+                                    value={pin}
+                                    onChange={(e) => {
+                                        setPin(e.target.value)
+                                        setError('')
+                                    }}
+                                    className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-base"
+                                    placeholder={`At least ${SUPER_PASSWORD_MIN_LENGTH} characters`}
+                                    autoFocus
+                                    maxLength={200}
+                                    autoComplete="current-password"
+                                    disabled={submitting}
+                                />
+                            ) : (
+                                <input
+                                    key="pin"
+                                    type="password"
+                                    inputMode="numeric"
+                                    value={pin}
+                                    onChange={(e) => {
+                                        setPin(e.target.value)
+                                        setError('')
+                                    }}
+                                    className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-center text-2xl tracking-widest"
+                                    placeholder="••••••"
+                                    autoFocus
+                                    maxLength={6}
+                                    pattern="[0-9]{6}"
+                                    autoComplete="current-password"
+                                    disabled={submitting}
+                                />
+                            )}
                         </div>
 
                         {error && (
@@ -76,11 +100,24 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
 
                         <button
                             type="submit"
-                            disabled={submitting || pin.length !== 6}
+                            disabled={submitting || !ready}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors flex items-center justify-center"
                         >
                             <Unlock size={20} className="mr-2" />
                             {submitting ? 'Checking…' : 'Unlock'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSuperMode(!superMode)
+                                setPin('')
+                                setError('')
+                            }}
+                            disabled={submitting}
+                            className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 py-1"
+                        >
+                            {superMode ? 'Use the admin PIN instead' : 'Super admin? Use your password'}
                         </button>
                     </form>
                 </div>

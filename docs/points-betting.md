@@ -99,6 +99,37 @@ player and any bet on a debuffed live match. Applied to the hosted project on
 everything it adds (the column goes with the table, the helper with
 `points_betting_down.sql`).
 
+### Super admin: edit points, house totals
+
+`supabase/migrations/20261123150000_super_admin_bet_wallets.sql` (2026-11-23),
+purely additive. The admin login has a second mode, **Super admin? Use your
+password**, which takes a password of 12+ characters instead of the PIN. A
+super admin session is also a normal admin session (same token). It adds a
+**House** tab (ping pong, under "More" on phones) where every player's points
+can be set, and which shows what the house won from lost bets, what it paid
+in profit on winning bets, the net, restarts handed out and manual edits.
+
+| Object | Kind | Purpose |
+|---|---|---|
+| `private.super_admin_config` | table | bcrypt hash of the super admin password |
+| `private.super_admin_sessions` | table | super sessions (same token hash as `private.admin_sessions`) |
+| `private.bet_wallet_adjustments` | table | log of every manual balance change |
+| `private.set_super_admin_password` | function | SQL editor only; sets the password and signs super admins out |
+| `public.create_super_admin_session` | function | login; 5 tries per address, 20 overall, per 30 minutes |
+| `public.validate_super_admin_session` | function | is this token still a super session |
+| `public.super_admin_set_wallet` | function | super token; sets one player's points (0–10,000,000) |
+| `public.super_admin_wallet_adjustments` | function | super token; latest 200 manual edits |
+
+Set or change the password in the Supabase SQL editor:
+
+```sql
+SELECT private.set_super_admin_password('a long password only you know');
+```
+
+Rollback: `supabase/rollbacks/20261123150000_super_admin_bet_wallets_down.sql`
+(balances keep their edited values; the edit log goes). Tests:
+`supabase/tests/super_admin.sql`.
+
 ## How to remove the feature
 
 0. **Live score and bets from any phone only.** Run

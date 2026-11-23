@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
-import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins } from 'lucide-react'
+import { Plus, Trophy, BarChart2, Users, Calendar, Swords, Settings, Zap, Shuffle, PencilLine, Coins, Landmark } from 'lucide-react'
 import { PingPongIcon, PadelIcon, TennisIcon } from './components/Icons'
 import { supabase } from './supabaseClient'
 import { filterSeasonMatches, getSeasonUsers, hideUnplayedDefaultRatingUsers } from './seasonUtils'
@@ -7,9 +7,11 @@ import {
   ADMIN_SESSION_STORAGE_KEY,
   checkAdminSession,
   createAdminSession,
+  createSuperAdminSession,
   onAdminSessionExpired,
   revokeAdminSession,
   validateAdminSession,
+  validateSuperAdminSession,
 } from './adminSession'
 import { describeRecordedMatch, onMatchRecorded } from './matchPersistence'
 import { useAppData } from './useAppData'
@@ -18,6 +20,7 @@ import PlayersView from './components/PlayersView'
 import Leaderboard from './components/Leaderboard'
 import Matches from './components/Matches'
 import BetsView from './components/BetsView'
+import HouseView from './components/HouseView'
 import AddUserModal from './components/modals/AddUserModal'
 import EditUserModal from './components/modals/EditUserModal'
 import EditMatchModal from './components/modals/EditMatchModal'
@@ -89,6 +92,7 @@ const NAV_ITEMS = [
   { id: 'bets', label: 'Bets', Icon: Coins, sports: ['pingpong'], betting: true, primary: true },
   { id: 'stats', label: 'Stats', description: 'Charts, streaks and head-to-heads', Icon: BarChart2 },
   { id: 'tournament', label: 'Tournament', description: 'Brackets and cup history', Icon: Swords, sports: ['pingpong'] },
+  { id: 'house', label: 'House', description: 'Edit points and see what the house made', Icon: Landmark, sports: ['pingpong'], betting: true, superOnly: true },
   { id: 'settings', label: 'Settings', description: 'Debuffs and Discord', Icon: Settings, adminOnly: true },
 ]
 
@@ -134,17 +138,21 @@ function App() {
   // Admin State
   const [adminToken, setAdminToken] = useState(null)
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  // A super admin can also set everyone's betting points (House tab).
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const isAdmin = Boolean(adminToken)
 
-  const handleAdminLogin = async (pin) => {
-    const session = await createAdminSession(supabase, pin)
+  const handleAdminLogin = async (secret, { superAdmin = false } = {}) => {
+    const session = superAdmin ? await createSuperAdminSession(supabase, secret) : await createAdminSession(supabase, secret)
     setAdminToken(session.token)
+    setIsSuperAdmin(Boolean(session.super))
     localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(session))
   }
 
   const handleAdminLogout = async () => {
     const tokenToRevoke = adminToken
     setAdminToken(null)
+    setIsSuperAdmin(false)
     localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
     localStorage.removeItem('isAdmin')
 
@@ -224,6 +232,10 @@ function App() {
 
         if (isValid) {
           setAdminToken(session.token)
+          if (session.super) {
+            const isSuper = await validateSuperAdminSession(supabase, session.token).catch(() => false)
+            if (!cancelled) setIsSuperAdmin(isSuper)
+          }
         } else {
           localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
         }
@@ -244,6 +256,7 @@ function App() {
   // saves that would fail. When a save found out, ask for the PIN on the spot.
   useEffect(() => onAdminSessionExpired(({ prompt }) => {
     setAdminToken(null)
+    setIsSuperAdmin(false)
     localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY)
     if (prompt) setIsLoginModalOpen(true)
   }), [])
@@ -414,7 +427,7 @@ function App() {
   const sport = SPORTS.find(s => s.id === activeSport) || SPORTS[0]
 
   const navItems = NAV_ITEMS.filter(item =>
-    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin) && (!item.betting || bettingReady)
+    (!item.sports || item.sports.includes(activeSport)) && (!item.adminOnly || isAdmin) && (!item.superOnly || isSuperAdmin) && (!item.betting || bettingReady)
   )
   // Fall back to Players when the stored tab isn't available (e.g. Tournament outside ping pong).
   const currentTab = navItems.some(item => item.id === activeTab) ? activeTab : 'grid'
@@ -598,6 +611,10 @@ function App() {
 
       {currentTab === 'bets' && (
         <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} />
+      )}
+
+      {currentTab === 'house' && (
+        <HouseView users={users} wallets={betWallets} bets={bets} adminToken={adminToken} />
       )}
 
       {currentTab === 'settings' && (

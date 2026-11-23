@@ -165,3 +165,18 @@ describe('live matches on other phones', () => {
         expect(liveBettingOpen({ ...live, win_probability: null })).toBe(false)
     })
 })
+
+describe('house totals', () => {
+    it('counts lost stakes as collected and winning profit as paid out', async () => {
+        const { houseTotals } = await import('./bettingUtils')
+        const bets = [
+            { status: 'lost', stake: 100, payout: 0 },
+            { status: 'lost', stake: 50, payout: 0 },
+            { status: 'won', stake: 100, payout: 250 },
+            { status: 'void', stake: 999, payout: 0 },
+            { status: 'pending', stake: 30, payout: 0 },
+        ]
+        const totals = houseTotals(bets, [{ rebuys: 2 }, { rebuys: 0 }], [{ old_balance: 1000, new_balance: 1200 }])
+        expect(totals).toMatchObject({ collected: 150, paidOut: 150, net: 0, lostBets: 2, wonBets: 1, restartCount: 2, restarts: 200, adjusted: 200, riding: 30 })
+    })
+})

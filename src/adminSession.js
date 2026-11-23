@@ -13,6 +13,34 @@ export const createAdminSession = async (client, pin) => {
     }
 }
 
+// The login takes the 6-digit PIN or, for a super admin, a long password. A
+// super admin token is also an admin token.
+export const isAdminPin = secret => /^[0-9]{6}$/.test(secret || '')
+
+export const createSuperAdminSession = async (client, password) => {
+    const { data, error } = await client.rpc('create_super_admin_session', { p_password: password })
+    if (error) throw error
+    if (!data?.ok || !data?.token) {
+        throw new Error(data?.error || 'Unable to start a super admin session')
+    }
+
+    return {
+        token: data.token,
+        expiresAt: data.expires_at,
+        super: true,
+    }
+}
+
+export const validateSuperAdminSession = async (client, token) => {
+    if (!token) return false
+
+    const { data, error } = await client.rpc('validate_super_admin_session', {
+        p_token: token,
+    })
+    if (error) throw error
+    return data === true
+}
+
 export const validateAdminSession = async (client, token) => {
     if (!token) return false
 

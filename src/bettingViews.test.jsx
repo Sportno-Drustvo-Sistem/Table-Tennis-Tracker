@@ -6,6 +6,7 @@ vi.mock('./supabaseClient', () => ({ supabase: {} }))
 
 import BetSheet from './components/BetSheet'
 import BetsView from './components/BetsView'
+import HouseView from './components/HouseView'
 import Matches from './components/Matches'
 import { ToastContextValue } from './contexts/ToastContextValue'
 
@@ -96,5 +97,22 @@ describe('betting screens render', () => {
         expect(html.match(/Show bets/g)).toHaveLength(1)
         expect(html).toContain('2 bets, 150 points')
         expect(render(<Matches matches={matches} users={users} />)).not.toContain('Show bets')
+    })
+})
+
+describe('house screen renders', () => {
+    it('shows what the house won and paid, and an editable balance per player', () => {
+        const settled = [
+            { id: 'l1', market_id: 'k', user_id: 'a', side: 2, stake: 200, multiplier: '2.00', status: 'lost', payout: 0, created_at: '2026-11-12T10:00:00Z' },
+            { id: 'w1', market_id: 'k', user_id: 'c', side: 1, stake: 100, multiplier: '1.50', status: 'won', payout: 150, created_at: '2026-11-12T10:01:00Z' },
+        ]
+        const html = render(<HouseView users={users} wallets={wallets} bets={settled} adminToken="t" />)
+        expect(html).toContain('Won from losses')
+        expect(html).toContain('+200')
+        expect(html).toContain('−50')
+        expect(html).toContain('+150')
+        expect(html).toContain('aria-label="Points for Cene"')
+        expect(html).toContain('value="900"')
+        expect(html).toContain('value="1000"')
     })
 })
