@@ -165,7 +165,11 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
   .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 }

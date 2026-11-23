@@ -117,7 +117,7 @@ const Sidebar = ({ sports, activeSport, onSportChange, navItems, activeTab, onTa
 
 // The sport switcher owns the whole bar on phones; theme and admin live under "More".
 const MobileTopBar = ({ sports, activeSport, onSportChange }) => (
-    <header className="lg:hidden sticky top-0 z-30 border-b border-gray-200/80 bg-white/85 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/85">
+    <header className="lg:hidden sticky top-0 z-30 border-b border-gray-200/80 bg-white/85 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/85 pt-[env(safe-area-inset-top)] px-safe">
         <div className="flex items-center px-4 h-14">
             <div className="flex flex-1 min-w-0 p-0.5 rounded-xl bg-gray-100 dark:bg-gray-800/80">
                 {sports.map((item) => {
@@ -295,7 +295,7 @@ const BottomNav = ({ primaryItems, moreActive, activeTab, onTabChange, onPlay, o
         />
     )
     return (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-gray-200/80 bg-white/95 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/95 pb-safe">
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-gray-200/80 bg-white/95 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/95 px-safe pb-2 pb-safe">
             <div className="flex items-end max-w-xl mx-auto">
                 {primaryItems.slice(0, half).map(tab)}
                 <button
@@ -376,8 +376,8 @@ const AppShell = ({ children, playActions, ...props }) => {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
             <Sidebar {...props} onPlay={() => setSheet('play')} />
             <MobileTopBar {...props} />
-            <div className="lg:pl-64">
-                <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-5 lg:pt-10 pb-28 lg:pb-12">
+            <div className="max-lg:px-safe lg:pl-64">
+                <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-5 lg:pt-10 pb-28 max-lg:pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-12">
                     {children}
                 </main>
             </div>
