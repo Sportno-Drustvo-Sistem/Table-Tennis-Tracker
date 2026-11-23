@@ -63,6 +63,13 @@ describe('bettors', () => {
         expect(allowedSides('c', 'a', 'b')).toEqual([1, 2])
     })
 
+    it('keeps a bettor on the player they already backed', () => {
+        const bets = [{ user_id: 'c', side: 2, status: 'pending' }, { user_id: 'd', side: 1, status: 'void' }]
+        expect(allowedSides('c', 'a', 'b', bets)).toEqual([2])
+        expect(allowedSides('d', 'a', 'b', bets)).toEqual([1, 2])
+        expect(allowedSides('a', 'a', 'b', bets)).toEqual([1])
+    })
+
     it('treats a missing wallet as the starting balance', () => {
         expect(walletBalance([{ user_id: 'a', balance: 40 }], 'a')).toBe(40)
         expect(walletBalance([], 'a')).toBe(1000)

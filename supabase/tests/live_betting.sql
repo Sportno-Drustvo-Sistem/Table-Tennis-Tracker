@@ -39,6 +39,15 @@ BEGIN
     PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,2,10,NULL)',m1,alice));
     PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,1,0,NULL)',m1,dave));
     PERFORM public.place_live_bet(m1,dave,1,20,1.25);
+    -- Carol backs side 2, so side 1 is refused for her; dave backs side 1, so side 2 is refused.
+    PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,1,10,NULL)',m1,carol));
+    PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,2,10,NULL)',m1,dave));
+
+    -- A debuff on the match stops all betting, from any phone.
+    PERFORM public.publish_live_match('valid',m1,alice,bob,'{"bestOf":3,"games1":1,"games2":0,"score1":4,"score2":2,"winProbability":0.8,"bettingClosed":false,"debuffed":true}');
+    PERFORM test.assert((SELECT debuffed FROM public.live_matches WHERE id=m1),'debuff is stored');
+    PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,1,10,NULL)',m1,dave));
+    PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,1,10,0.8)',m1,alice,bob,dave));
 
     -- Match point closes betting.
     PERFORM public.publish_live_match('valid',m1,alice,bob,'{"bestOf":3,"games1":1,"games2":0,"score1":10,"score2":2,"winProbability":0.98,"bettingClosed":true}');

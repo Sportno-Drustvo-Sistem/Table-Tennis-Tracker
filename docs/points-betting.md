@@ -23,6 +23,11 @@ the feature can be removed cleanly.
   discarding or rematching without saving refunds every bet (after a confirm).
 - Everyone starts with 1,000 points. A wallet at 0 with nothing riding restarts
   at 100. Players in the match can only bet on themselves.
+- A bettor backs one player per match: after a first bet, more bets may only
+  go on the same player.
+- No betting on a match with a debuff on (a mayhem or streak rule that was not
+  refused, i.e. what is saved as the match's `handicap_rule`). Refusing every
+  debuff opens betting; once bets are in, a refused debuff cannot be put back.
 - Editing a paid match's score re-pays its bets; deleting it refunds them.
 - The **Bets** tab (ping pong, in the phone's bottom bar) shows who bet what
   on the match in play, a podium and standings with streaks, awards (jackpot,
@@ -82,6 +87,18 @@ where it is recorded as version `20261116061437`, name `live_match_betting`.
 betting tables. Rows older than 6 hours are cleaned up on the next publish.
 When this table is missing the app falls back to umpire-phone-only betting.
 
+### One player per bettor, no bets under a debuff
+
+`supabase/migrations/20261123120000_bet_one_side_no_debuffs.sql` adds
+`live_matches.debuffed` (published by the umpire phone), a helper
+`private.require_one_bet_side`, and replaces `publish_live_match`,
+`place_live_bet` and `place_bet` so the server refuses a bet on the other
+player and any bet on a debuffed live match. Applied to the hosted project on
+2026-11-23, recorded as version `20261123063809`, name
+`bet_one_side_no_debuffs`. The two rollbacks above remove
+everything it adds (the column goes with the table, the helper with
+`points_betting_down.sql`).
+
 ## How to remove the feature
 
 0. **Live score and bets from any phone only.** Run
@@ -132,50 +149,10 @@ To bring it back after a rollback, apply the migration again.
   both rollbacks, checks that no betting object is
   left and that plain match saving still works, and re-applies the migration.
 
-## Sabotage shop
+## Sabotage shop (removed)
 
-Built 2026-11-17. Spend betting points to put a debuff on a player in a live
-ping pong match for a number of points, e.g. "Half table for the next 3
-points". **The price goes straight to the debuffed player's wallet** (a
-transfer, so no points are created). Debuffs are display only: match saving,
-results and ELO ignore them.
-
-- **Sabotage** tab (ping pong, under "More") and a "Sabotage a player" button on
-  the live match card in the Bets tab. Any phone can buy, no PIN, like live bets.
-- The umpire phone shows the running debuff and the queue above the score.
-- Price = price per point × points (1 to the item's max). The buyer must keep
-  at least 1 point, and cannot debuff themselves.
-- Points are counted across the whole match. A second debuff on the same player
-  queues after the first; at most 10 points can be lined up per player.
-- No refunds: discarding the match does not give the points back.
-
-Migration `supabase/migrations/20261117120000_sabotage_shop.sql`, purely
-additive. Applied to the hosted "Table Tennis Tracker" Supabase project on
-2026-11-17, where it is recorded as version `20261117102910`, name
-`sabotage_shop`.
-
-| Object | Kind | Purpose |
-|---|---|---|
-| `public.sabotage_items` | table | the menu: title, description, price per point, max points, active flag |
-| `public.sabotages` | table | every purchase: match, buyer, target, debuff, points, price, start and end point |
-| `public.buy_sabotage` | function | **no admin token**; checks the live row, prices from the menu, moves the points |
-
-Menu update `supabase/migrations/20261117130000_sabotage_menu_update.sql`
-(2026-11-17): prices up about 1.5×, Granny serve and Pillow fight switched off
-(kept for history), Backhand only, Choke grip, No serve and Hand behind back
-added. `20261117140000_sabotage_round_prices.sql` (hosted version
-`20261117103834`) rounds every price to end in 0 and prices Backhand only like
-Forehand only. Current menu, per point: Half table 50, Forehand only 40,
-Backhand only 40, Wrong hand 90, Choke grip 60, No serve 40, Long distance 50, Statue 70,
-Hand behind back 30. Prices can be changed in `sabotage_items` directly.
-Applied to the hosted project on 2026-11-17 as version `20261117103513`, name
-`sabotage_menu_update`.
-
-To remove it, run `supabase/rollbacks/20261117120000_sabotage_shop_down.sql`
-(before the other two rollbacks). The app hides the tab when the tables are
-missing. Code: `src/sabotageUtils.js`, `src/components/SabotageShop.jsx`, the
-`sabotageItems`/`sabotages` sources in `src/appData.js`, `sabotageReady` in
-`src/useAppData.js`, `buySabotage` in `src/betPersistence.js`, and the
-`sabotage` bits in `src/App.jsx`, `BetsView.jsx` and `LiveMatchModal.jsx`.
-Tests: `src/sabotageUtils.test.js`, `src/sabotageViews.test.jsx`,
-`supabase/tests/sabotage.sql`.
+Built 2026-11-17, removed on 2026-11-23 from the app and from the hosted
+database (tables `sabotage_items`, `sabotages`, function `buy_sabotage` and
+their three migration history rows; no purchases had been made). Its
+migrations, rollback and tests were deleted from the repo; see git history
+before 2026-11-23 if it is ever wanted back.

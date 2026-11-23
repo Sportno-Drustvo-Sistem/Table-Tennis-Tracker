@@ -10,8 +10,6 @@ import { checkAdminSession } from '../../adminSession'
 import { useToast } from '../../contexts/useToast'
 import KeepAwake from '../KeepAwake'
 import BetSheet from '../BetSheet'
-import { SabotageQueue } from '../SabotageShop'
-import { pendingSabotages } from '../../sabotageUtils'
 import { getGameFirstServer, getPointServer } from '../../pingPongPoints'
 
 const WINNING_SCORE = 11
@@ -323,6 +321,10 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         return rules
     }, [isOpen, player1, player2, streakRule, debuffs])
 
+    // Debuffs that stay on are saved with the match (and feed its Elo bonus);
+    // nobody may bet on a match played under one.
+    const debuffed = activeRules.some((_, idx) => !refusedRules.has(idx))
+
     // How many games needed to win the match
     const gamesNeeded = Math.ceil(bestOf / 2)
 
@@ -592,8 +594,9 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
             winProbability: Number(winProb.exact.toFixed(4)),
             bettingClosed: isBettingClosed({ score1, score2, games1, games2, bestOf, gameWinner, matchWinner }),
             winnerSide: matchWinner,
+            debuffed,
         }
-    }, [shareLive, winProb, completedSets, gameWinner, score1, score2, initialServer, bestOf, matchWinner])
+    }, [shareLive, winProb, completedSets, gameWinner, score1, score2, initialServer, bestOf, matchWinner, debuffed])
 
     // Updates go out one at a time, newest state wins; a failed one is fixed by the next.
     const liveQueue = useRef({ running: null, next: null, ended: new Set(), shared: new Set() })
@@ -642,11 +645,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
     if (!isOpen || !player1 || !player2) return null
 
-    const bettingClosed = isBettingClosed({ score1, score2, games1: gamesWon1, games2: gamesWon2, bestOf, gameWinner, matchWinner })
-    // Debuffs other phones bought for this match. Only shown: scoring and ELO ignore them.
-    const pointsPlayed = completedSets.reduce((sum, set) => sum + set.s1 + set.s2, gameWinner ? 0 : score1 + score2)
-    const debuffQueue = betting?.sabotages && !matchWinner ? pendingSabotages(betting.sabotages, marketId, pointsPlayed) : []
-    const debuffPlayers = { [player1.id]: player1, [player2.id]: player2, ...Object.fromEntries((betting?.users || []).map(user => [user.id, user])) }
+    const bettingClosed = debuffed || isBettingClosed({ score1, score2, games1: gamesWon1, games2: gamesWon2, bestOf, gameWinner, matchWinner })
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -752,14 +751,16 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                     </div>
                                 </div>
                                 <button
+                                    // Bets are only taken without debuffs, so a refused one stays refused once bets are in.
+                                    disabled={refusedRules.has(idx) && matchBets.length > 0}
                                     onClick={() => {
                                         const newRefused = new Set(refusedRules)
                                         if (newRefused.has(idx)) newRefused.delete(idx)
                                         else newRefused.add(idx)
                                         setRefusedRules(newRefused)
                                     }}
-                                    className="absolute top-0.5 right-0.5 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                                    title={refusedRules.has(idx) ? "Accept Debuff" : "Refuse Debuff"}
+                                    className="absolute top-0.5 right-0.5 p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={refusedRules.has(idx) ? (matchBets.length > 0 ? "Bets are in; debuff stays off" : "Accept Debuff") : "Refuse Debuff"}
                                 >
                                     <X size={16} className={refusedRules.has(idx) ? "rotate-45" : ""} />
                                 </button>
@@ -792,12 +793,6 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                                 </button>
                             ))}
                         </div>
-                    </div>
-                )}
-
-                {debuffQueue.length > 0 && initialServer !== null && (
-                    <div className="px-3 pb-2">
-                        <SabotageQueue sabotages={debuffQueue} getUser={id => debuffPlayers[id]} compact />
                     </div>
                 )}
 
@@ -1017,6 +1012,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
                     bets={matchBets}
                     prob1={winProb.exact}
                     closed={bettingClosed}
+                    closedReason={debuffed ? 'No betting while a debuff is on. Refuse the debuff to open betting.' : undefined}
                     snapshot={{ bestOf, games1: gamesWon1, games2: gamesWon2, score1: gameWinner ? 0 : score1, score2: gameWinner ? 0 : score2 }}
                     adminToken={adminToken}
                 />

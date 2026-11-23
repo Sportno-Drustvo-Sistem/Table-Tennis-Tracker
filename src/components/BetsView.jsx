@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Coins, Crown, Zap, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
+import { Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { voidBetMarket } from '../betPersistence'
 import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, poolTotals } from '../bettingUtils'
@@ -59,7 +59,7 @@ const LiveDot = () => (
 
 // `liveMatches` are the umpire phones' shared scores; when given, anyone can
 // bet on them from this phone.
-const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, adminToken, initialTab = 'standings', onOpenSabotage = null }) => {
+const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, adminToken, initialTab = 'standings' }) => {
     const { showToast, showConfirm } = useToast()
     const [tab, setTab] = useState(initialTab)
     const [betLiveId, setBetLiveId] = useState(null)
@@ -131,15 +131,8 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                         <button type="button" onClick={() => setBetLiveId(match.id)} disabled={!open}
                             className={`mt-3 w-full py-3.5 rounded-xl flex items-center justify-center gap-2.5 text-white text-lg font-black bg-gradient-to-r from-amber-500 to-orange-500 shadow-md shadow-amber-500/30 transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none ${open ? 'bet-shine' : ''}`}>
                             <MiniChip amount={open ? 100 : 1000} className="w-6 h-6" />
-                            {open ? 'Place a bet' : 'Betting closed'}
+                            {open ? 'Place a bet' : match.debuffed ? 'No betting · debuff on' : 'Betting closed'}
                         </button>
-                        {onOpenSabotage && !match.winner_side && (
-                            <button type="button" onClick={onOpenSabotage}
-                                className="mt-2 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-200 dark:border-fuchsia-800 hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/50">
-                                <Zap size={16} />
-                                Sabotage a player
-                            </button>
-                        )}
                         {marketBets.length > 0 && (
                             <div className="mt-4 space-y-3">
                                 <BetPool bets={marketBets} names={names} />
@@ -164,6 +157,7 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                     bets={pendingBets(betLive.id)}
                     prob1={Number(betLive.win_probability ?? 0.5)}
                     closed={!canBetOn(betLive)}
+                    closedReason={betLive.debuffed ? 'No betting on a match with a debuff.' : undefined}
                     scoreboard={<LiveScoreboard live={betLive} getUser={getUser} />}
                 />
             )}

@@ -52,7 +52,7 @@ const rememberedBettor = () => {
 // `remote` is any other phone: odds follow the live score, the server prices
 // the bet itself, and the phone remembers who used it last. `scoreboard` is
 // drawn under the title.
-const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets, bets, prob1, closed, snapshot, adminToken, remote = false, scoreboard = null }) => {
+const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets, bets, prob1, closed, closedReason = 'Betting is closed at match point.', snapshot, adminToken, remote = false, scoreboard = null }) => {
     const { showToast } = useToast()
     const [bettorId, setBettorId] = useState(() => {
         if (!remote) return null
@@ -76,7 +76,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
     const hasBet = new Set(bets.map(bet => bet.user_id))
 
     const balance = bettorId ? walletBalance(wallets, bettorId) : 0
-    const sides = bettorId ? allowedSides(bettorId, player1.id, player2.id) : [1, 2]
+    const sides = bettorId ? allowedSides(bettorId, player1.id, player2.id, bets) : [1, 2]
     const activeSide = sides.includes(side) ? side : (sides.length === 1 ? sides[0] : null)
     const stakeValue = Number(stake)
     const stakeValid = Number.isInteger(stakeValue) && stakeValue >= 1 && stakeValue <= balance
@@ -187,13 +187,16 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         </div>
                         {pool.total > 0 && <div className="mt-2 short:hidden"><BetPool bets={bets} names={names} /></div>}
                         {closed && (
-                            <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Betting is closed at match point.</p>
+                            <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">{closedReason}</p>
                         )}
                         {remote && !closed && (
                             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 short:hidden">Odds move with every point. Your bet is locked at the odds shown when you tap Bet.</p>
                         )}
                         {!closed && bettorId && !activeSide && (
                             <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Tap the player {usersById[bettorId]?.name} is backing.</p>
+                        )}
+                        {!closed && bettorId && sides.length === 1 && hasBet.has(bettorId) && bettorId !== player1.id && bettorId !== player2.id && (
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{usersById[bettorId]?.name} already backs {players[sides[0]].name}. One player per match.</p>
                         )}
                     </div>
                 </div>

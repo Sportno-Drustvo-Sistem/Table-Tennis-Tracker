@@ -13,6 +13,7 @@ DROP FUNCTION IF EXISTS public.place_bet(text,uuid,uuid,uuid,uuid,integer,intege
 DROP FUNCTION IF EXISTS private.resettle_bets_for_match();
 DROP FUNCTION IF EXISTS private.bet_market_state(uuid);
 DROP FUNCTION IF EXISTS private.settle_bet_market(uuid);
+DROP FUNCTION IF EXISTS private.require_one_bet_side(uuid,uuid,integer);
 DROP FUNCTION IF EXISTS private.bet_multiplier(numeric);
 
 -- Dropping a table also removes it from the realtime publication, its

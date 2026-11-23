@@ -33,7 +33,10 @@ BEGIN
     PERFORM test.assert((result->'wallet'->>'balance')::int=900 AND (result->'bet'->>'multiplier')::numeric=2.00,'stake leaves the wallet at 2.00x');
     result := public.place_bet('valid',m1,alice,bob,dave,2,50,0.25);
     PERFORM test.assert((result->'bet'->>'multiplier')::numeric=4.00,'underdog pays 4.00x');
-    PERFORM test.assert((public.place_bet('valid',m4,alice,bob,carol,1,1,0.99)->'bet'->>'multiplier')::numeric=1.05 AND (public.place_bet('valid',m4,alice,bob,carol,2,1,0.05)->'bet'->>'multiplier')::numeric=10,'multiplier is clamped');
+    PERFORM test.assert((public.place_bet('valid',m4,alice,bob,carol,1,1,0.99)->'bet'->>'multiplier')::numeric=1.05 AND (public.place_bet('valid',m4,alice,bob,dave,2,1,0.05)->'bet'->>'multiplier')::numeric=10,'multiplier is clamped');
+    -- One player per match: carol backs side 1 on m4, so side 2 is refused; side 1 again is fine.
+    PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,2,1,0.5)',m4,alice,bob,carol));
+    PERFORM public.place_bet('valid',m4,alice,bob,carol,1,1,0.5);
     PERFORM public.void_bet_market('valid',m4);
     m4 := gen_random_uuid();
 

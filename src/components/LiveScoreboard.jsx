@@ -9,6 +9,7 @@ const SIDE = {
 const liveStatus = (live, names) => {
     if (live.winner_side) return `${names[live.winner_side]} won · waiting for the result to be saved`
     if (!live.server && live.score1 === 0 && live.score2 === 0 && live.games1 === 0 && live.games2 === 0) return 'About to start'
+    if (live.debuffed) return 'Debuff on · no betting'
     if (live.betting_closed) return 'Match point · betting closed'
     if (live.score1 >= 10 && live.score2 >= 10 && live.score1 === live.score2) return 'Deuce'
     return null

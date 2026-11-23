@@ -47,10 +47,14 @@ export const isBettingClosed = ({ score1 = 0, score2 = 0, games1 = 0, games2 = 0
     return (gamePoint1 && games1 + 1 >= need) || (gamePoint2 && games2 + 1 >= need)
 }
 
-// Players in the match may only back themselves.
-export const allowedSides = (userId, player1Id, player2Id) => (
-    userId === player1Id ? [1] : userId === player2Id ? [2] : [1, 2]
-)
+// Players in the match may only back themselves, and a bettor backs one player
+// per match: once they have a pending bet on a side, only that side is left.
+export const allowedSides = (userId, player1Id, player2Id, bets = []) => {
+    if (userId === player1Id) return [1]
+    if (userId === player2Id) return [2]
+    const backed = bets.find(bet => bet.user_id === userId && bet.status === 'pending')
+    return backed ? [backed.side] : [1, 2]
+}
 
 export const walletBalance = (wallets, userId) => (
     (wallets || []).find(wallet => wallet.user_id === userId)?.balance ?? STARTING_BALANCE
@@ -228,5 +232,6 @@ export const LIVE_FRESH_MS = 20 * 60 * 1000
 
 export const isLiveFresh = (live, now) => Boolean(live?.updated_at) && now - Date.parse(live.updated_at) < LIVE_FRESH_MS
 
-// Other phones may bet until match point, and only once the odds are known.
-export const liveBettingOpen = live => Boolean(live) && !live.betting_closed && !live.winner_side && live.win_probability != null
+// Other phones may bet until match point, only once the odds are known, and
+// never on a match played under a debuff.
+export const liveBettingOpen = live => Boolean(live) && !live.debuffed && !live.betting_closed && !live.winner_side && live.win_probability != null
