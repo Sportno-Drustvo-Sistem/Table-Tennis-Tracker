@@ -346,7 +346,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
 
         setScore1(newS1)
         setScore2(newS2)
-        const points = [...history, playerNum]
+        const points = [...history, { winner: playerNum, server: currentServer }]
         setHistory(points)
 
         if (!matchStarted) setMatchStarted(true)
@@ -415,7 +415,7 @@ const LiveMatchModal = ({ isOpen, onClose, player1, player2, onMatchSaved, match
         const previous = history.length ? null : completedSets.at(-1)
         const points = previous ? previous.points : history
         if (!points?.length) return
-        const lastScorer = points.at(-1)
+        const lastScorer = points.at(-1).winner
         if (gameWinner || previous) setCompletedSets(prev => prev.slice(0, -1))
         setHistory(points.slice(0, -1))
         setScore1((previous ? previous.s1 : score1) - (lastScorer === 1 ? 1 : 0))

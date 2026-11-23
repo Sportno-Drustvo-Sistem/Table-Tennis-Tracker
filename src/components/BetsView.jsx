@@ -89,8 +89,8 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
     const name = id => usersById[id]?.name || 'Unknown'
     const sideNames = market => ({ 1: name(market.player1_id), 2: name(market.player2_id) })
 
-    const board = buildBettingLeaderboard(users, wallets, bets, payouts).filter(row => row.hasBet || row.cashedOut > 0)
-    const bettors = board
+    const board = buildBettingLeaderboard(users, wallets, bets, payouts)
+        .filter(row => row.balance > 0 || row.hasBet || row.cashedOut > 0)
     const totals = bettingTotals(bets)
     const earned = buildBettingAwards(bets)
     const awards = Object.keys(AWARDS).map(id => earned.find(award => award.id === id)).filter(Boolean)
@@ -265,10 +265,10 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
                             : <>Bets are placed on the umpire&apos;s phone during a live match.</>} No real money.
                     </p>
 
-                    {bettors.length >= 3 && (
+                    {board.length >= 3 && (
                         <ol className="grid grid-cols-3 items-end gap-2 sm:gap-4 max-w-md mx-auto mb-5" aria-label="Top three">
                             {PODIUM.map(({ place, avatar, step }) => {
-                                const row = bettors[place - 1]
+                                const row = board[place - 1]
                                 return (
                                     <li key={place} className="min-w-0 flex flex-col items-center text-center">
                                         {place === 1 && <Crown size={24} className="mb-1 text-amber-400 fill-amber-400 motion-safe:animate-float" aria-hidden="true" />}
@@ -287,8 +287,8 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
 
                     <ol className="divide-y divide-gray-100 dark:divide-gray-700">
                         {board.map((row, index) => (
-                            <li key={row.user.id} className={`flex items-center gap-3 py-2.5 ${row.hasBet ? '' : 'opacity-60'}`}>
-                                <span className={`w-6 text-center text-sm font-black tabular-nums ${(row.hasBet && RANK_CLASS[index]) || 'text-gray-400 dark:text-gray-500'}`}>{index + 1}</span>
+                            <li key={row.user.id} className="flex items-center gap-3 py-2.5">
+                                <span className={`w-6 text-center text-sm font-black tabular-nums ${RANK_CLASS[index] || 'text-gray-400 dark:text-gray-500'}`}>{index + 1}</span>
                                 <BetAvatar user={row.user} className="w-11 h-11" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1.5">

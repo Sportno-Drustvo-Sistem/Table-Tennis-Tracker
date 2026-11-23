@@ -63,6 +63,15 @@ describe('betting screens render', () => {
         expect(render(<BetsView users={users} wallets={wallets} markets={[]} bets={[]} initialTab="payouts" />)).toContain('No payouts yet')
     })
 
+    it('ranks positive wallets even if their owners have never bet', () => {
+        const funded = [...wallets, { user_id: 'a', balance: 1500 }]
+        const html = render(<BetsView users={users} wallets={funded} markets={[]} bets={[pending]} initialTab="standings" />)
+        expect(html).toContain('No bets yet')
+        expect(html).toContain('>1,500<')
+        expect(html.indexOf('>Ana<')).toBeLessThan(html.indexOf('>Cene<'))
+        expect(html).not.toContain('>Bor<')
+    })
+
     it('shows the live score and lets any phone bet on it', () => {
         const live = { id: 'k', player1_id: 'a', player2_id: 'b', best_of: 3, games1: 1, games2: 0, score1: 7, score2: 4, sets: [{ s1: 11, s2: 9 }], server: 2, win_probability: 0.8, betting_closed: false, winner_side: null, updated_at: new Date().toISOString() }
         const html = render(<BetsView users={users} wallets={wallets} markets={[market]} bets={[pending]} liveMatches={[live]} initialTab="standings" />)

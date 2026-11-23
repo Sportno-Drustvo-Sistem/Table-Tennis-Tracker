@@ -37,8 +37,15 @@ export const calculateSetEloChange = (ratingA, ratingB, winner, side, kFactor = 
     return Math.sign(raw) * Math.round(Math.abs(raw))
 }
 
+// PostgreSQL timestamps can distinguish games within a JavaScript millisecond.
+const fractionalSecond = timestamp => Number(String(timestamp).match(/:\d{2}(\.\d+)/)?.[1] || 0)
+
+export const comparePingPongMatches = (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
+    || fractionalSecond(a.created_at) - fractionalSecond(b.created_at)
+    || String(a.id).localeCompare(String(b.id))
+
 export const buildEloHistory = (users, matches) => {
-    const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at) || String(a.id).localeCompare(String(b.id)))
+    const sortedMatches = [...matches].sort(comparePingPongMatches)
     const ratings = {}
     const mpc = {}
     const playerEloTimelines = {}

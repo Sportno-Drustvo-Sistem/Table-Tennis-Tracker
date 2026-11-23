@@ -96,8 +96,7 @@ export const payoutTotalsByUser = (payouts) => {
     return totals
 }
 
-// One row per player: balance plus what their settled bets did. Players who
-// have bet come first, richest on top.
+// One row per player, ordered by wallet balance, with their betting record.
 export const buildBettingLeaderboard = (users, wallets, bets, payouts = []) => {
     const walletByUser = new Map((wallets || []).map(wallet => [wallet.user_id, wallet]))
     const cashedOut = payoutTotalsByUser(payouts)
@@ -119,7 +118,7 @@ export const buildBettingLeaderboard = (users, wallets, bets, payouts = []) => {
         const wallet = walletByUser.get(user.id)
         const row = stats.get(user.id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
         return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, cashedOut: cashedOut.get(user.id) || 0, hasBet: stats.has(user.id), streak: streaks.get(user.id) || 0, ...row }
-    }).sort((a, b) => (b.hasBet - a.hasBet) || (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
+    }).sort((a, b) => (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
 }
 
 // Points staked on each side: { 1, 2, total, count }. Refunded bets do not count.

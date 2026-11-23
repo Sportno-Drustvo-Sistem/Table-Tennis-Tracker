@@ -104,13 +104,13 @@ describe('results', () => {
         expect(describeBetResults([], {})).toBe('')
     })
 
-    it('ranks bettors by balance ahead of players who never bet', () => {
+    it('ranks players by balance regardless of betting history', () => {
         const wallets = [{ user_id: 'a', balance: 1120, rebuys: 0 }, { user_id: 'b', balance: 930, rebuys: 1 }, { user_id: 'c', balance: 1000, rebuys: 0 }]
         const board = buildBettingLeaderboard(users, wallets, bets)
-        expect(board.map(row => row.user.id)).toEqual(['a', 'b', 'c'])
+        expect(board.map(row => row.user.id)).toEqual(['a', 'c', 'b'])
         expect(board[0]).toMatchObject({ balance: 1120, won: 1, lost: 1, profit: 120, biggestWin: 150 })
-        expect(board[1]).toMatchObject({ balance: 930, rebuys: 1, profit: -50, pending: 20 })
-        expect(board[2]).toMatchObject({ balance: 1000, hasBet: false })
+        expect(board[1]).toMatchObject({ balance: 1000, hasBet: false })
+        expect(board[2]).toMatchObject({ balance: 930, rebuys: 1, profit: -50, pending: 20 })
     })
 
     it('totals the pool per side without refunded bets', () => {

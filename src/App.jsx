@@ -552,7 +552,7 @@ function App() {
 
       {currentTab === 'stats' && (
         isPingPong ? (
-          <PlayerStats key={seasonScope} users={scopedUsers} matches={scopedMatches} initialPlayerId={statsPlayerId} seasonId={selectedSeasonId} />
+          <PlayerStats key={seasonScope} users={scopedUsers} matches={scopedMatches} allTimeUsers={users} allTimeMatches={matches} initialPlayerId={statsPlayerId} seasonId={selectedSeasonId} />
         ) : isPadel ? (
           <PadelPlayerStats users={users} matches={padelMatches} padelStats={padelStats} initialPlayerId={statsPlayerId} />
         ) : (

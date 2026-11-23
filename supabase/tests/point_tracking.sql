@@ -17,6 +17,8 @@ DECLARE
     carol uuid:=(SELECT id FROM test.players WHERE n=3);
     points jsonb:=test.points(array_fill(1,ARRAY[11]));
     deuce jsonb:=test.points(ARRAY[1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,1]);
+    annotated jsonb;
+    annotated_sets jsonb;
     sets jsonb;
     result jsonb;
     saved uuid;
@@ -26,6 +28,11 @@ DECLARE
     token text;
 BEGIN
     sets:=jsonb_build_array(jsonb_build_object('s1',11,'s2',0,'points',points));
+    SELECT jsonb_agg(jsonb_build_object('winner', winner, 'server', servers[i]) ORDER BY i)
+    INTO annotated
+    FROM jsonb_array_elements(deuce) WITH ORDINALITY AS p(winner, i)
+    CROSS JOIN (SELECT ARRAY[2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,1] AS servers) rotation;
+    annotated_sets:=jsonb_build_array(jsonb_build_object('s1',12,'s2',10,'points',annotated));
     before_count:=(SELECT count(*) FROM public.matches);
     FOREACH token IN ARRAY ARRAY['invalid','expired','revoked'] LOOP
         PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(%L,%L,%L,%L)',token,alice,bob,sets));
@@ -38,17 +45,23 @@ BEGIN
         '[null]'::jsonb,
         points || '[3]'::jsonb,
         points #- '{0}',
-        test.points(array_fill(1,ARRAY[12]))
+        test.points(array_fill(1,ARRAY[12])),
+        jsonb_set(points,'{0}','{"winner":1,"server":1}'),
+        jsonb_set(points,'{1}','{"winner":1,"server":1}')
     ] LOOP
         PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(''valid'',%L,%L,%L)',alice,bob,jsonb_build_array(jsonb_build_object('s1',11,'s2',0,'points',bad))));
     END LOOP;
     PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(''valid'',%L,%L,%L)',alice,bob,'[{"s1":11,"s2":0}]'));
     PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(''valid'',%L,%L,%L)',alice,bob,jsonb_build_array(jsonb_build_object('s1',12,'s2',0,'points',test.points(array_fill(1,ARRAY[12]))))));
+    PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(''valid'',%L,%L,%L)',alice,bob,jsonb_set(annotated_sets,'{0,points,21,server}','2')));
+    PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(''valid'',%L,%L,%L)',alice,bob,annotated_sets #- '{0,points,0,server}'));
     PERFORM test.assert(before_count=(SELECT count(*) FROM public.matches),'rejected point histories created no games');
 
     -- Both sets keep only their ordered point winners, including deuce.
     result:=public.record_pingpong_match_with_points('valid',alice,bob,sets||jsonb_build_array(jsonb_build_object('s1',12,'s2',10,'points',deuce)));
     PERFORM test.assert(result->'matches'->0->'point_history'=points AND result->'matches'->1->'point_history'=deuce,'returned games preserve points in set order');
+    -- Fast saves can share a clock tick, including in embedded PostgreSQL.
+    PERFORM test.assert((result->'matches'->0->>'created_at')::timestamptz <= (result->'matches'->1->>'created_at')::timestamptz,'game timestamps do not reverse the save order');
     PERFORM test.assert(result->'match'->'point_history'=deuce,'last saved match includes point history');
     saved:=(result->'matches'->0->>'id')::uuid;
     PERFORM test.assert((SELECT point_history=points FROM public.matches WHERE id=saved),'point history persisted');
@@ -62,8 +75,10 @@ BEGIN
     before_count:=(SELECT count(*) FROM public.matches);
     PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_points(''valid'',%L,%L,%L,NULL,NULL,%L)',alice,bob,'[{"s1":11,"s2":0,"points":[]}]',market));
     PERFORM test.assert(before_count=(SELECT count(*) FROM public.matches) AND (SELECT status='open' FROM public.bet_markets WHERE id=market),'bad history leaves score and bets unchanged');
-    result:=public.record_pingpong_match_with_points('valid',alice,bob,sets,NULL,NULL,market);
-    PERFORM test.assert(result->'match'->'point_history'=points AND result->'market'->>'status'='settled','points and bets saved atomically');
+    result:=public.record_pingpong_match_with_points('valid',alice,bob,annotated_sets,NULL,NULL,market);
+    PERFORM test.assert(result->'match'->'point_history'=annotated AND result->'market'->>'status'='settled','deuce points, service order and bets saved atomically');
+    saved:=(result->'match'->>'id')::uuid;
+    PERFORM test.assert((SELECT point_history=annotated FROM public.matches WHERE id=saved),'servers reload with the saved game');
 
     result:=public.record_pingpong_match('valid',alice,bob,'[{"s1":11,"s2":3}]');
     PERFORM test.assert(result->'match'->'point_history'='null'::jsonb,'manual score entry remains untracked');

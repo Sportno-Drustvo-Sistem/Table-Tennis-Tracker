@@ -7,8 +7,9 @@ import DateRangePicker from './DateRangePicker'
 import TrophyCase from './TrophyCase'
 import Achievements from './Achievements'
 import { buildEloHistory, getEloRank, getAvatarFallback } from '../utils'
+import { getServeStats } from '../pingPongPoints'
 
-const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
+const PlayerStats = ({ users, matches, allTimeUsers = users, allTimeMatches = matches, initialPlayerId, seasonId }) => {
     const [selectedPlayerId, setSelectedPlayerId] = usePlayerSelection(users, initialPlayerId)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -25,6 +26,9 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
 
     // Compute ELO history once — only changes when users or matches change, not on date filter
     const eloData = useMemo(() => buildEloHistory(users, matches), [users, matches])
+    const allTimeEloData = useMemo(() => allTimeUsers === users && allTimeMatches === matches
+        ? eloData
+        : buildEloHistory(allTimeUsers, allTimeMatches), [allTimeUsers, allTimeMatches, users, matches, eloData])
 
     const playerRank = useMemo(() => {
         if (!selectedPlayer) return null
@@ -145,6 +149,7 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
             pointsDiff: pointsFor - pointsAgainst,
             avgPoints: (wins + losses) > 0 ? (pointsFor / (wins + losses)).toFixed(1) : 0,
             headToHead,
+            serveStats: getServeStats(relevantMatches, selectedPlayerId),
             timeline,
             streakType,
             streak: currentStreak,
@@ -250,6 +255,21 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
                 </div>
             </div>
 
+            <section className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white">Serve Performance</h3>
+                {stats.serveStats.serve.total + stats.serveStats.receive.total > 0 ? (
+                    <dl className="grid grid-cols-2 gap-3 mt-3">
+                        {[["Own serve", stats.serveStats.serve], ["Opponent’s serve", stats.serveStats.receive]].map(([label, { won, total }]) => (
+                            <div key={label} className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3">
+                                <dt className="text-sm font-semibold text-gray-700 dark:text-gray-300">{label}</dt>
+                                <dd className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{total ? `${(100 * won / total).toFixed(1)}%` : '—'}</dd>
+                                <dd className="text-xs text-gray-600 dark:text-gray-400">{won} of {total} tracked points won</dd>
+                            </div>
+                        ))}
+                    </dl>
+                ) : <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No serve data for this period.</p>}
+            </section>
+
             {/* ELO History Chart */}
             {stats?.eloHistory?.length > 1 && (
                 <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
@@ -277,7 +297,7 @@ const PlayerStats = ({ users, matches, initialPlayerId, seasonId }) => {
 
             <TrophyCase playerId={selectedPlayerId} seasonId={seasonId} />
 
-            <Achievements playerId={selectedPlayerId} users={users} matches={matches} eloData={eloData} />
+            <Achievements playerId={selectedPlayerId} users={allTimeUsers} matches={allTimeMatches} eloData={allTimeEloData} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 

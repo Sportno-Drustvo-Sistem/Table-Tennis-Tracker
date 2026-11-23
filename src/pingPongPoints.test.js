@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getGameFirstServer, getPointServer, scoreProgression } from './pingPongPoints'
+import { getGameFirstServer, getPointServer, getServeStats, scoreProgression } from './pingPongPoints'
 
 describe('ping pong point tracking', () => {
     it('rotates service in pairs, then singles at deuce, and alternates the first server per game', () => {
@@ -18,7 +18,17 @@ describe('ping pong point tracking', () => {
 
     it('can read previously saved point objects during rollout', () => {
         expect(scoreProgression([{ winner: 1, server: 1, type: 'ace' }])).toMatchObject([
-            { winner: 1, score1: 1, score2: 0 },
+            { winner: 1, server: 1, score1: 1, score2: 0 },
         ])
+    })
+
+    it('counts points by the selected player’s serve, ignoring winner-only and unrelated games', () => {
+        const games = [
+            { player1_id: 'a', player2_id: 'b', point_history: [{ winner: 1, server: 1 }, { winner: 2, server: 1 }, { winner: 1, server: 2 }] },
+            { player1_id: 'b', player2_id: 'a', point_history: [{ winner: 2, server: 2 }, { winner: 1, server: 1 }] },
+            { player1_id: 'a', player2_id: 'b', point_history: [1, 2] },
+            { player1_id: 'b', player2_id: 'c', point_history: [{ winner: 1, server: 1 }] },
+        ]
+        expect(getServeStats(games, 'a')).toEqual({ serve: { won: 2, total: 3 }, receive: { won: 1, total: 2 } })
     })
 })

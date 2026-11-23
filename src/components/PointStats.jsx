@@ -13,6 +13,9 @@ const PointStats = ({ games, players }) => {
                                 <span className="text-gray-400">#{point.number}</span>
                                 <strong className="tabular-nums">{point.score1}–{point.score2}</strong>
                                 <span>Point to {players[point.winner - 1]?.name || 'Unknown'}</span>
+                                {(point.server === 1 || point.server === 2) && (
+                                    <span className="text-gray-500 dark:text-gray-400">· {players[point.server - 1]?.name || 'Unknown'} served</span>
+                                )}
                             </li>
                         ))}
                     </ol>

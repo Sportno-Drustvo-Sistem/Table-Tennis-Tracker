@@ -3,12 +3,13 @@ import * as utils from './utils'
 import * as padel from './padelUtils'
 import * as tennis from './tennisUtils'
 import * as persistence from './matchPersistence'
+import { getServeStats } from './pingPongPoints'
 import { inLocalDateRange } from './dateRange'
 import { hookHarness } from './test/hookHarness'
 
 const players = Array.from({ length: 4 }, (_, i) => ({ id: String(i + 1), name: ['Alice','Bob','Carol','Dave'][i] }))
 const base = () => ({
-    ...utils, ...padel, ...tennis, ...persistence, inLocalDateRange, supabase: {}, SpeechSynthesisUtterance: class {},
+    ...utils, ...padel, ...tennis, ...persistence, inLocalDateRange, getServeStats, supabase: {}, SpeechSynthesisUtterance: class {},
     useToast: () => ({ showToast: vi.fn() }),
     localStorage: { getItem: () => 'off', setItem: () => {} },
     window: { addEventListener() {}, removeEventListener() {}, AudioContext: class { state = 'running' }, speechSynthesis: { getVoices: () => [{}], speak() {} } },

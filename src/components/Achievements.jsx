@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Flame, Sword, Mountain, TrendingUp, Target, Medal, Users, Crosshair, Shield } from 'lucide-react'
-import { buildEloHistory, getActiveDebuffs } from '../utils'
+import { buildEloHistory, comparePingPongMatches, getActiveDebuffs } from '../utils'
 
 const LEVEL_COLORS = {
     1: { name: 'Bronze', bg: 'bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600', text: 'text-amber-700 dark:text-amber-500' },
@@ -110,64 +110,20 @@ const BADGE_DEFS = [
 
 ]
 
-// `eloData` is the caller's buildEloHistory(users, matches), passed in so it is not replayed here.
+const DEBUFF_LEVELS = [1, 3, 5, 10, 20]
+
 const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
     const [debuffs, setDebuffs] = React.useState([])
+    const [tab, setTab] = React.useState('general')
     React.useEffect(() => {
         getActiveDebuffs().then(setDebuffs)
     }, [])
 
-    const allBadgeDefs = useMemo(() => {
-        const wonDebuffTitles = new Set()
-        if (matches && playerId) {
-            matches.forEach(m => {
-                const isP1 = m.player1_id === playerId
-                const isP2 = m.player2_id === playerId
-                if (isP1 || isP2) {
-                    const myScore = isP1 ? m.score1 : m.score2
-                    const oppScore = isP1 ? m.score2 : m.score1
-                    if (myScore > oppScore && m.handicap_rule) {
-                        const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
-                        rules.forEach(r => {
-                            if (r.targetPlayerId === playerId && r.title) {
-                                wonDebuffTitles.add(r.title)
-                            }
-                        })
-                    }
-                }
-            })
-        }
-
-        debuffs.forEach(d => {
-            if (d.title) wonDebuffTitles.add(d.title)
-        })
-
-        const dynamicBadges = Array.from(wonDebuffTitles).map(title => {
-            const cleanId = 'debuff_' + title.toLowerCase().replace(/[^a-z0-9]/g, '_')
-            return {
-                id: cleanId,
-                label: `${title} Master`,
-                icon: Shield,
-                isDebuffBadge: true,
-                debuffTitle: title,
-                levels: [
-                    { req: 1, desc: `Won 1 match with ${title}` },
-                    { req: 3, desc: `Won 3 matches with ${title}` },
-                    { req: 5, desc: `Won 5 matches with ${title}` },
-                    { req: 10, desc: `Won 10 matches with ${title}` },
-                    { req: 20, desc: `Won 20 matches with ${title}` }
-                ]
-            }
-        })
-
-        return [...BADGE_DEFS, ...dynamicBadges]
-    }, [debuffs, matches, playerId])
-
     const { badges: earned, metrics } = useMemo(() => {
         if (!playerId || !matches?.length) return { badges: {}, metrics: null }
 
-        const sortedMatches = [...matches].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        const playerMatches = sortedMatches.filter(m => m.player1_id === playerId || m.player2_id === playerId)
+        const playerMatches = matches.filter(m => m.player1_id === playerId || m.player2_id === playerId)
+            .sort(comparePingPongMatches)
 
         if (playerMatches.length === 0) return { badges: {}, metrics: null }
 
@@ -177,7 +133,7 @@ const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
         // ascending indicates if higher metric is better (streak, ELO gained) 
         // string 'summit' needs reversed logic (lower rank is better)
         const getLevel = (id, metric, ascending = true) => {
-            const def = allBadgeDefs.find(b => b.id === id)
+            const def = BADGE_DEFS.find(b => b.id === id)
             if (!def) return -1
             let highest = -1
             for (let i = 0; i < def.levels.length; i++) {
@@ -190,16 +146,16 @@ const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
             return highest
         }
 
-        // --- On Fire: current 5+ win streak ---
+        // --- On Fire: longest win streak ---
         let streak = 0
-        for (let i = playerMatches.length - 1; i >= 0; i--) {
-            const m = playerMatches[i]
+        let longestStreak = 0
+        for (const m of playerMatches) {
             const isP1 = m.player1_id === playerId
             const won = isP1 ? m.score1 > m.score2 : m.score2 > m.score1
-            if (won) streak++
-            else break
+            streak = won ? streak + 1 : 0
+            longestStreak = Math.max(longestStreak, streak)
         }
-        const onFireLvl = getLevel('on_fire', streak)
+        const onFireLvl = getLevel('on_fire', longestStreak)
         if (onFireLvl >= 0) badges['on_fire'] = onFireLvl
 
         const eloData = sharedEloData || buildEloHistory(users, matches)
@@ -220,19 +176,19 @@ const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
         if (gkLvl >= 0) badges['giant_killer'] = gkLvl
 
         // --- Summit: best rank ever ---
-        const ratingsCheck = {}
-        users.forEach(u => { ratingsCheck[u.id] = 1200 })
+        const ratingsCheck = new Map()
         let bestRank = Infinity
 
         for (const m of eloData.matchHistory) {
-            ratingsCheck[m.p1Id] = m.p1EloAfter
-            ratingsCheck[m.p2Id] = m.p2EloAfter
+            ratingsCheck.set(m.p1Id, m.p1EloAfter)
+            ratingsCheck.set(m.p2Id, m.p2EloAfter)
 
             if (m.p1Id === playerId || m.p2Id === playerId) {
-                // Determine rank among all players
-                // Rank is 1 + number of players with strictly higher ELO
-                const myElo = ratingsCheck[playerId]
-                const rank = 1 + users.filter(u => ratingsCheck[u.id] > myElo).length
+                const myElo = ratingsCheck.get(playerId)
+                let rank = 1
+                for (const rating of ratingsCheck.values()) {
+                    if (rating > myElo) rank++
+                }
                 if (rank < bestRank) bestRank = rank
             }
         }
@@ -279,64 +235,72 @@ const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
         if (sbLvl >= 0) badges['variety'] = sbLvl
 
         // --- Specific Debuff Winners ---
-        const specificDebuffWins = {}
-        playerMatches.forEach(m => {
+        const specificDebuffWins = new Map()
+        let deuceWins = 0
+        let deuceTotal = 0
+        for (const m of playerMatches) {
             const isP1 = m.player1_id === playerId
             const myScore = isP1 ? m.score1 : m.score2
             const oppScore = isP1 ? m.score2 : m.score1
             if (myScore > oppScore && m.handicap_rule) {
                 const rules = Array.isArray(m.handicap_rule) ? m.handicap_rule : [m.handicap_rule]
-                rules.forEach(r => {
-                    // Need to capture mayhem type targeting the player or any rule targeting the player
-                    if (r.targetPlayerId === playerId && r.title) {
-                        specificDebuffWins[r.title] = (specificDebuffWins[r.title] || 0) + 1
-                    }
-                })
+                const titles = new Set(rules.filter(r => r?.targetPlayerId === playerId && r.title).map(r => r.title))
+                for (const title of titles) specificDebuffWins.set(title, (specificDebuffWins.get(title) || 0) + 1)
             }
-        })
-
-        allBadgeDefs.filter(b => b.isDebuffBadge).forEach(badge => {
-            const count = specificDebuffWins[badge.debuffTitle] || 0
-            const lvl = getLevel(badge.id, count)
-            if (lvl >= 0) badges[badge.id] = lvl
-        })
-
-        // --- Clutch Master: deuce win rate (min 5) ---
-        let deuceWins = 0
-        let deuceTotal = 0
-        playerMatches.forEach(m => {
-            const isP1 = m.player1_id === playerId
-            const myScore = isP1 ? m.score1 : m.score2
-            const oppScore = isP1 ? m.score2 : m.score1
             if (myScore >= 10 && oppScore >= 10) {
                 deuceTotal++
                 if (myScore > oppScore) deuceWins++
             }
-        })
-        const deuceWr = deuceTotal > 0 ? deuceWins / deuceTotal : 0
-        if (deuceTotal >= 5) {
-            const cmLvl = getLevel('clutch_master', deuceWr)
-            if (cmLvl >= 0) badges['clutch_master'] = cmLvl
         }
+        const deuceRate = deuceTotal > 0 ? deuceWins / deuceTotal : 0
+        const cmLvl = deuceTotal >= 5 ? getLevel('clutch_master', deuceRate) : -1
+        if (cmLvl >= 0) badges['clutch_master'] = cmLvl
 
         return {
             badges,
-            metrics: { deuceTotal, deuceWins, deuceWr, specificDebuffWins }
+            metrics: { longestStreak, deuceTotal, deuceWins, deuceRate, specificDebuffWins }
         }
-    }, [playerId, users, matches, allBadgeDefs, sharedEloData])
+    }, [playerId, users, matches, sharedEloData])
+
+    const debuffTitles = new Set(metrics?.specificDebuffWins.keys())
+    for (const debuff of debuffs) {
+        if (debuff.title) debuffTitles.add(debuff.title)
+    }
+    const visibleBadges = tab === 'general' ? BADGE_DEFS : [...debuffTitles].sort((a, b) => a.localeCompare(b)).map(title => {
+        const wins = metrics?.specificDebuffWins.get(title) || 0
+        return {
+            id: `debuff:${title}`,
+            label: `${title} Master`,
+            icon: Shield,
+            wins,
+            earnedLevel: DEBUFF_LEVELS.findLastIndex(count => wins >= count),
+            levels: DEBUFF_LEVELS.map(count => ({ desc: `Won ${count} ${count === 1 ? 'match' : 'matches'} with ${title}` }))
+        }
+    })
 
     if (Object.keys(earned).length === 0 && !matches?.length) return null
 
     return (
         <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             <h3 className="font-bold text-lg mb-4 flex items-center text-gray-900 dark:text-white">
-                <Medal className="mr-2 text-yellow-500" size={20} /> Achievements
+                <Medal className="mr-2 text-yellow-500" size={20} /> All-Time Achievements
             </h3>
 
+            <div role="group" aria-label="Achievement categories" className="mb-4 flex flex-wrap gap-2">
+                {Object.entries({ general: 'General', debuffs: 'Debuff Wins' }).map(([id, label]) => (
+                    <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}
+                        className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === id
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+            {visibleBadges.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No debuff achievements available.</p>}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {allBadgeDefs.map(badge => {
-                    const earnedLevelIndex = earned[badge.id]
-                    const isEarned = earnedLevelIndex !== undefined
+                {visibleBadges.map(badge => {
+                    const earnedLevelIndex = badge.earnedLevel ?? earned[badge.id] ?? -1
+                    const isEarned = earnedLevelIndex >= 0
                     const levelDef = isEarned ? badge.levels[earnedLevelIndex] : badge.levels[0]
                     const theme = isEarned ? LEVEL_COLORS[earnedLevelIndex + 1] : null
 
@@ -358,14 +322,19 @@ const Achievements = ({ playerId, users, matches, eloData: sharedEloData }) => {
                                 )}
                             </span>
                             <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{levelDef.desc}</span>
+                            {badge.id === 'on_fire' && metrics && (
+                                <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 mt-0.5">Best streak · {metrics.longestStreak}</span>
+                            )}
                             {badge.id === 'clutch_master' && metrics && (
                                 <span className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 mt-0.5">
-                                    {(metrics.deuceWr * 100).toFixed(1)}% ({metrics.deuceWins}/{metrics.deuceTotal})
+                                    {metrics.deuceTotal >= 5
+                                        ? `${(metrics.deuceRate * 100).toFixed(1)}% (${metrics.deuceWins}/${metrics.deuceTotal})`
+                                        : `${metrics.deuceWins}/${metrics.deuceTotal} deuce games won`}
                                 </span>
                             )}
-                            {badge.isDebuffBadge && metrics && (
+                            {badge.wins !== undefined && (
                                 <span className="text-[10px] font-semibold text-fuchsia-500 dark:text-fuchsia-400 mt-0.5">
-                                    {metrics.specificDebuffWins[badge.debuffTitle] || 0} Wins
+                                    {badge.wins} {badge.wins === 1 ? 'win' : 'wins'}
                                 </span>
                             )}
                         </div>
