@@ -264,7 +264,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                             </button>
                         </div>
                         {balance === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">No points left until their bets are settled.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">No points left. Only a super admin can add more.</p>
                         ) : (
                             <div className="flex flex-wrap items-center gap-2.5">
                                 {STAKE_CHIPS.filter(amount => amount < balance).map(amount => (

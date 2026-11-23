@@ -3,6 +3,7 @@
 // payouts; the numbers here are previews and must stay in step with it.
 
 export const STARTING_BALANCE = 1000
+// Wallets used to restart at 100 when they hit 0; kept to count past restarts.
 export const REBUY_BALANCE = 100
 export const MIN_MULTIPLIER = 1.05
 export const MAX_MULTIPLIER = 10
@@ -243,7 +244,7 @@ export const liveBettingOpen = live => Boolean(live) && !live.debuffed && !live.
 
 // What the bank made and paid. `collected` is every stake lost; `paidOut` is
 // the profit on winning bets (the payout minus the bettor's own stake back);
-// `restarts` is points handed to broke wallets. `adjusted` is the net of
+// `restarts` is points once handed to broke wallets (no longer happens). `adjusted` is the net of
 // manual edits (positive = points given to players).
 export const houseTotals = (bets, wallets = [], adjustments = []) => {
     const all = bets || []

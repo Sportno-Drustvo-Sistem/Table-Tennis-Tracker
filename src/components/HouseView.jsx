@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, Search, TrendingDown, TrendingUp, Scale, LifeBuoy, PencilLine } from 'lucide-react'
+import { Check, Search, TrendingDown, TrendingUp, Scale, PencilLine } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { loadWalletAdjustments, setWalletBalance } from '../betPersistence'
 import { formatPoints, houseTotals, walletBalance } from '../bettingUtils'
@@ -79,7 +79,73 @@ const WalletRow = ({ user, balance, adminToken, onSaved }) => {
     )
 }
 
-// Super admin only: everyone's points, editable, and what the house made.
+const HISTORY_PAGE = 20
+const when = iso => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+
+// Every manual points change, newest first, optionally for one player.
+export const EditHistory = ({ adjustments, users, usersById }) => {
+    const [playerId, setPlayerId] = useState('')
+    const [shown, setShown] = useState(HISTORY_PAGE)
+    const edited = useMemo(() => {
+        const ids = new Set(adjustments.map(row => row.user_id))
+        return users.filter(user => ids.has(user.id)).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    }, [adjustments, users])
+    const rows = playerId ? adjustments.filter(row => row.user_id === playerId) : adjustments
+    const net = rows.reduce((sum, row) => sum + row.new_balance - row.old_balance, 0)
+
+    return (
+        <section className={card} aria-label="Points history">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
+                    <PencilLine size={18} /> Points history
+                </h2>
+                {edited.length > 1 && (
+                    <select value={playerId} onChange={e => { setPlayerId(e.target.value); setShown(HISTORY_PAGE) }} aria-label="Show edits for"
+                        className="w-full sm:w-56 p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All players</option>
+                        {edited.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+                    </select>
+                )}
+            </div>
+            {rows.length === 0 ? (
+                <p className="py-4 text-sm text-center text-gray-500 dark:text-gray-400">No point edits yet. Every change you make above is listed here.</p>
+            ) : (
+                <>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 tabular-nums">
+                        {rows.length} {rows.length === 1 ? 'edit' : 'edits'} · net {formatPoints(net)} points
+                    </p>
+                    <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {rows.slice(0, shown).map(row => {
+                            const change = row.new_balance - row.old_balance
+                            const user = usersById[row.user_id]
+                            return (
+                                <li key={row.id} className="flex items-center gap-3 py-2.5 text-sm">
+                                    <BetAvatar user={user} className="w-8 h-8" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="truncate font-semibold text-gray-900 dark:text-white">{user?.name || 'Unknown'}</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 tabular-nums truncate">
+                                            {points(row.old_balance)} → {points(row.new_balance)} · <time dateTime={row.created_at}>{when(row.created_at)}</time>
+                                        </div>
+                                    </div>
+                                    <span className={`shrink-0 text-right tabular-nums font-bold ${change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPoints(change)}</span>
+                                </li>
+                            )
+                        })}
+                    </ul>
+                    {rows.length > shown && (
+                        <button type="button" onClick={() => setShown(count => count + HISTORY_PAGE)}
+                            className="mt-3 w-full py-2 rounded-lg text-sm font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30">
+                            Show {Math.min(HISTORY_PAGE, rows.length - shown)} more
+                        </button>
+                    )}
+                </>
+            )}
+        </section>
+    )
+}
+
+// Super admin only: everyone's points, editable, what the house made, and
+// every manual edit.
 const HouseView = ({ users, wallets, bets, adminToken }) => {
     const [adjustments, setAdjustments] = useState([])
     const [query, setQuery] = useState('')
@@ -111,8 +177,8 @@ const HouseView = ({ users, wallets, bets, adminToken }) => {
                 <Stat Icon={Scale} label="House net" value={formatPoints(totals.net)}
                     detail={totals.riding ? `${points(totals.riding)} riding on open bets` : 'From settled bets'}
                     tone={totals.net > 0 ? 'text-green-600 dark:text-green-400' : totals.net < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'} />
-                <Stat Icon={LifeBuoy} label="Restarts given" value={points(totals.restarts)}
-                    detail={`${totals.restartCount} broke ${totals.restartCount === 1 ? 'wallet' : 'wallets'} × 100${adjustments.length ? ` · edits ${formatPoints(totals.adjusted)}` : ''}`}
+                <Stat Icon={PencilLine} label="Points added" value={formatPoints(totals.adjusted)}
+                    detail={`${adjustments.length} manual ${adjustments.length === 1 ? 'edit' : 'edits'}${totals.restartCount ? ` · ${points(totals.restarts)} in past restarts` : ''}`}
                     tone="text-gray-700 dark:text-gray-200" />
             </section>
 
@@ -134,26 +200,7 @@ const HouseView = ({ users, wallets, bets, adminToken }) => {
                 </div>
             </section>
 
-            {adjustments.length > 0 && (
-                <section className={card}>
-                    <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white mb-3">
-                        <PencilLine size={18} /> Recent edits
-                    </h2>
-                    <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {adjustments.slice(0, 20).map(row => {
-                            const change = row.new_balance - row.old_balance
-                            return (
-                                <li key={row.id} className="flex items-center gap-3 py-2 text-sm">
-                                    <span className="flex-1 min-w-0 truncate font-semibold text-gray-900 dark:text-white">{usersById[row.user_id]?.name || 'Unknown'}</span>
-                                    <span className="tabular-nums text-gray-500 dark:text-gray-400">{points(row.old_balance)} → {points(row.new_balance)}</span>
-                                    <span className={`w-20 text-right tabular-nums font-bold ${change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPoints(change)}</span>
-                                    <span className="hidden sm:block w-28 text-right text-xs text-gray-400">{new Date(row.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                                </li>
-                            )
-                        })}
-                    </ul>
-                </section>
-            )}
+            <EditHistory adjustments={adjustments} users={users} usersById={usersById} />
         </div>
     )
 }

@@ -23,8 +23,8 @@ the feature can be removed cleanly.
   stake back plus 90% of (stake × multiplier − stake), rounded to whole points.
 - Saving the match pays out in the same database transaction. Closing,
   discarding or rematching without saving refunds every bet (after a confirm).
-- Everyone starts with 1,000 points. A wallet at 0 with nothing riding restarts
-  at 100. Players in the match can only bet on themselves.
+- Everyone starts with 1,000 points. A wallet at 0 stays at 0: only a super
+  admin can add points (House tab). Players in the match can only bet on themselves.
 - A bettor backs one player per match: after a first bet, more bets may only
   go on the same player.
 - No betting on a match with a debuff on (a mayhem or streak rule that was not
@@ -50,7 +50,7 @@ where it is recorded as version `20261112132310`, name `points_betting`.
 
 | Object | Kind | Purpose |
 |---|---|---|
-| `public.bet_wallets` | table | balance and restart count per player (row appears with the first bet) |
+| `public.bet_wallets` | table | balance and past-restart count per player (row appears with the first bet) |
 | `public.bet_markets` | table | one per live match with bets: players, status, winner, linked match rows |
 | `public.bets` | table | bettor, side, stake, win probability, multiplier, score snapshot, payout, status |
 | `public.place_bet` | function | admin token; creates the market on the first bet, checks balance and rules |
@@ -110,7 +110,7 @@ password**, which takes a password of 12+ characters instead of the PIN. A
 super admin session is also a normal admin session (same token). It adds a
 **House** tab (ping pong, under "More" on phones) where every player's points
 can be set, and which shows what the house won from lost bets, what it paid
-in profit on winning bets, the net, restarts handed out and manual edits.
+in profit on winning bets, the net and manual edits (plus any restarts from before they were removed).
 
 | Object | Kind | Purpose |
 |---|---|---|
@@ -135,12 +135,33 @@ Rollback: `supabase/rollbacks/20261123150000_super_admin_bet_wallets_down.sql`
 
 ### House cut on winnings
 
-`supabase/migrations/20261123180000_house_cut_on_winnings.sql` (2026-11-23)
-replaces `private.settle_bet_market` so a winning bet pays
+`supabase/migrations/20261123180000_house_cut_on_winnings.sql` (2026-11-23),
+applied to the hosted project on 2026-11-23, recorded as version
+`20261123071004`, name `house_cut_on_winnings`. It replaces `private.settle_bet_market` so a winning bet pays
 `stake + round((round(stake × multiplier) − stake) × 0.9)`. Bets already paid
 keep their payout until their match is edited and re-settled.
 `potentialPayout()` in `src/bettingUtils.js` previews the same number.
 To undo, re-run the function from `20261112120000_points_betting.sql`.
+
+### No more restarts
+
+`supabase/migrations/20261123190000_no_wallet_restarts.sql` (2026-11-23),
+applied to the hosted project on 2026-11-23 as version `20261123071651`,
+name `no_wallet_restarts`. It replaces `private.settle_bet_market` again without the restart step: a wallet
+at 0 stays at 0 until a super admin adds points on the House tab. The
+`bet_wallets.rebuys` column stays as a record of earlier restarts, and the
+House tab still counts them. To undo, re-run the function from
+`20261123180000_house_cut_on_winnings.sql`.
+
+### Points history
+
+The House tab's **Points history** lists every manual points edit, newest
+first: player, old → new balance, change and time, with a player filter and
+20 rows at a time. `supabase/migrations/20261123200000_full_points_history.sql`
+(applied to the hosted project on 2026-11-23 as version `20261123071653`, name
+`full_points_history`) lets `public.super_admin_wallet_adjustments` return up
+to 5,000 edits instead of 200. Past automatic restarts were never logged one
+by one, so they are not in the list (the House tab still totals them).
 
 ## How to remove the feature
 

@@ -83,13 +83,14 @@ BEGIN
     result := public.void_bet_market('valid',m2);
     PERFORM test.assert(result->'market'->>'status'='void' AND (SELECT balance FROM public.bet_wallets WHERE user_id=carol)=1000 AND (SELECT balance FROM public.bet_wallets WHERE user_id=alice)=1000,'void refunds every bet');
 
-    -- Best of three is decided on sets, and a broke bettor restarts at 100.
+    -- Best of three is decided on sets, and a broke bettor stays at 0.
     PERFORM public.place_bet('valid',m3,alice,bob,dave,2,1000,0.5);
     PERFORM public.place_bet('valid',m3,alice,bob,carol,1,100,0.8);
     result := public.record_pingpong_match_with_bets('valid',m3,alice,bob,'[{"s1":11,"s2":5},{"s1":5,"s2":11},{"s1":11,"s2":7}]');
     PERFORM test.assert((result->'market'->>'winner_side')::int=1 AND jsonb_array_length(result->'matches')=3,'best of three settles on sets won');
     PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=1023,'1.25x payout, less the 10% house cut');
-    PERFORM test.assert((SELECT balance=100 AND rebuys=1 FROM public.bet_wallets WHERE user_id=dave),'empty wallet restarts at 100');
+    PERFORM test.assert((SELECT balance=0 AND rebuys=0 FROM public.bet_wallets WHERE user_id=dave),'empty wallet stays at 0');
+    PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,1,1,0.5)',gen_random_uuid(),alice,bob,dave));
 
     -- Without any bets the wrapper behaves like a plain save.
     result := public.record_pingpong_match_with_bets('valid',m4,alice,bob,'[{"s1":11,"s2":9}]');

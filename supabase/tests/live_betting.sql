@@ -1,5 +1,8 @@
 -- Live score and bets from any phone: runs after betting.sql (needs the test
 -- schema, the 'valid' admin session and the four test players).
+-- betting.sql leaves dave at 0 and wallets no longer restart, so top him up
+-- the way a super admin would.
+UPDATE public.bet_wallets SET balance = 100 WHERE user_id = (SELECT id FROM test.players WHERE n=4);
 SET ROLE anon;
 SELECT test.rejects($q$INSERT INTO public.live_matches(id,player1_id,player2_id) VALUES(gen_random_uuid(),gen_random_uuid(),gen_random_uuid())$q$);
 SELECT test.rejects($q$UPDATE public.live_matches SET win_probability=0.01$q$);

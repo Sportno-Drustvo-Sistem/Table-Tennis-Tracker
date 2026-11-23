@@ -277,7 +277,6 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                                             <>
                                                 {row.won}W {row.lost}L
                                                 {row.biggestWin > 0 && ` · best +${row.biggestWin}`}
-                                                {row.rebuys > 0 && ` · ${row.rebuys} restart${row.rebuys === 1 ? '' : 's'}`}
                                             </>
                                         ) : 'No bets yet'}
                                     </div>

@@ -6,7 +6,7 @@ vi.mock('./supabaseClient', () => ({ supabase: {} }))
 
 import BetSheet from './components/BetSheet'
 import BetsView from './components/BetsView'
-import HouseView from './components/HouseView'
+import HouseView, { EditHistory } from './components/HouseView'
 import Matches from './components/Matches'
 import { ToastContextValue } from './contexts/ToastContextValue'
 
@@ -114,5 +114,20 @@ describe('house screen renders', () => {
         expect(html).toContain('aria-label="Points for Cene"')
         expect(html).toContain('value="900"')
         expect(html).toContain('value="1000"')
+        expect(html).toContain('Points history')
+        expect(html).toContain('No point edits yet')
+    })
+
+    it('lists every point edit, newest first, with a running count', () => {
+        const usersById = Object.fromEntries(users.map(user => [user.id, user]))
+        const adjustments = Array.from({ length: 25 }, (_, i) => ({
+            id: 25 - i, user_id: i % 2 ? 'a' : 'c', old_balance: 0, new_balance: 100 + i, created_at: '2026-11-23T10:00:00Z',
+        }))
+        const html = renderToStaticMarkup(<EditHistory adjustments={adjustments} users={users} usersById={usersById} />)
+        expect(html).toContain('25 edits')
+        expect(html).toContain('0 → 100')
+        expect(html).toContain('All players')
+        expect(html).toContain('Show 5 more')
+        expect(html).not.toContain('0 → 124')
     })
 })

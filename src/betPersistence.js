@@ -113,7 +113,7 @@ export const setWalletBalance = async (client, { adminToken, userId, balance }) 
     return data
 }
 
-// Super admin only: the latest manual point changes, newest first.
+// Super admin only: every manual point change (up to 5,000), newest first.
 export const loadWalletAdjustments = async (client, { adminToken }) => (
     callBetRpc(client, 'super_admin_wallet_adjustments', { p_admin_token: adminToken })
 )
