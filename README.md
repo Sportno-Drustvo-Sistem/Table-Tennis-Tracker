@@ -103,6 +103,15 @@ docker-compose up -d
 
 The app will be available at `http://localhost:8080`.
 
+### Install on your phone
+
+Open the deployed HTTPS tracker on your phone:
+
+* **Android:** In Chrome, open the three-dot menu and choose **Install app**. If it appears under **Add to Home screen**, choose **Install** there.
+* **iPhone:** In Safari, open **Share**, choose **Add to Home Screen**, enable **Open as Web App** if shown, then tap **Add**.
+
+Launch **Sport Tracker** from its new icon to use it in its own window. Live data and match saves still require an internet connection. If you use admin features, sign in from the installed app.
+
 ---
 
 ## 📂 Project Structure
