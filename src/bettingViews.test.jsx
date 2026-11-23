@@ -25,7 +25,7 @@ describe('betting screens render', () => {
         expect(html).toContain('3.33×')
         expect(html).toContain('>900<')
         expect(html).toContain('>1000<')
-        expect(html).toContain('>143<')
+        expect(html).toContain('>139<')
         expect(html).toContain('1 bet · 100 points riding')
         expect(html).toContain('Remove Cene bet')
         expect(html).toContain('Who is betting?')

@@ -64,14 +64,14 @@ BEGIN
     result := public.record_pingpong_match_with_bets('valid',m1,alice,bob,'[{"s1":11,"s2":5}]');
     saved := (result->'match'->>'id')::uuid;
     PERFORM test.assert(result->'market'->>'status'='settled' AND (result->'market'->>'winner_side')::int=1 AND jsonb_array_length(result->'bets')=2,'save returns the settled market');
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=1100 AND (SELECT balance FROM public.bet_wallets WHERE user_id=dave)=950,'winner paid, loser not');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=1090 AND (SELECT balance FROM public.bet_wallets WHERE user_id=dave)=950,'winner paid, loser not');
     PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,1,10,0.5)',m1,alice,bob,carol));
     PERFORM test.rejects(format('SELECT public.void_bet_market(''valid'',%L)',m1));
     PERFORM test.rejects(format('SELECT public.record_pingpong_match_with_bets(''valid'',%L,%L,%L,''[{"s1":11,"s2":5}]'')',m1,alice,bob));
 
     -- Flipping the score moves the payout to the other side.
     PERFORM public.update_pingpong_match('valid',saved,5,11);
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=900 AND (SELECT balance FROM public.bet_wallets WHERE user_id=dave)=1150 AND (SELECT winner_side FROM public.bet_markets WHERE id=m1)=2,'edited result re-pays bets');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=900 AND (SELECT balance FROM public.bet_wallets WHERE user_id=dave)=1135 AND (SELECT winner_side FROM public.bet_markets WHERE id=m1)=2,'edited result re-pays bets');
 
     -- Deleting the match refunds everyone.
     PERFORM public.delete_pingpong_matches('valid',ARRAY[saved]);
@@ -88,7 +88,7 @@ BEGIN
     PERFORM public.place_bet('valid',m3,alice,bob,carol,1,100,0.8);
     result := public.record_pingpong_match_with_bets('valid',m3,alice,bob,'[{"s1":11,"s2":5},{"s1":5,"s2":11},{"s1":11,"s2":7}]');
     PERFORM test.assert((result->'market'->>'winner_side')::int=1 AND jsonb_array_length(result->'matches')=3,'best of three settles on sets won');
-    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=1025,'1.25x payout');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=carol)=1023,'1.25x payout, less the 10% house cut');
     PERFORM test.assert((SELECT balance=100 AND rebuys=1 FROM public.bet_wallets WHERE user_id=dave),'empty wallet restarts at 100');
 
     -- Without any bets the wrapper behaves like a plain save.

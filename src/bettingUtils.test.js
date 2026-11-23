@@ -33,9 +33,11 @@ describe('betMultiplier', () => {
         expect(betMultiplier(0)).toBe(10)
     })
 
-    it('rounds payouts to whole points', () => {
-        expect(potentialPayout(100, 1.43)).toBe(143)
+    it('rounds payouts to whole points after the 10% house cut on profit', () => {
+        expect(potentialPayout(100, 1.43)).toBe(139)
         expect(potentialPayout(15, 1.05)).toBe(16)
+        expect(potentialPayout(100, 2)).toBe(190)
+        expect(potentialPayout(100, 1.25)).toBe(123)
     })
 })
 

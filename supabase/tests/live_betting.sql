@@ -65,7 +65,7 @@ BEGIN
     PERFORM public.record_pingpong_match_with_bets('valid',m2,alice,bob,'[{"s1":11,"s2":5}]');
     PERFORM public.end_live_match('valid',m2);
     PERFORM test.assert((SELECT status FROM public.bet_markets WHERE id=m2)='settled','saved market stays settled');
-    PERFORM test.assert((SELECT payout FROM public.bets WHERE market_id=m2 AND user_id=carol)=20,'live bet paid');
+    PERFORM test.assert((SELECT payout FROM public.bets WHERE market_id=m2 AND user_id=carol)=19,'live bet paid, less the 10% house cut');
 END $$;
 RESET ROLE;
 

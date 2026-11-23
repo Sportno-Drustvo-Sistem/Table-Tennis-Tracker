@@ -35,7 +35,12 @@ export const clampBetProbability = p => clamp(p, 0.01, 0.99)
 // What one point pays back when the backed side wins with probability p.
 export const betMultiplier = p => Math.round(clamp(1 / clampBetProbability(p), MIN_MULTIPLIER, MAX_MULTIPLIER) * 100) / 100
 
-export const potentialPayout = (stake, multiplier) => Math.round(stake * multiplier)
+// The house keeps 10% of the profit on a winning bet (the stake comes back whole).
+export const HOUSE_CUT = 0.1
+export const potentialPayout = (stake, multiplier) => {
+    const profit = Math.round(stake * multiplier) - stake
+    return stake + Math.round(profit * 9 / 10)
+}
 
 // Betting stops at match point: one more point could end the match.
 export const isBettingClosed = ({ score1 = 0, score2 = 0, games1 = 0, games2 = 0, bestOf = 1, gameWinner = null, matchWinner = null }) => {

@@ -298,7 +298,7 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                                     <div className="font-bold truncate">{players[activeSide].name} · {multiplier[activeSide].toFixed(2)}×</div>
                                 </div>
                                 <div className="text-right leading-tight flex-shrink-0">
-                                    <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">To win</div>
+                                    <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400">To win · 10% to house</div>
                                     <div className="text-2xl font-black tabular-nums text-amber-400">+<CountUp value={potentialPayout(stakeValue, multiplier[activeSide]) - stakeValue} /></div>
                                 </div>
                             </div>

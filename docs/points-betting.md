@@ -19,6 +19,8 @@ the feature can be removed cleanly.
   and locked on each bet when it is placed.
 - Bets can be placed before the first point and between points. Betting closes
   at match point. The match format cannot be changed once a bet exists.
+- The house keeps 10% of the profit on a winning bet: the winner gets the
+  stake back plus 90% of (stake × multiplier − stake), rounded to whole points.
 - Saving the match pays out in the same database transaction. Closing,
   discarding or rematching without saving refunds every bet (after a confirm).
 - Everyone starts with 1,000 points. A wallet at 0 with nothing riding restarts
@@ -102,7 +104,8 @@ everything it adds (the column goes with the table, the helper with
 ### Super admin: edit points, house totals
 
 `supabase/migrations/20261123150000_super_admin_bet_wallets.sql` (2026-11-23),
-purely additive. The admin login has a second mode, **Super admin? Use your
+purely additive. Applied to the hosted project on 2026-11-23, recorded as
+version `20261123070420`, name `super_admin_bet_wallets`. The admin login has a second mode, **Super admin? Use your
 password**, which takes a password of 12+ characters instead of the PIN. A
 super admin session is also a normal admin session (same token). It adds a
 **House** tab (ping pong, under "More" on phones) where every player's points
@@ -129,6 +132,15 @@ SELECT private.set_super_admin_password('a long password only you know');
 Rollback: `supabase/rollbacks/20261123150000_super_admin_bet_wallets_down.sql`
 (balances keep their edited values; the edit log goes). Tests:
 `supabase/tests/super_admin.sql`.
+
+### House cut on winnings
+
+`supabase/migrations/20261123180000_house_cut_on_winnings.sql` (2026-11-23)
+replaces `private.settle_bet_market` so a winning bet pays
+`stake + round((round(stake × multiplier) − stake) × 0.9)`. Bets already paid
+keep their payout until their match is edited and re-settled.
+`potentialPayout()` in `src/bettingUtils.js` previews the same number.
+To undo, re-run the function from `20261112120000_points_betting.sql`.
 
 ## How to remove the feature
 
