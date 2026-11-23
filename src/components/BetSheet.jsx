@@ -3,7 +3,7 @@ import { X, Coins, Trash2, Flame } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { getAvatarFallback } from '../utils'
 import { cancelBet, placeBet, placeLiveBet } from '../betPersistence'
-import { STAKE_CHIPS, allowedSides, chipLabel, chipTone, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
+import { STAKE_CHIPS, allowedSides, hasPendingBet, chipLabel, chipTone, betMultiplier, clampBetProbability, poolTotals, potentialPayout, walletBalance } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
 import { BetAvatar, BetList, BetPool, CountUp, MiniChip } from './MatchBets'
 
@@ -81,7 +81,8 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
     const stakeValue = Number(stake)
     const stakeValid = Number.isInteger(stakeValue) && stakeValue >= 1 && stakeValue <= balance
     const allIn = stakeValid && stakeValue === balance
-    const canPlace = !closed && !busy && bettorId && activeSide && stakeValid
+    const alreadyBet = Boolean(bettorId) && hasPendingBet(bettorId, bets)
+    const canPlace = !closed && !busy && bettorId && !alreadyBet && activeSide && stakeValid
 
     const pickBettor = (id) => {
         setBettorId(id)
@@ -192,11 +193,11 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                         {remote && !closed && (
                             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 short:hidden">Odds move with every point. Your bet is locked at the odds shown when you tap Bet.</p>
                         )}
-                        {!closed && bettorId && !activeSide && (
+                        {!closed && bettorId && !alreadyBet && !activeSide && (
                             <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">Tap the player {usersById[bettorId]?.name} is backing.</p>
                         )}
-                        {!closed && bettorId && sides.length === 1 && hasBet.has(bettorId) && bettorId !== player1.id && bettorId !== player2.id && (
-                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{usersById[bettorId]?.name} already backs {players[sides[0]].name}. One player per match.</p>
+                        {!closed && alreadyBet && (
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{usersById[bettorId]?.name} already has a bet on this match. One bet per match.</p>
                         )}
                     </div>
                 </div>
@@ -251,7 +252,19 @@ const BetSheet = ({ isOpen, onClose, marketId, player1, player2, users, wallets,
                     </div>
                 </div>
 
-                {!closed && bettorId && (
+                {!closed && alreadyBet && (
+                    <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2.5">
+                        <BetAvatar user={usersById[bettorId]} className="w-9 h-9" />
+                        <p className="min-w-0 flex-1 text-sm text-gray-600 dark:text-gray-300">
+                            <span className="font-bold text-gray-900 dark:text-white">{usersById[bettorId]?.name}</span> already has a bet on this match.
+                            {remote ? ' Only the umpire phone can remove it.' : ' Remove it above to bet again.'}
+                        </p>
+                        <button type="button" onClick={() => pickBettor(null)} aria-label="Pick someone else" className="p-2 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <X size={18} />
+                        </button>
+                    </div>
+                )}
+                {!closed && bettorId && !alreadyBet && (
                     <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                         <div className="flex items-center gap-2.5 mb-2.5">
                             <BetAvatar user={usersById[bettorId]} className="w-9 h-9" />

@@ -34,9 +34,9 @@ BEGIN
     result := public.place_bet('valid',m1,alice,bob,dave,2,50,0.25);
     PERFORM test.assert((result->'bet'->>'multiplier')::numeric=4.00,'underdog pays 4.00x');
     PERFORM test.assert((public.place_bet('valid',m4,alice,bob,carol,1,1,0.99)->'bet'->>'multiplier')::numeric=1.05 AND (public.place_bet('valid',m4,alice,bob,dave,2,1,0.05)->'bet'->>'multiplier')::numeric=10,'multiplier is clamped');
-    -- One player per match: carol backs side 1 on m4, so side 2 is refused; side 1 again is fine.
+    -- One bet per match: carol already bet on m4, so a second bet on either side is refused.
     PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,2,1,0.5)',m4,alice,bob,carol));
-    PERFORM public.place_bet('valid',m4,alice,bob,carol,1,1,0.5);
+    PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,1,1,0.5)',m4,alice,bob,carol));
     PERFORM public.void_bet_market('valid',m4);
     m4 := gen_random_uuid();
 
@@ -49,10 +49,12 @@ BEGIN
     PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,2,10,0.5)',m1,bob,alice,dave));
     PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,2,10,0.5)',gen_random_uuid(),alice,alice,dave));
 
-    -- Removing a bet gives the stake back.
-    extra := (public.place_bet('valid',m1,alice,bob,dave,2,10,0.5)->'bet'->>'id')::uuid;
-    PERFORM test.assert((public.cancel_bet('valid',extra)->'wallet'->>'balance')::int=950,'cancel refunds the stake');
+    -- Removing a bet gives the stake back and lets that bettor bet again, once.
+    extra := (SELECT id FROM public.bets WHERE market_id=m1 AND user_id=dave AND status='pending');
+    PERFORM test.assert((public.cancel_bet('valid',extra)->'wallet'->>'balance')::int=1000,'cancel refunds the stake');
     PERFORM test.rejects(format('SELECT public.cancel_bet(''valid'',%L)',extra));
+    PERFORM public.place_bet('valid',m1,alice,bob,dave,2,50,0.25);
+    PERFORM test.rejects(format('SELECT public.place_bet(''valid'',%L,%L,%L,%L,2,10,0.25)',m1,alice,bob,dave));
 
     -- A failed save changes neither matches nor bets.
     matches_before := (SELECT count(*) FROM public.matches);

@@ -116,6 +116,7 @@ function App() {
     betWallets,
     betMarkets,
     bets,
+    betPayouts,
     bettingReady,
     liveBettingReady,
     liveMatches,
@@ -610,11 +611,11 @@ function App() {
       )}
 
       {currentTab === 'bets' && (
-        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} />
+        <BetsView users={users} wallets={betWallets} markets={betMarkets} bets={bets} payouts={betPayouts} liveMatches={liveBettingReady ? liveMatches : null} isAdmin={isAdmin} adminToken={adminToken} />
       )}
 
       {currentTab === 'house' && (
-        <HouseView users={users} wallets={betWallets} bets={bets} adminToken={adminToken} />
+        <HouseView users={users} wallets={betWallets} bets={bets} payouts={betPayouts} adminToken={adminToken} />
       )}
 
       {currentTab === 'settings' && (

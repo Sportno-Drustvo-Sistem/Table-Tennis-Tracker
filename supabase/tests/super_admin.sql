@@ -30,6 +30,19 @@ BEGIN
     PERFORM test.assert(jsonb_array_length(public.super_admin_wallet_adjustments(token))=1
         AND (public.super_admin_wallet_adjustments(token)->0->>'new_balance')::int=4321,'edit logged');
 
+    -- Payouts: only a super admin, 1 up to the whole balance, logged publicly.
+    PERFORM test.rejects(format('SELECT public.super_admin_pay_out(''valid'',%L,100)',alice));
+    PERFORM test.rejects(format('SELECT public.super_admin_pay_out(%L,%L,0)',token,alice));
+    PERFORM test.rejects(format('SELECT public.super_admin_pay_out(%L,%L,4322)',token,alice));
+    result := public.super_admin_pay_out(token,alice,321,'  cash for lunch  ');
+    PERFORM test.assert((result->'wallet'->>'balance')::int=4000 AND (result->'payout'->>'amount')::int=321
+        AND (result->'payout'->>'balance_before')::int=4321 AND result->'payout'->>'note'='cash for lunch','payout taken from the wallet');
+    PERFORM test.assert((SELECT balance FROM public.bet_wallets WHERE user_id=alice)=4000,'wallet row paid out');
+    PERFORM public.super_admin_pay_out(token,alice,4000);
+    PERFORM test.assert((SELECT count(*) FROM public.bet_payouts WHERE user_id=alice)=2 AND (SELECT balance FROM public.bet_wallets WHERE user_id=alice)=0,'whole balance can be paid out');
+    PERFORM test.assert(jsonb_array_length(public.super_admin_wallet_adjustments(token))=1,'payouts are not manual edits');
+    PERFORM test.rejects(format('INSERT INTO public.bet_payouts(user_id,amount,balance_before,balance_after) VALUES (%L,1,1,0)',alice));
+
     PERFORM public.revoke_admin_session(token);
     PERFORM test.assert(NOT public.validate_super_admin_session(token),'revoking the admin session ends super access');
 END $$;

@@ -9,13 +9,14 @@ export const onBetsChanged = (listener) => {
     return () => changeListeners.delete(listener)
 }
 
-// { market, bets, wallets, deletedBets, live, deletedLive } -> a change set for the app's reducer.
-export const bettingChanges = ({ market, bets = [], wallets = [], deletedBets = [], live = null, deletedLive = [] }) => {
+// { market, bets, wallets, deletedBets, live, deletedLive, payouts } -> a change set for the app's reducer.
+export const bettingChanges = ({ market, bets = [], wallets = [], deletedBets = [], live = null, deletedLive = [], payouts = [] }) => {
     const changes = {}
     if (live || deletedLive.length) changes.liveMatches = { upserts: live ? [live] : [], deletes: deletedLive }
     if (market) changes.betMarkets = { upserts: [market] }
     if (bets.length || deletedBets.length) changes.bets = { upserts: bets, deletes: deletedBets }
     if (wallets.length) changes.betWallets = { upserts: wallets }
+    if (payouts.length) changes.betPayouts = { upserts: payouts }
     return changes
 }
 
@@ -110,6 +111,18 @@ export const setWalletBalance = async (client, { adminToken, userId, balance }) 
         p_balance: balance,
     })
     announce({ wallets: data.wallet ? [data.wallet] : [] })
+    return data
+}
+
+// Super admin only: take points out of a wallet when a player cashes them in.
+export const payOut = async (client, { adminToken, userId, amount, note = null }) => {
+    const data = await callBetRpc(client, 'super_admin_pay_out', {
+        p_admin_token: adminToken,
+        p_user_id: userId,
+        p_amount: amount,
+        p_note: note,
+    })
+    announce({ wallets: data.wallet ? [data.wallet] : [], payouts: data.payout ? [data.payout] : [] })
     return data
 }
 

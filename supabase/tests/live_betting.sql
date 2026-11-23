@@ -42,8 +42,10 @@ BEGIN
     PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,2,10,NULL)',m1,alice));
     PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,1,0,NULL)',m1,dave));
     PERFORM public.place_live_bet(m1,dave,1,20,1.25);
-    -- Carol backs side 2, so side 1 is refused for her; dave backs side 1, so side 2 is refused.
+    -- One bet per match: carol and dave each have one, so any second bet is refused.
     PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,1,10,NULL)',m1,carol));
+    PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,2,10,NULL)',m1,carol));
+    PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,1,10,NULL)',m1,dave));
     PERFORM test.rejects(format('SELECT public.place_live_bet(%L,%L,2,10,NULL)',m1,dave));
 
     -- A debuff on the match stops all betting, from any phone.

@@ -54,6 +54,15 @@ describe('betting screens render', () => {
         expect(html).not.toContain('No bets yet')
     })
 
+    it('shows payouts to everyone on the Bets page', () => {
+        const payouts = [{ id: 'p1', user_id: 'c', amount: 500, balance_before: 1500, balance_after: 1000, note: 'lunch', created_at: '2026-11-23T10:00:00Z' }]
+        const page = tab => render(<BetsView users={users} wallets={wallets} markets={[]} bets={[pending]} payouts={payouts} initialTab={tab} />)
+        expect(page('payouts')).toContain('500 points cashed out in 1 payout')
+        expect(page('payouts')).toContain('lunch')
+        expect(page('standings')).toContain('cashed out 500')
+        expect(render(<BetsView users={users} wallets={wallets} markets={[]} bets={[]} initialTab="payouts" />)).toContain('No payouts yet')
+    })
+
     it('shows the live score and lets any phone bet on it', () => {
         const live = { id: 'k', player1_id: 'a', player2_id: 'b', best_of: 3, games1: 1, games2: 0, score1: 7, score2: 4, sets: [{ s1: 11, s2: 9 }], server: 2, win_probability: 0.8, betting_closed: false, winner_side: null, updated_at: new Date().toISOString() }
         const html = render(<BetsView users={users} wallets={wallets} markets={[market]} bets={[pending]} liveMatches={[live]} initialTab="standings" />)
@@ -117,7 +126,7 @@ describe('house screen renders', () => {
         expect(html).toContain('aria-label="Add 1,000 points for Cene"')
         expect(html).toContain('+1,000')
         expect(html).toContain('Points history')
-        expect(html).toContain('No point edits yet')
+        expect(html).toContain('No point edits or payouts yet')
     })
 
     it('lists every point edit, newest first, with a running count', () => {
@@ -131,5 +140,19 @@ describe('house screen renders', () => {
         expect(html).toContain('All players')
         expect(html).toContain('Show 5 more')
         expect(html).not.toContain('0 → 124')
+    })
+
+    it('mixes payouts into the points history and totals them', () => {
+        const usersById = Object.fromEntries(users.map(user => [user.id, user]))
+        const adjustments = [{ id: 1, user_id: 'c', old_balance: 0, new_balance: 1000, created_at: '2026-11-23T09:00:00Z' }]
+        const payouts = [{ id: 'p1', user_id: 'a', amount: 400, balance_before: 1400, balance_after: 1000, note: 'cash', created_at: '2026-11-23T11:00:00Z' }]
+        const html = renderToStaticMarkup(<EditHistory adjustments={adjustments} payouts={payouts} users={users} usersById={usersById} />)
+        expect(html).toContain('1 edit · net +1000 points · 1 payout · 400 paid out')
+        expect(html).toContain('Payout')
+        expect(html).toContain('1,400 → 1,000')
+        expect(html.indexOf('>Ana<')).toBeLessThan(html.indexOf('>Cene<'))
+        const house = render(<HouseView users={users} wallets={wallets} bets={[]} payouts={payouts} adminToken="t" />)
+        expect(house).toContain('Cashed out')
+        expect(house).toContain('aria-label="Pay out points for Cene"')
     })
 })

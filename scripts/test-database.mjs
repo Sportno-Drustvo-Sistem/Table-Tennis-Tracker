@@ -75,6 +75,10 @@ try {
         sql(db,read('point_tracking.sql'))
         // Super admin wallet edits: test, then roll back before the betting rollbacks.
         sql(db,read('super_admin.sql'))
+        // Payouts sit on top of super admin: roll them back first.
+        const payoutFile=files.find(file=>file.includes('bet_payouts'))
+        sql(db,fs.readFileSync(path.join('supabase/rollbacks',payoutFile.split('_')[0]+'_bet_payouts_down.sql'),'utf8'))
+        assert.equal(sql(db,"SELECT to_regclass('public.bet_payouts') IS NULL AND NOT EXISTS(SELECT 1 FROM pg_proc WHERE proname='super_admin_pay_out')"),'t','payout rollback left objects behind')
         const superFile=files.find(file=>file.includes('super_admin_bet_wallets'))
         sql(db,fs.readFileSync(path.join('supabase/rollbacks',superFile.split('_')[0]+'_super_admin_bet_wallets_down.sql'),'utf8'))
         assert.equal(sql(db,"SELECT count(*) FROM pg_proc WHERE proname ~ 'super_admin'"),'0','super admin rollback left functions behind')

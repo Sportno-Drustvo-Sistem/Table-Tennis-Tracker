@@ -3,6 +3,7 @@ import {
     isLiveFresh,
     liveBettingOpen,
     allowedSides,
+    hasPendingBet,
     betMultiplier,
     buildBettingLeaderboard,
     betStreaks,
@@ -70,6 +71,13 @@ describe('bettors', () => {
         expect(allowedSides('c', 'a', 'b', bets)).toEqual([2])
         expect(allowedSides('d', 'a', 'b', bets)).toEqual([1, 2])
         expect(allowedSides('a', 'a', 'b', bets)).toEqual([1])
+    })
+
+    it('allows one bet per match, not counting removed bets', () => {
+        const bets = [{ user_id: 'c', side: 2, status: 'pending' }, { user_id: 'd', side: 1, status: 'void' }]
+        expect(hasPendingBet('c', bets)).toBe(true)
+        expect(hasPendingBet('d', bets)).toBe(false)
+        expect(hasPendingBet('e', bets)).toBe(false)
     })
 
     it('treats a missing wallet as the starting balance', () => {
@@ -179,6 +187,14 @@ describe('house totals', () => {
             { status: 'pending', stake: 30, payout: 0 },
         ]
         const totals = houseTotals(bets, [{ rebuys: 2 }, { rebuys: 0 }], [{ old_balance: 1000, new_balance: 1200 }])
-        expect(totals).toMatchObject({ collected: 150, paidOut: 150, net: 0, lostBets: 2, wonBets: 1, restartCount: 2, restarts: 200, adjusted: 200, riding: 30 })
+        expect(totals).toMatchObject({ collected: 150, paidOut: 150, net: 0, lostBets: 2, wonBets: 1, restartCount: 2, restarts: 200, adjusted: 200, riding: 30, cashedOut: 0, payoutCount: 0 })
+        expect(houseTotals(bets, [], [], [{ user_id: 'a', amount: 300 }, { user_id: 'b', amount: 50 }])).toMatchObject({ cashedOut: 350, payoutCount: 2 })
+    })
+
+    it('adds what each player cashed out to the leaderboard', async () => {
+        const { buildBettingLeaderboard } = await import('./bettingUtils')
+        const board = buildBettingLeaderboard([{ id: 'a', name: 'Ana' }, { id: 'b', name: 'Bor' }], [], [], [{ user_id: 'a', amount: 300 }, { user_id: 'a', amount: 200 }])
+        expect(board.find(row => row.user.id === 'a').cashedOut).toBe(500)
+        expect(board.find(row => row.user.id === 'b').cashedOut).toBe(0)
     })
 })

@@ -25,8 +25,8 @@ the feature can be removed cleanly.
   discarding or rematching without saving refunds every bet (after a confirm).
 - Everyone starts with 1,000 points. A wallet at 0 stays at 0: only a super
   admin can add points (House tab). Players in the match can only bet on themselves.
-- A bettor backs one player per match: after a first bet, more bets may only
-  go on the same player.
+- One bet per bettor per match. If the umpire phone removes it, that bettor
+  may place a new one.
 - No betting on a match with a debuff on (a mayhem or streak rule that was not
   refused, i.e. what is saved as the match's `handicap_rule`). Refusing every
   debuff opens betting; once bets are in, a refused debuff cannot be put back.
@@ -153,6 +153,17 @@ at 0 stays at 0 until a super admin adds points on the House tab. The
 House tab still counts them. To undo, re-run the function from
 `20261123180000_house_cut_on_winnings.sql`.
 
+### One bet per match
+
+`supabase/migrations/20261123210000_one_bet_per_match.sql` (2026-11-23),
+applied to the hosted project on 2026-11-23 as version `20261123073735`
+(name `one_bet_per_match`),
+replaces `private.require_one_bet_side`, the check `place_bet` and
+`place_live_bet` both run, so a bettor with a pending bet on a match is
+refused a second one (it used to allow more bets on the same side). The bet
+sheet shows "already has a bet on this match" instead of the stake chips.
+To undo, re-run the function from `20261123120000_bet_one_side_no_debuffs.sql`.
+
 ### Points history
 
 The House tab's **Points history** lists every manual points edit, newest
@@ -163,7 +174,31 @@ first: player, old → new balance, change and time, with a player filter and
 to 5,000 edits instead of 200. Past automatic restarts were never logged one
 by one, so they are not in the list (the House tab still totals them).
 
+### Payouts (cashing points in)
+
+`supabase/migrations/20261123220000_bet_payouts.sql` (2026-11-23, applied to
+the hosted project as version `20261123074227`, name `bet_payouts`) adds
+`public.bet_payouts` (player, amount, balance before/after, optional note,
+time; everyone can read it, realtime) and `public.super_admin_pay_out`, which
+takes 1 up to the whole balance out of one wallet and logs it. Only a super
+admin session can call it. Payouts are not manual edits: they do not count in
+"Points added".
+
+- House tab: **Pay out** on each player row opens a small form (quick picks
+  "Winnings" = balance above 1,000, and "All"; optional note; a confirm). A
+  **Cashed out** total sits with the house totals, and payouts appear in
+  Points history, tagged "Payout".
+- Bets tab: a **Payouts** view lists every payout for everyone, and the
+  standings show "cashed out N" per player.
+
+Rollback: `supabase/rollbacks/20261123220000_bet_payouts_down.sql` (wallets
+keep their balances; the payout log goes). Tests: `supabase/tests/super_admin.sql`.
+
 ## How to remove the feature
+
+When removing everything, run the rollbacks newest first:
+`20261123220000_bet_payouts_down.sql`, then
+`20261123150000_super_admin_bet_wallets_down.sql`, then the two below.
 
 0. **Live score and bets from any phone only.** Run
    `supabase/rollbacks/20261116120000_live_match_betting_down.sql`. Bets,

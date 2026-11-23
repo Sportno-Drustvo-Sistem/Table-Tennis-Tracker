@@ -53,8 +53,11 @@ export const isBettingClosed = ({ score1 = 0, score2 = 0, games1 = 0, games2 = 0
     return (gamePoint1 && games1 + 1 >= need) || (gamePoint2 && games2 + 1 >= need)
 }
 
-// Players in the match may only back themselves, and a bettor backs one player
-// per match: once they have a pending bet on a side, only that side is left.
+// A bettor gets one bet per match. A bet the umpire removed (void) does not count.
+export const hasPendingBet = (userId, bets = []) => bets.some(bet => bet.user_id === userId && bet.status === 'pending')
+
+// Players in the match may only back themselves. Once a bettor has a bet, only
+// its side is left (and hasPendingBet stops a second bet altogether).
 export const allowedSides = (userId, player1Id, player2Id, bets = []) => {
     if (userId === player1Id) return [1]
     if (userId === player2Id) return [2]
@@ -86,10 +89,18 @@ export const describeBetResults = (bets, usersById) => {
     return ['Bets', ...results.map(({ userId, net }) => `${usersById[userId]?.name || 'Unknown'} ${signed(net)}`)].join(' · ')
 }
 
+// Points paid out per player: Map userId -> total.
+export const payoutTotalsByUser = (payouts) => {
+    const totals = new Map()
+    for (const payout of payouts || []) totals.set(payout.user_id, (totals.get(payout.user_id) || 0) + payout.amount)
+    return totals
+}
+
 // One row per player: balance plus what their settled bets did. Players who
 // have bet come first, richest on top.
-export const buildBettingLeaderboard = (users, wallets, bets) => {
+export const buildBettingLeaderboard = (users, wallets, bets, payouts = []) => {
     const walletByUser = new Map((wallets || []).map(wallet => [wallet.user_id, wallet]))
+    const cashedOut = payoutTotalsByUser(payouts)
     const stats = new Map()
     const streaks = betStreaks(bets)
     for (const bet of bets || []) {
@@ -107,7 +118,7 @@ export const buildBettingLeaderboard = (users, wallets, bets) => {
     return (users || []).map(user => {
         const wallet = walletByUser.get(user.id)
         const row = stats.get(user.id) || { won: 0, lost: 0, profit: 0, biggestWin: 0, pending: 0 }
-        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, hasBet: stats.has(user.id), streak: streaks.get(user.id) || 0, ...row }
+        return { user, balance: wallet?.balance ?? STARTING_BALANCE, rebuys: wallet?.rebuys || 0, cashedOut: cashedOut.get(user.id) || 0, hasBet: stats.has(user.id), streak: streaks.get(user.id) || 0, ...row }
     }).sort((a, b) => (b.hasBet - a.hasBet) || (b.balance - a.balance) || a.user.name.localeCompare(b.user.name))
 }
 
@@ -245,8 +256,9 @@ export const liveBettingOpen = live => Boolean(live) && !live.debuffed && !live.
 // What the bank made and paid. `collected` is every stake lost; `paidOut` is
 // the profit on winning bets (the payout minus the bettor's own stake back);
 // `restarts` is points once handed to broke wallets (no longer happens). `adjusted` is the net of
-// manual edits (positive = points given to players).
-export const houseTotals = (bets, wallets = [], adjustments = []) => {
+// manual edits (positive = points given to players). `cashedOut` is points
+// paid out of wallets to players cashing in.
+export const houseTotals = (bets, wallets = [], adjustments = [], payouts = []) => {
     const all = bets || []
     const lost = all.filter(bet => bet.status === 'lost')
     const won = all.filter(bet => bet.status === 'won')
@@ -263,6 +275,8 @@ export const houseTotals = (bets, wallets = [], adjustments = []) => {
         restartCount,
         restarts: restartCount * REBUY_BALANCE,
         adjusted,
+        cashedOut: (payouts || []).reduce((sum, payout) => sum + payout.amount, 0),
+        payoutCount: (payouts || []).length,
         riding: all.filter(bet => bet.status === 'pending').reduce((sum, bet) => sum + bet.stake, 0),
     }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
+import { Banknote, Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { voidBetMarket } from '../betPersistence'
 import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, poolTotals } from '../bettingUtils'
@@ -19,6 +19,7 @@ const TABS = [
     { id: 'standings', label: 'Standings' },
     { id: 'awards', label: 'Awards' },
     { id: 'history', label: 'History' },
+    { id: 'payouts', label: 'Payouts' },
 ]
 
 // Bragging rights, in the order they are shown. `detail` gets the award from buildBettingAwards.
@@ -59,7 +60,7 @@ const LiveDot = () => (
 
 // `liveMatches` are the umpire phones' shared scores; when given, anyone can
 // bet on them from this phone.
-const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, adminToken, initialTab = 'standings' }) => {
+const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = null, isAdmin, adminToken, initialTab = 'standings' }) => {
     const { showToast, showConfirm } = useToast()
     const [tab, setTab] = useState(initialTab)
     const [betLiveId, setBetLiveId] = useState(null)
@@ -75,7 +76,7 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
     const name = id => usersById[id]?.name || 'Unknown'
     const sideNames = market => ({ 1: name(market.player1_id), 2: name(market.player2_id) })
 
-    const board = buildBettingLeaderboard(users, wallets, bets).filter(row => row.hasBet)
+    const board = buildBettingLeaderboard(users, wallets, bets, payouts).filter(row => row.hasBet || row.cashedOut > 0)
     const bettors = board
     const totals = bettingTotals(bets)
     const earned = buildBettingAwards(bets)
@@ -219,7 +220,7 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                 ))}
             </dl>
 
-            <div role="tablist" aria-label="Bets" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
+            <div role="tablist" aria-label="Bets" className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
                 {TABS.map(item => (
                     <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
                         className={`py-2 rounded-lg text-sm font-bold transition-colors ${tab === item.id
@@ -277,6 +278,7 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                                             <>
                                                 {row.won}W {row.lost}L
                                                 {row.biggestWin > 0 && ` · best +${row.biggestWin}`}
+                                                {row.cashedOut > 0 && ` · cashed out ${points(row.cashedOut)}`}
                                             </>
                                         ) : 'No bets yet'}
                                     </div>
@@ -354,6 +356,38 @@ const BetsView = ({ users, wallets, markets, bets, liveMatches = null, isAdmin, 
                                 )
                             })}
                         </div>
+                    )}
+                </section>
+            )}
+
+            {tab === 'payouts' && (
+                <section className={`${card} animate-fade-in`}>
+                    <h3 className="font-bold text-lg mb-1 flex items-center gap-2 text-gray-900 dark:text-white">
+                        <Banknote size={20} className="text-amber-500" /> Payouts
+                    </h3>
+                    {payouts.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No payouts yet. When someone cashes in their points, it shows up here.</p>
+                    ) : (
+                        <>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 tabular-nums">
+                                {points(payouts.reduce((sum, payout) => sum + payout.amount, 0))} points cashed out in {payouts.length} {payouts.length === 1 ? 'payout' : 'payouts'}
+                            </p>
+                            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {payouts.map(payout => (
+                                    <li key={payout.id} className="flex items-center gap-3 py-2.5">
+                                        <BetAvatar user={getUser(payout.user_id)} className="w-9 h-9" />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-bold text-gray-900 dark:text-white truncate">{name(payout.user_id)}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 tabular-nums truncate">
+                                                {new Date(payout.created_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                {payout.note && <> · {payout.note}</>}
+                                            </div>
+                                        </div>
+                                        <span className="shrink-0 text-lg font-black tabular-nums text-amber-600 dark:text-amber-400">{points(payout.amount)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
                     )}
                 </section>
             )}
