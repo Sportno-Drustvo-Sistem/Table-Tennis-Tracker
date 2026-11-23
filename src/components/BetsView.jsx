@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Banknote, Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { voidBetMarket } from '../betPersistence'
-import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, poolTotals } from '../bettingUtils'
+import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, newBigWins, poolTotals } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
 import { BetAvatar, BetList, BetPool, MiniChip } from './MatchBets'
 import BetSheet from './BetSheet'
 import LiveScoreboard from './LiveScoreboard'
+import BigWinCelebration from './BigWinCelebration'
 
 const RECENT_MATCHES = 15
 const card = 'bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700'
@@ -71,6 +72,18 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
         const timer = setInterval(() => setNow(Date.now()), 30 * 1000)
         return () => clearInterval(timer)
     }, [liveMatches?.length])
+    // Big wins that settle while this tab is open get a full-screen celebration.
+    // Only status changes seen here count, so opening the tab never replays old wins.
+    const [celebration, setCelebration] = useState(null)
+    const seenStatus = useRef(null)
+    useEffect(() => {
+        if (seenStatus.current) {
+            const wins = newBigWins(seenStatus.current, bets)
+            if (wins.length) setCelebration(shown => shown ? [...shown, ...wins].sort((a, b) => (b.payout - b.stake) - (a.payout - a.stake)) : wins)
+        }
+        seenStatus.current = new Map(bets.map(bet => [bet.id, bet.status]))
+    }, [bets])
+    const endCelebration = useCallback(() => setCelebration(null), [])
     const usersById = Object.fromEntries(users.map(user => [user.id, user]))
     const getUser = id => usersById[id]
     const name = id => usersById[id]?.name || 'Unknown'
@@ -110,6 +123,15 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
 
     return (
         <div className="space-y-5 sm:space-y-6">
+            {celebration && (
+                <BigWinCelebration
+                    key={celebration.map(bet => bet.id).join()}
+                    wins={celebration}
+                    getUser={getUser}
+                    sideName={bet => name(markets.find(market => market.id === bet.market_id)?.[bet.side === 2 ? 'player2_id' : 'player1_id'])}
+                    onDone={endCelebration}
+                />
+            )}
             {live.map(match => {
                 const marketBets = pendingBets(match.id)
                 const pool = poolTotals(marketBets)

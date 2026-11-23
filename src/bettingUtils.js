@@ -282,3 +282,16 @@ export const houseTotals = (bets, wallets = [], adjustments = [], payouts = []) 
         riding: all.filter(bet => bet.status === 'pending').reduce((sum, bet) => sum + bet.stake, 0),
     }
 }
+
+// A win worth a celebration on the Bets tab: a fat profit, or a long shot landing.
+export const BIG_WIN_PROFIT = 250
+export const BIG_WIN_MULTIPLIER = 3
+export const isBigWin = bet => bet?.status === 'won'
+    && (bet.payout - bet.stake >= BIG_WIN_PROFIT || Number(bet.multiplier) >= BIG_WIN_MULTIPLIER)
+
+// Bets that went from pending to a big win since `seen` (bet id -> last status),
+// biggest profit first. Bets never seen pending (already paid when they loaded)
+// are not news and do not count.
+export const newBigWins = (seen, bets = []) => bets
+    .filter(bet => seen.get(bet.id) === 'pending' && isBigWin(bet))
+    .sort((a, b) => (b.payout - b.stake) - (a.payout - a.stake))
