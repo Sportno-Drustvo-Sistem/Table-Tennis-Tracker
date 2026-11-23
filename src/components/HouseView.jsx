@@ -28,7 +28,7 @@ const Stat = (props) => {
 }
 
 // The headline number plus where it came from.
-const HouseSummary = ({ totals, editCount }) => {
+const HouseSummary = ({ totals }) => {
     const flow = totals.collected + totals.paidOut
     const wonShare = flow ? (totals.collected / flow) * 100 : 0
     return (
@@ -63,7 +63,7 @@ const HouseSummary = ({ totals, editCount }) => {
                 <Stat Icon={TrendingDown} label="Paid on wins" value={`−${points(totals.paidOut)}`}
                     detail={`${plural(totals.wonBets, 'winning bet')}, profit only`} tone="text-red-600 dark:text-red-400" />
                 <Stat Icon={PencilLine} label="Paid in" value={formatPoints(totals.adjusted)}
-                    detail={`${plural(editCount, 'manual edit')}${totals.restartCount ? ` · ${points(totals.restarts)} in past restarts` : ''}`}
+                    detail={`${plural(totals.topUps, 'top-up')}${totals.restartCount ? ` · ${points(totals.restarts)} in past restarts` : ''}`}
                     tone="text-blue-600 dark:text-blue-400" />
                 <Stat Icon={Banknote} label="Cashed out" value={points(totals.cashedOut)}
                     detail={`${plural(totals.payoutCount, 'payout')} to players`} tone="text-amber-600 dark:text-amber-400" />
@@ -338,7 +338,7 @@ const HouseView = ({ users, wallets, bets, payouts = [], adminToken }) => {
 
     return (
         <div className="space-y-5 sm:space-y-6">
-            <HouseSummary totals={totals} editCount={adjustments.length} />
+            <HouseSummary totals={totals} />
 
             <section className={card} aria-label="Everyone's points">
                 <div className="flex flex-wrap items-center justify-between gap-3">

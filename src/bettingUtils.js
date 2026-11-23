@@ -256,7 +256,8 @@ export const liveBettingOpen = live => Boolean(live) && !live.debuffed && !live.
 // What the bank made and paid. `collected` is every stake lost; `paidOut` is
 // the profit on winning bets (the payout minus the bettor's own stake back);
 // `restarts` is points once handed to broke wallets (no longer happens). `adjusted` is the net of
-// manual edits (positive = points given to players). `cashedOut` is points
+// manual edits (positive = points given to players); `topUps` counts the edits
+// that added points. `cashedOut` is points
 // paid out of wallets to players cashing in.
 export const houseTotals = (bets, wallets = [], adjustments = [], payouts = []) => {
     const all = bets || []
@@ -275,6 +276,7 @@ export const houseTotals = (bets, wallets = [], adjustments = [], payouts = []) 
         restartCount,
         restarts: restartCount * REBUY_BALANCE,
         adjusted,
+        topUps: (adjustments || []).filter(row => row.new_balance > row.old_balance).length,
         cashedOut: (payouts || []).reduce((sum, payout) => sum + payout.amount, 0),
         payoutCount: (payouts || []).length,
         riding: all.filter(bet => bet.status === 'pending').reduce((sum, bet) => sum + bet.stake, 0),

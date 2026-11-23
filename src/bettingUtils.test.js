@@ -186,8 +186,8 @@ describe('house totals', () => {
             { status: 'void', stake: 999, payout: 0 },
             { status: 'pending', stake: 30, payout: 0 },
         ]
-        const totals = houseTotals(bets, [{ rebuys: 2 }, { rebuys: 0 }], [{ old_balance: 1000, new_balance: 1200 }])
-        expect(totals).toMatchObject({ collected: 150, paidOut: 150, net: 0, lostBets: 2, wonBets: 1, restartCount: 2, restarts: 200, adjusted: 200, riding: 30, cashedOut: 0, payoutCount: 0 })
+        const totals = houseTotals(bets, [{ rebuys: 2 }, { rebuys: 0 }], [{ old_balance: 1000, new_balance: 1200 }, { old_balance: 0, new_balance: 1000 }, { old_balance: 500, new_balance: 400 }])
+        expect(totals).toMatchObject({ collected: 150, paidOut: 150, net: 0, lostBets: 2, wonBets: 1, restartCount: 2, restarts: 200, adjusted: 1100, topUps: 2, riding: 30, cashedOut: 0, payoutCount: 0 })
         expect(houseTotals(bets, [], [], [{ user_id: 'a', amount: 300 }, { user_id: 'b', amount: 50 }])).toMatchObject({ cashedOut: 350, payoutCount: 2 })
     })
 
