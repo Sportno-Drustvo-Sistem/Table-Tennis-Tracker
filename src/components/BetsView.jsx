@@ -238,7 +238,7 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
                         Points
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        Everyone starts with 1,000 points. {liveMatches
+                        Everyone starts with 0 points; a super admin adds them. {liveMatches
                             ? 'Bet from any phone while a match is live, until match point.'
                             : <>Bets are placed on the umpire&apos;s phone during a live match.</>} No real money.
                     </p>

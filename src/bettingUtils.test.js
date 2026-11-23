@@ -82,7 +82,7 @@ describe('bettors', () => {
 
     it('treats a missing wallet as the starting balance', () => {
         expect(walletBalance([{ user_id: 'a', balance: 40 }], 'a')).toBe(40)
-        expect(walletBalance([], 'a')).toBe(1000)
+        expect(walletBalance([], 'a')).toBe(0)
     })
 })
 

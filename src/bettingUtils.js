@@ -2,7 +2,7 @@
 // (supabase/migrations/*_points_betting.sql) is the authority on balances and
 // payouts; the numbers here are previews and must stay in step with it.
 
-export const STARTING_BALANCE = 1000
+export const STARTING_BALANCE = 0
 // Wallets used to restart at 100 when they hit 0; kept to count past restarts.
 export const REBUY_BALANCE = 100
 export const MIN_MULTIPLIER = 1.05

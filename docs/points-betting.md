@@ -23,8 +23,8 @@ the feature can be removed cleanly.
   stake back plus 90% of (stake × multiplier − stake), rounded to whole points.
 - Saving the match pays out in the same database transaction. Closing,
   discarding or rematching without saving refunds every bet (after a confirm).
-- Everyone starts with 1,000 points. A wallet at 0 stays at 0: only a super
-  admin can add points (House tab). Players in the match can only bet on themselves.
+- Everyone starts with 0 points (1,000 during the beta). A wallet at 0 stays at
+  0: only a super admin can add points (House tab). Players in the match can only bet on themselves.
 - One bet per bettor per match. If the umpire phone removes it, that bettor
   may place a new one.
 - No betting on a match with a debuff on (a mayhem or streak rule that was not
@@ -182,7 +182,7 @@ the hosted project as version `20261123074227`, name `bet_payouts`) adds
 time; everyone can read it, realtime) and `public.super_admin_pay_out`, which
 takes 1 up to the whole balance out of one wallet and logs it. Only a super
 admin session can call it. Payouts are not manual edits: they do not count in
-"Points added".
+"Paid in" (the House tab total of manual edits, formerly "Points added").
 
 - House tab: **Pay out** on each player row opens a small form (quick picks
   "Winnings" = balance above 1,000, and "All"; optional note; a confirm). A
@@ -193,6 +193,19 @@ admin session can call it. Payouts are not manual edits: they do not count in
 
 Rollback: `supabase/rollbacks/20261123220000_bet_payouts_down.sql` (wallets
 keep their balances; the payout log goes). Tests: `supabase/tests/super_admin.sql`.
+
+### Beta reset (2026-11-23)
+
+The beta ended on 2026-11-23. On the hosted database every bet, market, live
+match, payout and manual edit was deleted, and every player got a wallet at
+0 points with 0 restarts. Awards are computed from bets, so they went with
+them.
+
+`supabase/migrations/20261123230000_wallets_start_at_zero.sql` (applied the
+same day, name `wallets_start_at_zero`) sets the `bet_wallets.balance`
+default to 0, and `STARTING_BALANCE` in `src/bettingUtils.js` is 0, so new
+players start at 0 too. The payout form's "Winnings" pick only shows when it
+differs from "All". To undo, set the default back to 1000.
 
 ## How to remove the feature
 

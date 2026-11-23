@@ -130,7 +130,7 @@ const PayoutForm = ({ user, balance, adminToken, onDone }) => {
     }
 
     const quick = [
-        winnings > 0 && { label: `Winnings ${points(winnings)}`, value: winnings },
+        winnings > 0 && winnings < balance && { label: `Winnings ${points(winnings)}`, value: winnings },
         { label: `All ${points(balance)}`, value: balance },
     ].filter(Boolean)
 
@@ -279,7 +279,7 @@ const HouseView = ({ users, wallets, bets, payouts = [], adminToken }) => {
                 <Stat Icon={Scale} label="House net" value={formatPoints(totals.net)}
                     detail={totals.riding ? `${points(totals.riding)} riding on open bets` : 'From settled bets'}
                     tone={totals.net > 0 ? 'text-green-600 dark:text-green-400' : totals.net < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'} />
-                <Stat Icon={PencilLine} label="Points added" value={formatPoints(totals.adjusted)}
+                <Stat Icon={PencilLine} label="Paid in" value={formatPoints(totals.adjusted)}
                     detail={`${adjustments.length} manual ${adjustments.length === 1 ? 'edit' : 'edits'}${totals.restartCount ? ` · ${points(totals.restarts)} in past restarts` : ''}`}
                     tone="text-gray-700 dark:text-gray-200" />
                 <Stat Icon={Banknote} label="Cashed out" value={points(totals.cashedOut)}
@@ -295,7 +295,7 @@ const HouseView = ({ users, wallets, bets, payouts = [], adminToken }) => {
                             className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                     </label>
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Tap +1,000 to top someone up, Pay out when they cash points in, or type a new total and tap the tick. Players who never bet start at 1,000.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Tap +1,000 to top someone up, Pay out when they cash points in, or type a new total and tap the tick. New players start at 0.</p>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {rows.map(({ user, balance }) => (
                         <WalletRow key={user.id} user={user} balance={balance} adminToken={adminToken} onSaved={refreshAdjustments} />
