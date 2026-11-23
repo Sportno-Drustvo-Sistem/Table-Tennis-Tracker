@@ -1,13 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Banknote, Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Banknote, Coins, Crown, Eye, Flame, Gem, PartyPopper, Rocket, Skull, Snowflake, Ticket, Trophy, Volume2, VolumeX } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { voidBetMarket } from '../betPersistence'
-import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, newBigWins, poolTotals } from '../bettingUtils'
+import { buildBettingAwards, buildBettingLeaderboard, bettingTotals, formatPoints, groupBetsByMarket, isLiveFresh, liveBettingOpen, poolTotals } from '../bettingUtils'
 import { useToast } from '../contexts/useToast'
 import { BetAvatar, BetList, BetPool, MiniChip } from './MatchBets'
 import BetSheet from './BetSheet'
 import LiveScoreboard from './LiveScoreboard'
 import BigWinCelebration from './BigWinCelebration'
+import MatchResultReveal from './MatchResultReveal'
+import BetBanner from './BetBanner'
+import { useBetShowtime } from '../useBetShowtime'
+import { setSoundMuted, useSoundMuted } from '../betSounds'
 
 const RECENT_MATCHES = 15
 const card = 'bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700'
@@ -72,22 +76,18 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
         const timer = setInterval(() => setNow(Date.now()), 30 * 1000)
         return () => clearInterval(timer)
     }, [liveMatches?.length])
-    // Big wins that settle while this tab is open get a full-screen celebration.
-    // Only status changes seen here count, so opening the tab never replays old wins.
-    const [celebration, setCelebration] = useState(null)
-    const seenStatus = useRef(null)
-    useEffect(() => {
-        if (seenStatus.current) {
-            const wins = newBigWins(seenStatus.current, bets)
-            if (wins.length) setCelebration(shown => shown ? [...shown, ...wins].sort((a, b) => (b.payout - b.stake) - (a.payout - a.stake)) : wins)
-        }
-        seenStatus.current = new Map(bets.map(bet => [bet.id, bet.status]))
-    }, [bets])
-    const endCelebration = useCallback(() => setCelebration(null), [])
+    // Bets placed and settled while this tab is open get the casino treatment.
+    const { moment, banner, nextStage, nextBanner } = useBetShowtime({ users, wallets, markets, bets })
+    const muted = useSoundMuted()
     const usersById = Object.fromEntries(users.map(user => [user.id, user]))
     const getUser = id => usersById[id]
     const name = id => usersById[id]?.name || 'Unknown'
     const sideNames = market => ({ 1: name(market.player1_id), 2: name(market.player2_id) })
+    // The player a bet backs, from its market or the live match it was placed on.
+    const backedName = bet => {
+        const match = markets.find(market => market.id === bet.market_id) || (liveMatches || []).find(item => item.id === bet.market_id)
+        return name(match?.[bet.side === 2 ? 'player2_id' : 'player1_id'])
+    }
 
     const board = buildBettingLeaderboard(users, wallets, bets, payouts)
         .filter(row => row.balance > 0 || row.hasBet || row.cashedOut > 0)
@@ -123,15 +123,9 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
 
     return (
         <div className="space-y-5 sm:space-y-6">
-            {celebration && (
-                <BigWinCelebration
-                    key={celebration.map(bet => bet.id).join()}
-                    wins={celebration}
-                    getUser={getUser}
-                    sideName={bet => name(markets.find(market => market.id === bet.market_id)?.[bet.side === 2 ? 'player2_id' : 'player1_id'])}
-                    onDone={endCelebration}
-                />
-            )}
+            {moment?.type === 'result' && <MatchResultReveal key={moment.id} result={moment} getUser={getUser} onDone={nextStage} />}
+            {moment?.type === 'win' && <BigWinCelebration key={moment.id} wins={moment.wins} tier={moment.tier} getUser={getUser} sideName={backedName} onDone={nextStage} />}
+            {!moment && banner && <BetBanner key={banner.id} banner={banner} getUser={getUser} sideName={backedName} onDone={nextBanner} />}
             {live.map(match => {
                 const marketBets = pendingBets(match.id)
                 const pool = poolTotals(marketBets)
@@ -242,15 +236,21 @@ const BetsView = ({ users, wallets, markets, bets, payouts = [], liveMatches = n
                 ))}
             </dl>
 
-            <div role="tablist" aria-label="Bets" className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
-                {TABS.map(item => (
-                    <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
-                        className={`py-2 rounded-lg text-sm font-bold transition-colors ${tab === item.id
-                            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                        {item.label}
-                    </button>
-                ))}
+            <div className="flex items-stretch gap-2">
+                <div role="tablist" aria-label="Bets" className="flex-1 grid grid-cols-4 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
+                    {TABS.map(item => (
+                        <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
+                            className={`py-2 rounded-lg text-sm font-bold transition-colors ${tab === item.id
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+                <button type="button" onClick={() => setSoundMuted(!muted)} aria-pressed={!muted} aria-label={muted ? 'Turn bet sounds on' : 'Turn bet sounds off'} title={muted ? 'Sounds off' : 'Sounds on'}
+                    className={`shrink-0 w-11 rounded-xl flex items-center justify-center bg-gray-100 dark:bg-gray-800 ${muted ? 'text-gray-400 dark:text-gray-500' : 'text-amber-500'}`}>
+                    {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
             </div>
 
             {tab === 'standings' && (

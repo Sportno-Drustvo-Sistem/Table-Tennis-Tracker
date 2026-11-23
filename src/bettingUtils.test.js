@@ -18,7 +18,6 @@ import {
     potentialPayout,
     walletBalance,
     isBigWin,
-    newBigWins,
 } from './bettingUtils'
 
 describe('betMultiplier', () => {
@@ -201,18 +200,11 @@ describe('house totals', () => {
     })
 })
 
-describe('newBigWins', () => {
-    const bet = (id, status, stake, payout, multiplier = '1.50') => ({ id, status, stake, payout, multiplier })
-    it('only celebrates big wins that settle after being seen pending', () => {
-        const seen = new Map([['a', 'pending'], ['b', 'pending'], ['c', 'pending'], ['d', 'won']])
-        const bets = [
-            bet('a', 'won', 500, 750),          // +250: big
-            bet('b', 'won', 100, 150),          // +50 at 1.5x: small
-            bet('c', 'won', 50, 175, '3.50'),   // long shot: big
-            bet('d', 'won', 1000, 2000),        // already paid when seen
-            bet('e', 'won', 1000, 2000),        // never seen pending
-        ]
-        expect(newBigWins(seen, bets).map(b => b.id)).toEqual(['a', 'c'])
-        expect(isBigWin(bet('x', 'lost', 1000, 0, '5.00'))).toBe(false)
+describe('isBigWin', () => {
+    it('counts a fat profit or a long shot, never a loss', () => {
+        expect(isBigWin({ status: 'won', stake: 500, payout: 750, multiplier: '1.50' })).toBe(true)
+        expect(isBigWin({ status: 'won', stake: 50, payout: 175, multiplier: '3.50' })).toBe(true)
+        expect(isBigWin({ status: 'won', stake: 100, payout: 150, multiplier: '1.50' })).toBe(false)
+        expect(isBigWin({ status: 'lost', stake: 1000, payout: 0, multiplier: '5.00' })).toBe(false)
     })
 })
