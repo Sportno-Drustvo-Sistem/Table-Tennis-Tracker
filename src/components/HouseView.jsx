@@ -9,6 +9,7 @@ import { BetAvatar } from './MatchBets'
 const card = 'bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700'
 const points = value => value.toLocaleString()
 const MAX_POINTS = 10000000
+const TOP_UP = 1000
 
 const Stat = (props) => {
     const { Icon, label, value, detail, tone } = props
@@ -36,13 +37,11 @@ const WalletRow = ({ user, balance, adminToken, onSaved }) => {
     const valid = draft.trim() !== '' && Number.isInteger(value) && value >= 0 && value <= MAX_POINTS
     const changed = valid && value !== balance
 
-    const save = async (event) => {
-        event.preventDefault()
-        if (!changed) return
+    const store = async (next) => {
         setSaving(true)
         try {
-            await setWalletBalance(supabase, { adminToken, userId: user.id, balance: value })
-            showToast(`${user.name}: ${points(balance)} → ${points(value)} points`, 'success')
+            await setWalletBalance(supabase, { adminToken, userId: user.id, balance: next })
+            showToast(`${user.name}: ${points(balance)} → ${points(next)} points`, 'success')
             setEditing(false)
             onSaved()
         } catch (error) {
@@ -52,11 +51,24 @@ const WalletRow = ({ user, balance, adminToken, onSaved }) => {
             setSaving(false)
         }
     }
+    const save = (event) => {
+        event.preventDefault()
+        if (changed) store(value)
+    }
+    // Adds to the saved balance, not to whatever is typed in the box.
+    const canTopUp = balance + TOP_UP <= MAX_POINTS
 
     return (
         <form onSubmit={save} className="flex items-center gap-3 py-2.5">
             <BetAvatar user={user} className="w-10 h-10" />
-            <span className="flex-1 min-w-0 font-semibold text-gray-900 dark:text-white truncate">{user.name}</span>
+            <div className="flex-1 min-w-0">
+                <div className="font-semibold text-gray-900 dark:text-white truncate">{user.name}</div>
+                <button type="button" onClick={() => store(balance + TOP_UP)} disabled={saving || !canTopUp}
+                    aria-label={`Add ${points(TOP_UP)} points for ${user.name}`}
+                    className="mt-1 px-2.5 py-1 rounded-full text-xs font-bold tabular-nums text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 active:scale-95 transition-transform disabled:opacity-40">
+                    +{points(TOP_UP)}
+                </button>
+            </div>
             <input
                 type="number"
                 inputMode="numeric"
@@ -191,7 +203,7 @@ const HouseView = ({ users, wallets, bets, adminToken }) => {
                             className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                     </label>
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Type a new total and tap the tick. Players who never bet start at 1,000.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Tap +1,000 to top someone up, or type a new total and tap the tick. Players who never bet start at 1,000.</p>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {rows.map(({ user, balance }) => (
                         <WalletRow key={user.id} user={user} balance={balance} adminToken={adminToken} onSaved={refreshAdjustments} />

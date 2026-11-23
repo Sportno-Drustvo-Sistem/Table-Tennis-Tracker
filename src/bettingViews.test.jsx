@@ -114,6 +114,8 @@ describe('house screen renders', () => {
         expect(html).toContain('aria-label="Points for Cene"')
         expect(html).toContain('value="900"')
         expect(html).toContain('value="1000"')
+        expect(html).toContain('aria-label="Add 1,000 points for Cene"')
+        expect(html).toContain('+1,000')
         expect(html).toContain('Points history')
         expect(html).toContain('No point edits yet')
     })
